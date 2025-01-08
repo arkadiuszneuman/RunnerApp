@@ -64,8 +64,6 @@ function flatStagesAndAddTimes(stages: (Stage | MultiplyStage)[]): FlattenedStag
 export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
   const stagesWithOriginalTimes = flatStagesAndAddTimes(stages)
 
-  console.log(stagesWithOriginalTimes)
-
   const resultStages: typeof stagesWithOriginalTimes = [];
 
   for (const stage of stagesWithOriginalTimes) {
@@ -147,53 +145,6 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
       })
     }
   }
-
-  console.log(resultStages)
-
-  // for (const stage of stages) {
-  //   if ('times' in stage) {
-
-
-  //     // sum up all of the times in stages
-  //     let total = new Timespan();
-  //     for (const resultStage of resultStages) {
-  //       total = total.add(resultStage.time);
-  //     }
-
-  //     for (let x = 0; x < stage.times; x++) {
-  //       for (let i = 0; i < stage.stages.length; i++) {
-  //         const stageType = i % 2 === 0 ? 'sprint' : 'regeneration';
-  //         const subStage = stage.stages[i];
-  //         let newTimeOfSubstage = subStage.time;
-
-  //         if (stageType === 'sprint') {
-  //           if (resultStages.length > 0) {
-  //             if (total.totalMinutes % 15 === 0) {
-  //               resultStages[resultStages.length - 1].time = resultStages[resultStages.length - 1].time.subtract(Timespan.fromSeconds(15))
-  //               newTimeOfSubstage = newTimeOfSubstage.add(Timespan.fromSeconds(15));
-  //             }
-  //           }
-
-  //           newTimeOfSubstage = new Timespan(makeDivisibleBy15(total.add(newTimeOfSubstage).totalMilliseconds)).subtract(total)
-
-  //           resultStages.push({ ...subStage, time: newTimeOfSubstage });
-  //           total = total.add(newTimeOfSubstage);
-  //         } else {
-
-  //         }
-  //       }
-  //     }
-  //   } else {
-  //     let time = new Timespan(stage.time.totalMilliseconds);
-
-  //     while (time.totalMinutes > 10) {
-  //       resultStages.push({ ...stage, time: Timespan.fromMinutes(10) });
-  //       time = time.subtract(Timespan.fromMinutes(10));
-  //     }
-
-  //     resultStages.push({ ...stage, time: time });
-  //   }
-  // }
 
   return resultStages;
 }
