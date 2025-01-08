@@ -36,4 +36,35 @@ describe('calculateStages', () => {
       { time: Timespan.fromMinutes(10), bmp: 145 },
     ]);
   });
+
+  it('should calculate total real example', () => {
+    const stages = [
+      { time: Timespan.fromMinutes(10), bmp: 145 },
+      {
+        times: 3, stages: [
+          {
+            time: Timespan.fromMinutes(6), bmp: 172
+          },
+          {
+            time: Timespan.fromMinutes(2), bmp: 132
+          }
+        ]
+      },
+      { time: Timespan.fromMinutes(10), bmp: 145 },
+    ] satisfies (Stage | MultiplyStage)[];
+
+    const result = calculateStages(stages)
+
+    expect(result.map(({ originalFrom, originalTo, type, ...rest }) => rest)).toStrictEqual([
+      { time: Timespan.fromMinutes(9).add(Timespan.fromSeconds(45)), bmp: 145 },
+
+      { time: Timespan.fromMinutes(6).add(Timespan.fromSeconds(15)), bmp: 172 },
+      { time: Timespan.fromMinutes(1).add(Timespan.fromSeconds(45)), bmp: 132 },
+      { time: Timespan.fromMinutes(6).add(Timespan.fromSeconds(15)), bmp: 172 },
+      { time: Timespan.fromMinutes(1).add(Timespan.fromSeconds(45)), bmp: 132 },
+      { time: Timespan.fromMinutes(6).add(Timespan.fromSeconds(15)), bmp: 172 },
+
+      { time: Timespan.fromMinutes(10), bmp: 145 },
+    ]);
+  });
 });

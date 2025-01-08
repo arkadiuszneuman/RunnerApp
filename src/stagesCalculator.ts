@@ -72,13 +72,13 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
       let newOriginalTo = stage.originalTo;
       let newTime = stage.time
 
-      if (stage.originalFrom.totalMinutes % 15 === 0) {
+      if (stage.originalFrom.totalSeconds % 15 === 0) {
         newOriginalFrom = makeDivisibleBy15BySubstractingRest(stage.originalFrom.subtract(new Timespan(1)))
       } else {
         newOriginalFrom = makeDivisibleBy15BySubstractingRest(stage.originalFrom)
       }
 
-      if (stage.originalTo.totalMinutes % 15 !== 0) {
+      if (stage.originalTo.totalSeconds % 15 !== 0) {
         newOriginalTo = makeDivisibleBy15ByAddingRest(stage.originalTo)
       }
 
@@ -107,16 +107,17 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
       let newOriginalTo = stage.originalTo;
       let newTime = stage.time
 
-      if (stage.originalFrom.totalMinutes % 15 !== 0) {
+      if (stage.originalFrom.totalSeconds % 15 !== 0) {
         newOriginalFrom = makeDivisibleBy15ByAddingRest(stage.originalFrom)
       }
 
       if (_(stagesWithOriginalTimes).last() === stage) {
-        if (stage.originalTo.totalMinutes % 15 !== 0) {
+        if (stage.originalTo.totalSeconds % 15 !== 0) {
           newOriginalTo = makeDivisibleBy15ByAddingRest(stage.originalTo)
         }
       } else {
-        if (stage.originalTo.totalMinutes % 15 === 0) {
+        if (stage.originalTo.totalSeconds % 15 === 0) {
+
           newOriginalTo = makeDivisibleBy15BySubstractingRest(stage.originalTo.subtract(new Timespan(1)))
         } else {
           newOriginalTo = makeDivisibleBy15BySubstractingRest(stage.originalTo)
