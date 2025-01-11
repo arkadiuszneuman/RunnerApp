@@ -197,18 +197,18 @@ class BleManager {
     );
 
     try {
-      c_serialPortWrite?.writeValue(commandMerged);
-    } catch (err) {
+      return c_serialPortWrite?.writeValue(commandMerged);
+    } catch {
       this.connected = false;
       this.emit({ type: "btDisconnected" });
     }
   }
 
   isCommandResult(command: number[], result: DataView<ArrayBufferLike>) {
-    var success = true;
-    var resultLength = result.byteLength;
-    var compareLength = command === START_COMMAND ? 3 : command.length;
-    for (var i = 0; i < compareLength; i++) {
+    let success = true;
+    const resultLength = result.byteLength;
+    const compareLength = command === START_COMMAND ? 3 : command.length;
+    for (let i = 0; i < compareLength; i++) {
       if (!success) {
         break;
       }
@@ -223,9 +223,9 @@ class BleManager {
 
   sendIncAndSpeed(incline: number, speed: number) {
     if (this.isRunning()) {
-      let newSpeed = speed === -1 ? this.states.currentSpeed : speed;
-      let newIncline = incline === -1 ? this.states.currentIncline : incline;
-      let customIncSpeed = this.mergeTypedArraysUnsafe(
+      const newSpeed = speed === -1 ? this.states.currentSpeed : speed;
+      const newIncline = incline === -1 ? this.states.currentIncline : incline;
+      const customIncSpeed = this.mergeTypedArraysUnsafe(
         new Uint8Array(INC_SPEED_COMMAND),
         new Uint8Array([newSpeed * 10]),
         new Uint8Array([newIncline])
@@ -247,8 +247,7 @@ class BleManager {
   }
 
   initBTConnection() {
-    let thisObj = this;
-    navigator.bluetooth
+    return navigator.bluetooth
       .requestDevice({
         filters: [{ namePrefix: "FS-" }, { services: [S_SERIAL_PORT] }],
       })
@@ -267,25 +266,25 @@ class BleManager {
           c_serialPortRead?.addEventListener(
             "characteristicvaluechanged",
             (e) => {
-              thisObj.handleNotifications(e);
+              this.handleNotifications(e);
             }
           );
           c_serialPortRead?.addEventListener("characteristicvalueread", (e) => {
-            thisObj.handleNotifications(e);
+            this.handleNotifications(e);
           });
           return s_serialPort?.getCharacteristic(C_SERIAL_PORT_WRITE);
         });
       })
       .then((characteristic) => {
         c_serialPortWrite = characteristic;
-        thisObj.addMessage(SPEED_INFO_COMMAND);
-        thisObj.addMessage(INCLINE_INFO_COMMAND);
-        thisObj.addMessage(TOTAL_INFO_COMMAND);
+        this.addMessage(SPEED_INFO_COMMAND);
+        this.addMessage(INCLINE_INFO_COMMAND);
+        this.addMessage(TOTAL_INFO_COMMAND);
         setInterval(() => {
-          thisObj.intervalHandler();
+          this.intervalHandler();
         }, 200);
         this.emit({ type: "btConnected" });
-        thisObj.connected = true;
+        this.connected = true;
       })
       .catch((error) => {
         console.log(error);
@@ -293,11 +292,11 @@ class BleManager {
   }
 
   public start() {
-    this.sendMessage(START_COMMAND);
+    return this.sendMessage(START_COMMAND);
   }
 
   public stop() {
-    this.sendMessage(STOP_COMMAND);
+    return this.sendMessage(STOP_COMMAND);
   }
 
   subscribe(callback: (data: TreadmillEvent) => void) {
