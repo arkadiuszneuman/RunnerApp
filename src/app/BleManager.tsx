@@ -75,7 +75,7 @@ class BleManager {
     b: Uint8Array<any>,
     c: Uint8Array<any>
   ) {
-    var d = new Uint8Array(a.length + b.length + c.length);
+    const d = new Uint8Array(a.length + b.length + c.length);
     d.set(a);
     d.set(b, a.length);
     d.set(c, a.length + b.length);
@@ -83,23 +83,23 @@ class BleManager {
   }
 
   handleNotifications(event: Event) {
-    let value = (event.target as BluetoothRemoteGATTCharacteristic)?.value;
+    const value = (event.target as BluetoothRemoteGATTCharacteristic)?.value;
     if (value) {
-      let prevStatus = this.states.status;
+      const prevStatus = this.states.status;
       this.states.value = value;
-      let valueLength = value.byteLength;
+      const valueLength = value.byteLength;
       if (
         this.lastMessage &&
         valueLength > 0 &&
         value.getUint8(0) === 2 &&
         value.getUint8(valueLength - 1) === 3
       ) {
-        let success = this.isCommandResult(this.lastMessage, value);
+        const success = this.isCommandResult(this.lastMessage, value);
         if (success) {
           if (this.lastMessage === SPEED_INFO_COMMAND) {
-            let maxSpeed = value.getUint8(3);
-            let minSpeed = value.getUint8(4);
-            let unitSpeed = value.getUint8(5);
+            const maxSpeed = value.getUint8(3);
+            const minSpeed = value.getUint8(4);
+            const unitSpeed = value.getUint8(5);
             this.emit({
               type: "btSpeedInfo",
               state: {
@@ -131,7 +131,6 @@ class BleManager {
               this.states.currentIncline = 0;
               if (prevStatus !== this.states.status) {
                 this.emit({ type: "btStarting", state: this.states });
-                console.log("btStarting emit");
               }
               //statusDiv.innerHTML = "Starting";
             } else if (valueLength === 17) {
@@ -142,7 +141,6 @@ class BleManager {
               this.states.currentIncline = value.getUint8(4);
 
               this.emit({ type: "btRunning", state: this.states });
-              console.log("btRunning emit");
             }
           }
           this.lastMessage = undefined;
@@ -162,10 +160,10 @@ class BleManager {
   }
 
   checksum(bytesArray: Uint8Array<any>) {
-    var maxIndex = bytesArray.length;
-    var currentIndex = 1;
+    const maxIndex = bytesArray.length;
+    let currentIndex = 1;
 
-    var checksum;
+    let checksum;
     for (checksum = 0; currentIndex < maxIndex; ++currentIndex) {
       checksum ^= bytesArray[currentIndex];
     }
