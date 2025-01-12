@@ -46,10 +46,10 @@ class HeartRateManager {
     //only works for devices advertising heart rate service
     const _options = { filters: [{ services: ["heart_rate"] }] };
 
-    const options = {
-      acceptAllDevices: true,
-      optionalServices: ["heart_rate"],
-    };
+    // const options = {
+    //   acceptAllDevices: true,
+    //   optionalServices: ["heart_rate"],
+    // };
     device = await navigator.bluetooth.requestDevice(_options);
     device.addEventListener("gattserverdisconnected", this.connectDevice);
     await this.connectDevice();

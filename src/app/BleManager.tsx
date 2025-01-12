@@ -70,11 +70,7 @@ class BleManager {
     return BleManager.instance;
   }
 
-  mergeTypedArraysUnsafe(
-    a: Uint8Array<any>,
-    b: Uint8Array<any>,
-    c: Uint8Array<any>
-  ) {
+  mergeTypedArraysUnsafe(a: Uint8Array, b: Uint8Array, c: Uint8Array) {
     const d = new Uint8Array(a.length + b.length + c.length);
     d.set(a);
     d.set(b, a.length);
@@ -159,7 +155,7 @@ class BleManager {
     }
   }
 
-  checksum(bytesArray: Uint8Array<any>) {
+  checksum(bytesArray: Uint8Array) {
     const maxIndex = bytesArray.length;
     let currentIndex = 1;
 

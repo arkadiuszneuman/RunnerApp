@@ -12,7 +12,7 @@ export default function BleConnector() {
   const [isRunning, setIsRunning] = useState(false);
   const [heartRate, setHeartRate] = useState(0);
   const [treadmillSpeed, setTreadmillSpeed] = useState(4);
-  const [treadmillIncline, setTreadmillIncline] = useState(2);
+  const [treadmillIncline] = useState(2);
   const [lastSpeedChanged, setLastSpeedChanged] = useState(new Date());
 
   const targetHeartRate = 145;
