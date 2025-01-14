@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useWakeLock } from "react-screen-wake-lock";
 import BleManager, { TreadmillEvent } from "./BleManager";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -15,6 +16,12 @@ export default function BleConnector() {
   const [treadmillSpeed, setTreadmillSpeed] = useState(4);
   const [treadmillIncline] = useState(2);
   const [lastSpeedChanged, setLastSpeedChanged] = useState(new Date());
+
+  const wakeLock = useWakeLock({
+    onRequest: () => console.log("Screen Wake Lock: requested!"),
+    onError: (e) => console.error("An error occurred:", e),
+    onRelease: () => console.log("Screen Wake Lock: released!"),
+  });
 
   const targetHeartRate = 145;
 
@@ -109,6 +116,7 @@ export default function BleConnector() {
 
       await BleManager.start();
       BleManager.sendIncAndSpeed(2, 4);
+      await wakeLock.request();
     } catch {
       setIsRunning(false);
     }
@@ -117,6 +125,7 @@ export default function BleConnector() {
   async function stop() {
     await BleManager.stop();
     setIsRunning(false);
+    await wakeLock.release();
   }
 
   async function connectHeartRate() {
@@ -160,18 +169,6 @@ export default function BleConnector() {
             </Button>
           </Stack>
           <Stack spacing={1} direction="row">
-            {/* <Button variant="contained" color="warning" onClick={connect}>
-        Connect
-      </Button>
-      <Button variant="contained" onClick={start}>
-        Start
-      </Button>
-      <Button variant="contained" onClick={set}>
-        Set
-      </Button>
-      <Button variant="contained" onClick={stop}>
-        Stop
-      </Button> */}
             <Button variant="contained" onClick={startNew} disabled={isRunning}>
               Start
             </Button>
