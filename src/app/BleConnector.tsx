@@ -7,6 +7,7 @@ import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import HeartRateManager from "./HeartRateManager";
+import Link from "next/link";
 
 export default function BleConnector() {
   const [isRunning, setIsRunning] = useState(false);
@@ -148,6 +149,14 @@ export default function BleConnector() {
             <Box>Heart rate: {heartRate}</Box>
             <Button variant="contained" onClick={connectHeartRate}>
               Connect
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              href="/add-program"
+              LinkComponent={Link}
+            >
+              Add program
             </Button>
           </Stack>
           <Stack spacing={1} direction="row">
