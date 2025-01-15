@@ -33,24 +33,24 @@ export function traningProgramReducer(
 const calculated: StageResult[] = [
   {
     type: "simple",
-    time: Timespan.fromSeconds(10),
+    time: Timespan.fromMinutes(10),
     bmp: 145,
     from: new Timespan(),
-    to: Timespan.fromSeconds(10),
+    to: Timespan.fromMinutes(10),
   },
   {
     type: "simple",
-    time: Timespan.fromSeconds(16),
+    time: Timespan.fromMinutes(16),
     bmp: 172,
-    from: Timespan.fromSeconds(10),
-    to: Timespan.fromSeconds(26),
+    from: Timespan.fromMinutes(10),
+    to: Timespan.fromMinutes(26),
   },
   {
     type: "simple",
-    time: Timespan.fromSeconds(10),
+    time: Timespan.fromMinutes(10),
     bmp: 145,
-    from: Timespan.fromSeconds(26),
-    to: Timespan.fromSeconds(36),
+    from: Timespan.fromMinutes(26),
+    to: Timespan.fromMinutes(36),
   },
 ];
 
@@ -160,19 +160,18 @@ export default function BleConnector() {
 
   async function startNew() {
     try {
-      setIsRunning(true);
       setTreadmillSpeed(4);
 
       await BleManager.initBTConnection();
       if (!BleManager.isConnected()) {
-        setIsRunning(false);
         return;
       }
 
+      setIsRunning(true);
       await BleManager.start();
       BleManager.sendIncAndSpeed(2, 4);
 
-      setRunningStartedDate(new Date());
+      setRunningStartedDate(new Date(new Date().getTime() + 3000));
       await wakeLock.request();
     } catch {
       setIsRunning(false);
@@ -214,6 +213,8 @@ export default function BleConnector() {
             <Box>Speed: {treadmillSpeed}</Box>
             <Box>Target heart rate: {getCurrentBmp(currentRunningTime)}</Box>
             <Box>Running time: {currentRunningTime.toString()}</Box>
+          </Stack>
+          <Stack spacing={1} direction="row">
             <Button variant="contained" onClick={connectHeartRate}>
               Connect
             </Button>
@@ -225,8 +226,6 @@ export default function BleConnector() {
             >
               Add program
             </Button>
-          </Stack>
-          <Stack spacing={1} direction="row">
             <Button variant="contained" onClick={startNew} disabled={isRunning}>
               Start
             </Button>
