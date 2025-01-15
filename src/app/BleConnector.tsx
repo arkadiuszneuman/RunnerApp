@@ -163,14 +163,14 @@ export default function BleConnector() {
       setIsRunning(true);
       setTreadmillSpeed(4);
 
-      // await BleManager.initBTConnection();
-      // if (!BleManager.isConnected()) {
-      //   setIsRunning(false);
-      //   return;
-      // }
+      await BleManager.initBTConnection();
+      if (!BleManager.isConnected()) {
+        setIsRunning(false);
+        return;
+      }
 
-      // await BleManager.start();
-      // BleManager.sendIncAndSpeed(2, 4);
+      await BleManager.start();
+      BleManager.sendIncAndSpeed(2, 4);
 
       setRunningStartedDate(new Date());
       await wakeLock.request();
