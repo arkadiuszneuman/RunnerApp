@@ -3,18 +3,23 @@ import _ from 'lodash'
 
 export type Stage = ({
   time: Timespan;
+  type: StageType;
 }) & ({
   bmp: number;
 } | {
   tempo: Timespan;
 })
 
-type StageType = 'simple' | 'sprint' | 'regeneration'
-type FlattenedStage = Stage & { originalFrom: Timespan, originalTo: Timespan, type: StageType }
-
 export type MultiplyStage = {
   times: number,
   stages: Stage[]
+}
+
+export type StageType = 'simple' | 'sprint' | 'regeneration'
+type FlattenedStage = Stage & { originalFrom: Timespan, originalTo: Timespan }
+export type StageResult = Stage & {
+  from: Timespan,
+  to: Timespan
 }
 
 function makeDivisibleBy15ByAddingRest(num: Timespan) {
@@ -64,7 +69,7 @@ function flatStagesAndAddTimes(stages: (Stage | MultiplyStage)[]): FlattenedStag
 export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
   const stagesWithOriginalTimes = flatStagesAndAddTimes(stages)
 
-  const resultStages: typeof stagesWithOriginalTimes = [];
+  const resultStages: StageResult[] = [];
 
   for (const stage of stagesWithOriginalTimes) {
     if (stage.type === 'sprint') {
@@ -87,8 +92,8 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
       while (newTime.totalMinutes > 10) {
         resultStages.push({
           ...stage,
-          originalFrom: newOriginalFrom,
-          originalTo: newOriginalFrom.add(Timespan.fromMinutes(10)),
+          from: newOriginalFrom,
+          to: newOriginalFrom.add(Timespan.fromMinutes(10)),
           time: Timespan.fromMinutes(10)
         })
 
@@ -98,8 +103,8 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
 
       resultStages.push({
         ...stage,
-        originalFrom: newOriginalFrom,
-        originalTo: newOriginalTo,
+        from: newOriginalFrom,
+        to: newOriginalTo,
         time: newTime
       })
     } else {
@@ -129,8 +134,8 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
       while (newTime.totalMinutes > 10) {
         resultStages.push({
           ...stage,
-          originalFrom: newOriginalFrom,
-          originalTo: newOriginalFrom.add(Timespan.fromMinutes(10)),
+          from: newOriginalFrom,
+          to: newOriginalFrom.add(Timespan.fromMinutes(10)),
           time: Timespan.fromMinutes(10)
         })
 
@@ -140,8 +145,8 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
 
       resultStages.push({
         ...stage,
-        originalFrom: newOriginalFrom,
-        originalTo: newOriginalTo,
+        from: newOriginalFrom,
+        to: newOriginalTo,
         time: newTime
       })
     }

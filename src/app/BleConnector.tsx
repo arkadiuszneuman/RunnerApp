@@ -9,6 +9,52 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import HeartRateManager from "./HeartRateManager";
 import Link from "next/link";
+import { Stage, StageResult } from "../../calc/src/stagesCalculator";
+import { Timespan } from "../../calc/src/Timespan";
+
+export function traningProgramReducer(
+  state: {
+    stages: Stage[];
+  },
+  action: {
+    type: "add_stage";
+    stageToAdd: Stage;
+  }
+) {
+  switch (action.type) {
+    case "add_stage":
+      return {
+        ...state,
+        stages: [...state.stages, action.stageToAdd],
+      };
+  }
+}
+
+const calculated: StageResult[] = [
+  {
+    type: "simple",
+    time: Timespan.fromSeconds(10),
+    bmp: 145,
+    from: new Timespan(),
+    to: Timespan.fromSeconds(10),
+  },
+  {
+    type: "simple",
+    time: Timespan.fromSeconds(16),
+    bmp: 172,
+    from: Timespan.fromSeconds(10),
+    to: Timespan.fromSeconds(26),
+  },
+  {
+    type: "simple",
+    time: Timespan.fromSeconds(10),
+    bmp: 145,
+    from: Timespan.fromSeconds(26),
+    to: Timespan.fromSeconds(36),
+  },
+];
+
+// const calculated = calculateStages(stages);
 
 export default function BleConnector() {
   const [isRunning, setIsRunning] = useState(false);
@@ -17,78 +63,87 @@ export default function BleConnector() {
   const [treadmillIncline] = useState(2);
   const [lastSpeedChanged, setLastSpeedChanged] = useState(new Date());
 
+  const [runningStartedDate, setRunningStartedDate] = useState<Date>(
+    new Date()
+  );
+
+  const [currentRunningTime, setCurrentRunningTime] = useState<Timespan>(
+    new Timespan()
+  );
+
   const wakeLock = useWakeLock({
     onRequest: () => console.log("Screen Wake Lock: requested!"),
     onError: (e) => console.error("An error occurred:", e),
     onRelease: () => console.log("Screen Wake Lock: released!"),
   });
 
-  const targetHeartRate = 145;
+  const getCurrentBmp = useCallback((runningTime: Timespan) => {
+    for (const stage of calculated) {
+      if (
+        runningTime.totalMilliseconds >= stage.from.totalMilliseconds &&
+        runningTime.totalMilliseconds < stage.to.totalMilliseconds
+      ) {
+        return "bmp" in stage ? stage.bmp : 0;
+      }
+    }
 
-  const onEventOccured = useCallback(
-    (event: TreadmillEvent) => {
-      // console.log(event);
+    return 0;
+  }, []);
+
+  const timerLoop = useCallback(() => {
+    if (isRunning) {
+      const runningDateDiff =
+        new Date().getTime() - runningStartedDate.getTime();
+      const runningTime = new Timespan(runningDateDiff);
+      setCurrentRunningTime(runningTime);
+
       if (new Date().getTime() - lastSpeedChanged.getTime() > 5000) {
         console.log(new Date().getTime() - lastSpeedChanged.getTime());
         setLastSpeedChanged(new Date());
-        if (isRunning && event.type === "btRunning") {
-          const diff = targetHeartRate - heartRate;
-          if (Math.abs(diff) > 5) {
-            setTreadmillSpeed((oldSpeed) => {
-              const newSpeed = Math.max(
-                1,
-                Math.min(18, Math.round((oldSpeed + diff / 100) * 10) / 10)
-              );
+        const targetHeartRate = getCurrentBmp(runningTime);
+        const diff = targetHeartRate - heartRate;
+        if (Math.abs(diff) > 5) {
+          setTreadmillSpeed((oldSpeed) => {
+            const newSpeed = Math.max(
+              1,
+              Math.min(18, Math.round((oldSpeed + diff / 100) * 10) / 10)
+            );
 
-              if (oldSpeed != newSpeed) {
-                console.log("sending speed " + newSpeed);
+            if (oldSpeed != newSpeed) {
+              console.log("sending speed " + newSpeed);
 
-                BleManager.sendIncAndSpeed(treadmillIncline, newSpeed);
+              BleManager.sendIncAndSpeed(treadmillIncline, newSpeed);
 
-                return newSpeed;
-              }
+              return newSpeed;
+            }
 
-              return oldSpeed;
-            });
-          }
+            return oldSpeed;
+          });
         }
       }
+    }
+  }, [
+    getCurrentBmp,
+    heartRate,
+    isRunning,
+    lastSpeedChanged,
+    runningStartedDate,
+    treadmillIncline,
+  ]);
 
+  useEffect(() => {
+    const interval = setInterval(timerLoop, 1000);
+    return () => clearInterval(interval);
+  }, [timerLoop]);
+
+  const onEventOccured = useCallback(
+    (event: TreadmillEvent) => {
       if (event.type === "btDisconnected" || event.type === "btStopped") {
         setIsRunning(false);
       }
     },
-    [
-      heartRate,
-      isRunning,
-      lastSpeedChanged,
-      treadmillIncline,
-      setLastSpeedChanged,
-    ]
+    [setIsRunning]
   );
-
-  const runningLoop = useCallback(() => {
-    if (isRunning) {
-      //
-      console.log("pętrla start " + new Date());
-      const diff = targetHeartRate - heartRate;
-      console.log("diff " + diff);
-      if (Math.abs(diff) > 5) {
-        setTreadmillSpeed((oldSpeed) => {
-          const newSpeed = Math.max(
-            1,
-            Math.min(20, Math.round((oldSpeed + diff / 10) * 10) / 10)
-          );
-
-          if (oldSpeed != newSpeed) {
-            BleManager.sendIncAndSpeed(treadmillIncline, newSpeed);
-          }
-
-          return newSpeed;
-        });
-      }
-    }
-  }, [heartRate, isRunning, targetHeartRate, treadmillIncline]);
 
   useEffect(() => {
     const removeEvent = BleManager.subscribe(onEventOccured);
@@ -101,21 +156,23 @@ export default function BleConnector() {
       removeHeartRateEvent();
       // clearInterval(intervalId);
     };
-  }, [onEventOccured, runningLoop]);
+  }, [onEventOccured]);
 
   async function startNew() {
     try {
       setIsRunning(true);
       setTreadmillSpeed(4);
 
-      await BleManager.initBTConnection();
-      if (!BleManager.isConnected()) {
-        setIsRunning(false);
-        return;
-      }
+      // await BleManager.initBTConnection();
+      // if (!BleManager.isConnected()) {
+      //   setIsRunning(false);
+      //   return;
+      // }
 
-      await BleManager.start();
-      BleManager.sendIncAndSpeed(2, 4);
+      // await BleManager.start();
+      // BleManager.sendIncAndSpeed(2, 4);
+
+      setRunningStartedDate(new Date());
       await wakeLock.request();
     } catch {
       setIsRunning(false);
@@ -155,7 +212,8 @@ export default function BleConnector() {
             />
             <Box>Incline: {treadmillIncline}</Box>
             <Box>Speed: {treadmillSpeed}</Box>
-            <Box>Heart rate: {heartRate}</Box>
+            <Box>Target heart rate: {getCurrentBmp(currentRunningTime)}</Box>
+            <Box>Running time: {currentRunningTime.toString()}</Box>
             <Button variant="contained" onClick={connectHeartRate}>
               Connect
             </Button>

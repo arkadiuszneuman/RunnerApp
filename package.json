@@ -18,7 +18,8 @@
     "next": "15.1.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-screen-wake-lock": "^3.0.2"
+    "react-screen-wake-lock": "^3.0.2",
+    "recharts": "^2.15.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
