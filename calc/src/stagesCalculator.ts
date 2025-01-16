@@ -152,5 +152,10 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
     }
   }
 
+  for (const stage of resultStages) {
+    const realStage = stage as { originalFrom?: Date, originalTo?: Date }
+    delete realStage.originalFrom
+    delete realStage.originalTo
+  }
   return resultStages;
 }

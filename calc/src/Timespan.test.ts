@@ -1,8 +1,7 @@
+import { expect, describe, it } from 'vitest'
 import { Timespan } from './Timespan';
 
 describe('Timespan', () => {
-  // ... existing tests ...
-
   describe('totalMilliseconds', () => {
     it('should return correct total milliseconds', () => {
       const span = new Timespan(3661001); // 1h 1m 1s 1ms

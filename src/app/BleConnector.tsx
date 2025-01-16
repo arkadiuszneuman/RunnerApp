@@ -11,6 +11,7 @@ import HeartRateManager from "./HeartRateManager";
 import Link from "next/link";
 import { Stage, StageResult } from "../../calc/src/stagesCalculator";
 import { Timespan } from "../../calc/src/Timespan";
+import { calculateSpeed } from "./speedCalculator";
 
 export function traningProgramReducer(
   state: {
@@ -100,26 +101,21 @@ export default function BleConnector() {
       if (new Date().getTime() - lastSpeedChanged.getTime() > 5000) {
         console.log(new Date().getTime() - lastSpeedChanged.getTime());
         setLastSpeedChanged(new Date());
-        const targetHeartRate = getCurrentBmp(runningTime);
-        const diff = targetHeartRate - heartRate;
-        if (Math.abs(diff) > 5) {
-          setTreadmillSpeed((oldSpeed) => {
-            const newSpeed = Math.max(
-              1,
-              Math.min(18, Math.round((oldSpeed + diff / 100) * 10) / 10)
-            );
 
-            if (oldSpeed != newSpeed) {
-              console.log("sending speed " + newSpeed);
+        setTreadmillSpeed((oldSpeed) => {
+          const targetHeartRate = getCurrentBmp(runningTime);
+          const newSpeed = calculateSpeed(heartRate, targetHeartRate, oldSpeed);
 
-              BleManager.sendIncAndSpeed(treadmillIncline, newSpeed);
+          if (oldSpeed != newSpeed) {
+            console.log("sending speed " + newSpeed);
 
-              return newSpeed;
-            }
+            BleManager.sendIncAndSpeed(treadmillIncline, newSpeed);
 
-            return oldSpeed;
-          });
-        }
+            return newSpeed;
+          }
+
+          return oldSpeed;
+        });
       }
     }
   }, [
