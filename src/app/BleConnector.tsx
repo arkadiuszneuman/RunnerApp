@@ -34,25 +34,25 @@ export function traningProgramReducer(
 const calculated: StageResult[] = [
   {
     type: "simple",
-    time: Timespan.fromMinutes(10),
+    time: Timespan.fromMinutes(30),
     bmp: 145,
     from: new Timespan(),
-    to: Timespan.fromMinutes(10),
+    to: Timespan.fromMinutes(30),
   },
-  {
-    type: "simple",
-    time: Timespan.fromMinutes(16),
-    bmp: 172,
-    from: Timespan.fromMinutes(10),
-    to: Timespan.fromMinutes(26),
-  },
-  {
-    type: "simple",
-    time: Timespan.fromMinutes(10),
-    bmp: 145,
-    from: Timespan.fromMinutes(26),
-    to: Timespan.fromMinutes(36),
-  },
+  // {
+  //   type: "simple",
+  //   time: Timespan.fromMinutes(16),
+  //   bmp: 172,
+  //   from: Timespan.fromMinutes(10),
+  //   to: Timespan.fromMinutes(26),
+  // },
+  // {
+  //   type: "simple",
+  //   time: Timespan.fromMinutes(10),
+  //   bmp: 145,
+  //   from: Timespan.fromMinutes(26),
+  //   to: Timespan.fromMinutes(36),
+  // },
 ];
 
 // const calculated = calculateStages(stages);
