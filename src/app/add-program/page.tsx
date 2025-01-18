@@ -15,10 +15,10 @@ export default function AddProgram() {
   );
 
   return (
-    <>
-      {state.stages.map((stage) => {
-        <Box>Type: {stage.type}</Box>;
-      })}
+    <Box>
+      {state.stages.map((stage, index) => (
+        <Box key={index}>Type: {stage.type}</Box>
+      ))}
       {editingStage && (
         <EditStage
           stage={editingStage}
@@ -40,6 +40,6 @@ export default function AddProgram() {
       >
         Add Stage
       </Button>
-    </>
+    </Box>
   );
 }
