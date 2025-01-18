@@ -10,10 +10,12 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
 
 export default function EditStage(props: {
   stage: Stage;
   onStageAdded?: (stage: Stage) => void;
+  onCancel?: () => void;
 }) {
   const [stage, setStage] = useState(props.stage);
   const [basedOn, setBasedOn] = useState<"tempo" | "bmp">("tempo");
@@ -92,7 +94,8 @@ export default function EditStage(props: {
           value={"bmp" in stage ? stage.bmp : ""}
           onChange={(e) =>
             setStage((prev) => ({
-              ...prev,
+              time: prev.time,
+              type: prev.type,
               bmp: Number(e.target.value),
             }))
           }
@@ -108,7 +111,8 @@ export default function EditStage(props: {
             onChange={(e) =>
               "tempo" in stage &&
               setStage((prev) => ({
-                ...prev,
+                time: prev.time,
+                type: prev.type,
                 tempo: Timespan.fromMinutes(Number(e.target.value)).add(
                   Timespan.fromSeconds("tempo" in prev ? prev.tempo.seconds : 0)
                 ),
@@ -131,14 +135,24 @@ export default function EditStage(props: {
           />
         </Box>
       )}
-      <Button
-        type="submit"
-        variant="contained"
-        color="secondary"
-        sx={{ mt: 2 }}
-      >
-        Add
-      </Button>
+      <Stack direction="row" spacing={1}>
+        <Button
+          variant="outlined"
+          color="secondary"
+          sx={{ mt: 2 }}
+          onClick={props.onCancel}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="contained"
+          color="secondary"
+          sx={{ mt: 2 }}
+        >
+          Add
+        </Button>
+      </Stack>
     </Box>
   );
 }

@@ -27,7 +27,6 @@ describe('calculateStages', () => {
     const result = calculateStages(stages)
 
     const zz = result.map(({ from, to, type, ...rest }) => rest)
-    console.log(zz)
 
     expect(result.map(({ from, to, type, ...rest }) => rest)).toStrictEqual([
       { time: Timespan.fromMinutes(10), bmp: 145 },
