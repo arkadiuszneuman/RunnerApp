@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
@@ -15,21 +16,36 @@
     "@mui/lab": "6.0.0-beta.22",
     "@mui/material": "^6.3.1",
     "@mui/material-nextjs": "^6.3.1",
-    "next": "15.1.4",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-screen-wake-lock": "^3.0.2"
+    "@mui/x-date-pickers": "^7.24.0",
+    "dayjs": "^1.11.13",
+    "next": "15.1.5",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-screen-wake-lock": "^3.0.2",
+    "recharts": "^2.15.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.2.0",
     "@types/lodash": "^4.17.14",
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3",
     "@types/web-bluetooth": "^0.0.20",
+    "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^9",
-    "eslint-config-next": "15.1.4",
+    "eslint-config-next": "15.1.5",
+    "jsdom": "^26.0.0",
     "lodash": "^4.17.21",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.0.7",
+      "@types/react-dom": "19.0.3"
+    }
   }
 }
