@@ -61,12 +61,15 @@ export default function EditStage(props: {
           })}
           selectedSections={"empty"}
           onChange={(e) => {
-            setStage((prev) => ({
-              ...prev,
-              time: Timespan.fromHours(Number(e?.hour()))
-                .add(Timespan.fromMinutes(Number(e?.minute())))
-                .add(Timespan.fromSeconds(Number(e?.second()))),
-            }));
+            setStage(
+              (prev) =>
+                ({
+                  ...prev,
+                  duration: Timespan.fromHours(Number(e?.hour()))
+                    .add(Timespan.fromMinutes(Number(e?.minute())))
+                    .add(Timespan.fromSeconds(Number(e?.second()))),
+                } satisfies Stage)
+            );
           }}
         />
       </Box>
@@ -89,11 +92,14 @@ export default function EditStage(props: {
           type="number"
           value={"bmp" in stage ? stage.bmp : ""}
           onChange={(e) =>
-            setStage((prev) => ({
-              duration: prev.duration,
-              type: prev.type,
-              bmp: Number(e.target.value),
-            }))
+            setStage(
+              (prev) =>
+                ({
+                  duration: prev.duration,
+                  type: prev.type,
+                  bmp: Number(e.target.value),
+                } satisfies Stage)
+            )
           }
         />
       )}
