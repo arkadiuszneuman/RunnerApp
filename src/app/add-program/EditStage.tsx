@@ -11,6 +11,8 @@ import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
+import { TimePicker } from "@mui/x-date-pickers/TimePicker";
+import dayjs from "dayjs";
 
 export default function EditStage(props: {
   stage: Stage;
@@ -47,31 +49,25 @@ export default function EditStage(props: {
       </FormControl>
 
       <Box sx={{ display: "flex", gap: 2 }}>
-        <TextField
-          label="Minutes"
-          type="number"
-          value={stage.time.minutes}
+        <TimePicker
+          label="Segment time"
+          ampm={false}
+          maxTime={dayjs("1977-01-01T12:59:59")}
+          views={["hours", "minutes", "seconds"]}
+          value={dayjs({
+            hour: stage.time.hours,
+            minute: stage.time.minutes,
+            second: stage.time.seconds,
+          })}
+          selectedSections={"empty"}
           onChange={(e) => {
             setStage((prev) => ({
               ...prev,
-              time: Timespan.fromMinutes(Number(e.target.value)).add(
-                Timespan.fromSeconds(stage.time.seconds)
-              ),
+              time: Timespan.fromHours(Number(e?.hour()))
+                .add(Timespan.fromMinutes(Number(e?.minute())))
+                .add(Timespan.fromSeconds(Number(e?.second()))),
             }));
           }}
-        />
-        <TextField
-          label="Seconds"
-          type="number"
-          value={stage.time.seconds}
-          onChange={(e) =>
-            setStage((prev) => ({
-              ...prev,
-              time: Timespan.fromMinutes(stage.time.minutes).add(
-                Timespan.fromSeconds(Number(e.target.value))
-              ),
-            }))
-          }
         />
       </Box>
 
@@ -104,34 +100,25 @@ export default function EditStage(props: {
 
       {basedOn === "tempo" && (
         <Box sx={{ display: "flex", gap: 2 }}>
-          <TextField
-            label="Tempo Minutes"
-            type="number"
-            value={"tempo" in stage ? stage.tempo.minutes : 0}
-            onChange={(e) =>
-              "tempo" in stage &&
-              setStage((prev) => ({
-                time: prev.time,
-                type: prev.type,
-                tempo: Timespan.fromMinutes(Number(e.target.value)).add(
-                  Timespan.fromSeconds("tempo" in prev ? prev.tempo.seconds : 0)
-                ),
-              }))
-            }
-          />
-          <TextField
-            label="Tempo Seconds"
-            type="number"
-            value={"tempo" in stage ? stage.tempo.seconds : 0}
-            onChange={(e) =>
-              "tempo" in stage &&
+          <TimePicker
+            label="Tempo min/km"
+            ampm={false}
+            maxTime={dayjs("1977-01-01T00:15:00")}
+            minTime={dayjs("1977-01-01T00:01:00")}
+            views={["minutes", "seconds"]}
+            value={dayjs({
+              minute: "tempo" in stage ? stage.tempo.minutes : 0,
+              second: "tempo" in stage ? stage.tempo.seconds : 0,
+            })}
+            selectedSections={"empty"}
+            onChange={(e) => {
               setStage((prev) => ({
                 ...prev,
-                tempo: Timespan.fromMinutes(
-                  "tempo" in prev ? prev.tempo.minutes : 0
-                ).add(Timespan.fromSeconds(Number(e.target.value))),
-              }))
-            }
+                tempo: Timespan.fromMinutes(Number(e?.minute())).add(
+                  Timespan.fromSeconds(Number(e?.second()))
+                ),
+              }));
+            }}
           />
         </Box>
       )}
