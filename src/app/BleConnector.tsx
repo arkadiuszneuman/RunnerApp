@@ -17,34 +17,6 @@ import {
 } from "./speedCalculator";
 import { getCurrentProgram } from "@/services/db/programRepository";
 
-// const calculated: StageResult[] = [
-//   {
-//     type: "simple",
-//     time: Timespan.fromMinutes(30),
-//     bmp: 145,
-//     from: new Timespan(),
-//     to: Timespan.fromMinutes(30),
-//   },
-//   // {
-//   //   type: "simple",
-//   //   time: Timespan.fromMinutes(16),
-//   //   bmp: 172,
-//   //   from: Timespan.fromMinutes(10),
-//   //   to: Timespan.fromMinutes(26),
-//   // },
-//   // {
-//   //   type: "simple",
-//   //   time: Timespan.fromMinutes(10),
-//   //   bmp: 145,
-//   //   from: Timespan.fromMinutes(26),
-//   //   to: Timespan.fromMinutes(36),
-//   // },
-// ];
-
-// const calculated = calculateStages(stages);
-
-export const dynamic = "force-dynamic";
-
 export default function BleConnector() {
   const [isRunning, setIsRunning] = useState(false);
   const [heartRate, setHeartRate] = useState(0);
@@ -263,7 +235,7 @@ export default function BleConnector() {
             {program.map((stage, index) => (
               <Box key={index}>
                 <Box>Type: {stage.type}</Box>
-                <Box>Time: {stage.time.toString()}</Box>
+                <Box>Duration: {stage.duration.toString()}</Box>
                 <Box>From: {stage.from.toString()}</Box>
                 <Box>To: {stage.to.toString()}</Box>
                 {"bmp" in stage && <Box>BMP: {stage.bmp}</Box>}

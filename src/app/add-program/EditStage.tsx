@@ -55,9 +55,9 @@ export default function EditStage(props: {
           maxTime={dayjs("1977-01-01T12:59:59")}
           views={["hours", "minutes", "seconds"]}
           value={dayjs({
-            hour: stage.time.hours,
-            minute: stage.time.minutes,
-            second: stage.time.seconds,
+            hour: stage.duration.hours,
+            minute: stage.duration.minutes,
+            second: stage.duration.seconds,
           })}
           selectedSections={"empty"}
           onChange={(e) => {
@@ -90,7 +90,7 @@ export default function EditStage(props: {
           value={"bmp" in stage ? stage.bmp : ""}
           onChange={(e) =>
             setStage((prev) => ({
-              time: prev.time,
+              duration: prev.duration,
               type: prev.type,
               bmp: Number(e.target.value),
             }))

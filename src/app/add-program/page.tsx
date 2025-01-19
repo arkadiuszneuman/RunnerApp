@@ -33,7 +33,7 @@ export default function AddProgram() {
       {state.map((stage, index) => (
         <Box key={index}>
           <Box>Type: {stage.type}</Box>
-          <Box>Type: {stage.time.toString()}</Box>
+          <Box>Type: {stage.duration.toString()}</Box>
           <Box>--------------------</Box>
         </Box>
       ))}
@@ -60,7 +60,7 @@ export default function AddProgram() {
               setEditingStage({
                 type: "simple",
                 tempo: Timespan.fromMinutes(1),
-                time: Timespan.fromMinutes(1),
+                duration: Timespan.fromMinutes(1),
               })
             }
           >
