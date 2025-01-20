@@ -46,7 +46,7 @@ class HeartRateManager {
     //only works for devices advertising heart rate service
     const _options = { filters: [{ services: ["heart_rate"] }] };
 
-    // const options = {
+    // const _options = {
     //   acceptAllDevices: true,
     //   optionalServices: ["heart_rate"],
     // };
