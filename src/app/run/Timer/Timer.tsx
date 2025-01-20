@@ -1,8 +1,15 @@
 'use client';
 
+import { Typography } from '@mui/material';
 import Box from '@mui/material/Box';
 
-export default function Timer(props: { progress: number }) {
+export default function Timer(props: {
+  progress: number;
+  primaryText?: string;
+  primaryTextInfo?: string;
+  secondaryText?: string;
+  secondaryTextInfo?: string;
+}) {
   const max = 29;
   const percentage = 100 - (props.progress / 100) * (100 - max);
 
@@ -12,8 +19,8 @@ export default function Timer(props: { progress: number }) {
         <svg width="100%" height="100%" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="linearColor" gradientTransform="rotate(70)">
-              <stop offset="20%" stop-color="#3CF8C8"></stop>
-              <stop offset="100%" stop-color="#10BBFE"></stop>
+              <stop offset="20%" stopColor="#3CF8C8"></stop>
+              <stop offset="100%" stopColor="#10BBFE"></stop>
             </linearGradient>
           </defs>
 
@@ -48,9 +55,7 @@ export default function Timer(props: { progress: number }) {
           )}
         </svg>
 
-        {/* Text inside the circle */}
-        {/* Text inside the circle */}
-        <Box
+        <Typography
           sx={{
             position: 'absolute',
             top: '2em',
@@ -60,11 +65,13 @@ export default function Timer(props: { progress: number }) {
             fontSize: '0.7rem',
             fontWeight: '500',
             color: '#333',
+            textTransform: 'uppercase',
           }}
         >
-          TODAY KM
-        </Box>
-        <Box
+          {props.primaryTextInfo}
+        </Typography>
+
+        <Typography
           sx={{
             position: 'absolute',
             top: '1.2em',
@@ -74,12 +81,13 @@ export default function Timer(props: { progress: number }) {
             fontSize: '2rem',
             fontWeight: '400',
             color: '#333',
+            textTransform: 'uppercase',
           }}
         >
-          9.40
-        </Box>
+          {props.primaryText}
+        </Typography>
 
-        <Box
+        <Typography
           sx={{
             position: 'absolute',
             top: '8.5em',
@@ -89,11 +97,12 @@ export default function Timer(props: { progress: number }) {
             fontSize: '0.7rem',
             fontWeight: '500',
             color: '#333',
+            textTransform: 'uppercase',
           }}
         >
-          10 KM
-        </Box>
-        <Box
+          {props.secondaryText}
+        </Typography>
+        <Typography
           sx={{
             position: 'absolute',
             top: '9.5em',
@@ -103,10 +112,11 @@ export default function Timer(props: { progress: number }) {
             fontSize: '0.7rem',
             fontWeight: '500',
             color: '#333',
+            textTransform: 'uppercase',
           }}
         >
-          DAILY GOAL
-        </Box>
+          {props.secondaryTextInfo}
+        </Typography>
       </Box>
     </Box>
   );

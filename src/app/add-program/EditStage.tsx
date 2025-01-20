@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Stage, StageType } from "../../../calc/src/stagesCalculator";
-import { Timespan } from "../../../calc/src/Timespan";
-import Box from "@mui/material/Box";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
-import Stack from "@mui/material/Stack";
-import { TimePicker } from "@mui/x-date-pickers/TimePicker";
-import dayjs from "dayjs";
+import { useState } from 'react';
+import { Timespan } from '@/services/Timespan';
+import { Stage, StageType } from '@/services/stagesCalculator';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import dayjs from 'dayjs';
 
 export default function EditStage(props: {
   stage: Stage;
@@ -20,7 +20,7 @@ export default function EditStage(props: {
   onCancel?: () => void;
 }) {
   const [stage, setStage] = useState(props.stage);
-  const [basedOn, setBasedOn] = useState<"tempo" | "bmp">("tempo");
+  const [basedOn, setBasedOn] = useState<'tempo' | 'bmp'>('tempo');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,15 +31,13 @@ export default function EditStage(props: {
     <Box
       component="form"
       onSubmit={handleSubmit}
-      sx={{ gap: 2, display: "flex", flexDirection: "column" }}
+      sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}
     >
       <FormControl fullWidth>
         <InputLabel>Type</InputLabel>
         <Select
           value={stage.type}
-          onChange={(e) =>
-            setStage((prev) => ({ ...prev, type: e.target.value as StageType }))
-          }
+          onChange={(e) => setStage((prev) => ({ ...prev, type: e.target.value as StageType }))}
           label="Type"
         >
           <MenuItem value="simple">Simple</MenuItem>
@@ -48,18 +46,18 @@ export default function EditStage(props: {
         </Select>
       </FormControl>
 
-      <Box sx={{ display: "flex", gap: 2 }}>
+      <Box sx={{ display: 'flex', gap: 2 }}>
         <TimePicker
           label="Segment time"
           ampm={false}
-          maxTime={dayjs("1977-01-01T12:59:59")}
-          views={["hours", "minutes", "seconds"]}
+          maxTime={dayjs('1977-01-01T12:59:59')}
+          views={['hours', 'minutes', 'seconds']}
           value={dayjs({
             hour: stage.duration.hours,
             minute: stage.duration.minutes,
             second: stage.duration.seconds,
           })}
-          selectedSections={"empty"}
+          selectedSections={'empty'}
           onChange={(e) => {
             setStage(
               (prev) =>
@@ -68,7 +66,7 @@ export default function EditStage(props: {
                   duration: Timespan.fromHours(Number(e?.hour()))
                     .add(Timespan.fromMinutes(Number(e?.minute())))
                     .add(Timespan.fromSeconds(Number(e?.second()))),
-                } satisfies Stage)
+                }) satisfies Stage
             );
           }}
         />
@@ -86,11 +84,11 @@ export default function EditStage(props: {
         </Select>
       </FormControl>
 
-      {basedOn === "bmp" && (
+      {basedOn === 'bmp' && (
         <TextField
           label="BPM"
           type="number"
-          value={"bmp" in stage ? stage.bmp : ""}
+          value={'bmp' in stage ? stage.bmp : ''}
           onChange={(e) =>
             setStage(
               (prev) =>
@@ -98,25 +96,25 @@ export default function EditStage(props: {
                   duration: prev.duration,
                   type: prev.type,
                   bmp: Number(e.target.value),
-                } satisfies Stage)
+                }) satisfies Stage
             )
           }
         />
       )}
 
-      {basedOn === "tempo" && (
-        <Box sx={{ display: "flex", gap: 2 }}>
+      {basedOn === 'tempo' && (
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <TimePicker
             label="Tempo min/km"
             ampm={false}
-            maxTime={dayjs("1977-01-01T00:15:00")}
-            minTime={dayjs("1977-01-01T00:01:00")}
-            views={["minutes", "seconds"]}
+            maxTime={dayjs('1977-01-01T00:15:00')}
+            minTime={dayjs('1977-01-01T00:01:00')}
+            views={['minutes', 'seconds']}
             value={dayjs({
-              minute: "tempo" in stage ? stage.tempo.minutes : 0,
-              second: "tempo" in stage ? stage.tempo.seconds : 0,
+              minute: 'tempo' in stage ? stage.tempo.minutes : 0,
+              second: 'tempo' in stage ? stage.tempo.seconds : 0,
             })}
-            selectedSections={"empty"}
+            selectedSections={'empty'}
             onChange={(e) => {
               setStage((prev) => ({
                 ...prev,
@@ -129,20 +127,10 @@ export default function EditStage(props: {
         </Box>
       )}
       <Stack direction="row" spacing={1}>
-        <Button
-          variant="outlined"
-          color="secondary"
-          sx={{ mt: 2 }}
-          onClick={props.onCancel}
-        >
+        <Button variant="outlined" color="secondary" sx={{ mt: 2 }} onClick={props.onCancel}>
           Cancel
         </Button>
-        <Button
-          type="submit"
-          variant="contained"
-          color="secondary"
-          sx={{ mt: 2 }}
-        >
+        <Button type="submit" variant="contained" color="secondary" sx={{ mt: 2 }}>
           Add
         </Button>
       </Stack>

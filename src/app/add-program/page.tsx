@@ -1,23 +1,18 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Stage } from "../../../calc/src/stagesCalculator";
-import { Timespan } from "../../../calc/src/Timespan";
-import Button from "@mui/material/Button";
-import EditStage from "./EditStage";
-import Box from "@mui/material/Box";
-import {
-  getCurrentProgram,
-  updateCurrentProgram,
-} from "@/services/db/programRepository";
-import Stack from "@mui/material/Stack";
-import Link from "next/link";
+import { useEffect, useState } from 'react';
+import { Timespan } from '@/services/Timespan';
+import { getCurrentProgram, updateCurrentProgram } from '@/services/db/programRepository';
+import { Stage } from '@/services/stagesCalculator';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import Link from 'next/link';
+import EditStage from './EditStage';
 
 export default function AddProgram() {
   const [state, setState] = useState<Stage[]>([]);
-  const [editingStage, setEditingStage] = useState<Stage | undefined>(
-    undefined
-  );
+  const [editingStage, setEditingStage] = useState<Stage | undefined>(undefined);
 
   useEffect(() => {
     async function get() {
@@ -58,7 +53,7 @@ export default function AddProgram() {
             variant="contained"
             onClick={() =>
               setEditingStage({
-                type: "simple",
+                type: 'simple',
                 tempo: Timespan.fromMinutes(1),
                 duration: Timespan.fromMinutes(1),
               })

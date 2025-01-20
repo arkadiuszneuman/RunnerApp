@@ -1,21 +1,19 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { useWakeLock } from "react-screen-wake-lock";
-import BleManager, { TreadmillEvent } from "./BleManager";
-import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import HeartRateManager from "./HeartRateManager";
-import Link from "next/link";
-import calculateStages, { StageResult } from "../../calc/src/stagesCalculator";
-import { Timespan } from "../../calc/src/Timespan";
-import {
-  calculateSpeedByHeartRate,
-  calculateSpeedByTempo,
-} from "./speedCalculator";
-import { getCurrentProgram } from "@/services/db/programRepository";
+import { useCallback, useEffect, useState } from 'react';
+import { useWakeLock } from 'react-screen-wake-lock';
+import { getCurrentProgram } from '@/services/db/programRepository';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import Link from 'next/link';
+import { Timespan } from '../services/Timespan';
+import calculateStages, { StageResult } from '../services/stagesCalculator';
+import BleManager, { TreadmillEvent } from './BleManager';
+import HeartRateManager from './HeartRateManager';
+import Timer from './run/Timer/Timer';
+import { calculateSpeedByHeartRate, calculateSpeedByTempo } from './speedCalculator';
 
 export default function BleConnector() {
   const [isRunning, setIsRunning] = useState(false);
@@ -26,13 +24,9 @@ export default function BleConnector() {
   const [program, setProgram] = useState<StageResult[]>([]);
   const [currentStage, setCurrentStage] = useState<StageResult>();
 
-  const [runningStartedDate, setRunningStartedDate] = useState<Date>(
-    new Date()
-  );
+  const [runningStartedDate, setRunningStartedDate] = useState<Date>(new Date());
 
-  const [currentRunningTime, setCurrentRunningTime] = useState<Timespan>(
-    new Timespan()
-  );
+  const [currentRunningTime, setCurrentRunningTime] = useState<Timespan>(new Timespan());
 
   useEffect(() => {
     async function get() {
@@ -45,9 +39,9 @@ export default function BleConnector() {
   }, []);
 
   const wakeLock = useWakeLock({
-    onRequest: () => console.log("Screen Wake Lock: requested!"),
-    onError: (e) => console.error("An error occurred:", e),
-    onRelease: () => console.log("Screen Wake Lock: released!"),
+    onRequest: () => console.log('Screen Wake Lock: requested!'),
+    onError: (e) => console.error('An error occurred:', e),
+    onRelease: () => console.log('Screen Wake Lock: released!'),
   });
 
   const updateCurrentStage = useCallback(
@@ -67,8 +61,7 @@ export default function BleConnector() {
 
   const timerLoop = useCallback(() => {
     if (isRunning) {
-      const runningDateDiff =
-        new Date().getTime() - runningStartedDate.getTime();
+      const runningDateDiff = new Date().getTime() - runningStartedDate.getTime();
       const runningTime = new Timespan(runningDateDiff);
       setCurrentRunningTime(runningTime);
       updateCurrentStage(runningTime);
@@ -80,19 +73,15 @@ export default function BleConnector() {
 
           setTreadmillSpeed((oldSpeed) => {
             let newSpeed = 0;
-            if ("bmp" in currentStage) {
+            if ('bmp' in currentStage) {
               const targetHeartRate = currentStage.bmp;
-              newSpeed = calculateSpeedByHeartRate(
-                heartRate,
-                targetHeartRate,
-                oldSpeed
-              );
+              newSpeed = calculateSpeedByHeartRate(heartRate, targetHeartRate, oldSpeed);
             } else {
               newSpeed = calculateSpeedByTempo(currentStage.tempo);
             }
 
             if (oldSpeed != newSpeed) {
-              console.log("sending speed " + newSpeed);
+              console.log('sending speed ' + newSpeed);
 
               BleManager.sendIncAndSpeed(treadmillIncline, newSpeed);
 
@@ -115,13 +104,13 @@ export default function BleConnector() {
   ]);
 
   useEffect(() => {
-    const interval = setInterval(timerLoop, 500);
+    const interval = setInterval(timerLoop, 200);
     return () => clearInterval(interval);
   }, [timerLoop]);
 
   const onEventOccured = useCallback(
     (event: TreadmillEvent) => {
-      if (event.type === "btDisconnected" || event.type === "btStopped") {
+      if (event.type === 'btDisconnected' || event.type === 'btStopped') {
         setIsRunning(false);
       }
     },
@@ -174,6 +163,22 @@ export default function BleConnector() {
   return (
     <>
       <Box sx={{ padding: 2 }}>
+        <Timer
+          primaryText={currentStage?.to.subtract(currentRunningTime).toString()}
+          primaryTextInfo="Time left"
+          secondaryText={
+            currentStage ? `${program.indexOf(currentStage) + 1}/${program.length}` : ''
+          }
+          secondaryTextInfo="Stage"
+          progress={
+            currentStage
+              ? (currentStage.duration.subtract(currentStage.to.subtract(currentRunningTime))
+                  .totalMilliseconds *
+                  100) /
+                currentStage.duration.totalMilliseconds
+              : 0
+          }
+        ></Timer>
         <Stack spacing={1}>
           <Stack spacing={1} direction="row">
             <TextField
@@ -196,7 +201,7 @@ export default function BleConnector() {
               <Stack spacing={1} direction="column">
                 <Box>Incline: {treadmillIncline}</Box>
                 <Box>Speed: {treadmillSpeed}</Box>
-                {currentStage && "bmp" in currentStage && (
+                {currentStage && 'bmp' in currentStage && (
                   <Box>Target heart rate: {currentStage.bmp}</Box>
                 )}
                 <Box>Running time: {currentRunningTime.toString()}</Box>
@@ -204,10 +209,7 @@ export default function BleConnector() {
               <Stack spacing={1} direction="column">
                 <Box>Program length: {program.length}</Box>
                 <Box>
-                  Program:{" "}
-                  {currentStage
-                    ? program.indexOf(currentStage) + 1
-                    : "Not started"}
+                  Program: {currentStage ? program.indexOf(currentStage) + 1 : 'Not started'}
                 </Box>
               </Stack>
             </Stack>
@@ -216,12 +218,7 @@ export default function BleConnector() {
             <Button variant="contained" onClick={connectHeartRate}>
               Connect
             </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              href="/add-program"
-              LinkComponent={Link}
-            >
+            <Button variant="contained" color="secondary" href="/add-program" LinkComponent={Link}>
               Add program
             </Button>
             <Button variant="contained" onClick={startNew} disabled={isRunning}>
@@ -238,8 +235,8 @@ export default function BleConnector() {
                 <Box>Duration: {stage.duration.toString()}</Box>
                 <Box>From: {stage.from.toString()}</Box>
                 <Box>To: {stage.to.toString()}</Box>
-                {"bmp" in stage && <Box>BMP: {stage.bmp}</Box>}
-                {"tempo" in stage && <Box>Tempo: {stage.tempo.toString()}</Box>}
+                {'bmp' in stage && <Box>BMP: {stage.bmp}</Box>}
+                {'tempo' in stage && <Box>Tempo: {stage.tempo.toString()}</Box>}
                 <Box>--------------------</Box>
               </Box>
             ))}
