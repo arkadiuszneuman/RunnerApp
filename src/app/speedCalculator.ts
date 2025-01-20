@@ -1,4 +1,4 @@
-import { Timespan } from "../../calc/src/Timespan";
+import { Timespan } from '@/services/Timespan';
 
 export function calculateSpeedByHeartRate(heartRate: number, targetHeartRate: number, oldSpeed: number): number {
   const diff = targetHeartRate - heartRate;
