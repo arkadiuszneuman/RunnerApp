@@ -27,14 +27,14 @@ describe('calculateStages', () => {
     const result = calculateStages(stages)
 
     expect(result.map(({ from, to, type, ...rest }) => rest)).toStrictEqual([
-      { time: Timespan.fromMinutes(14).add(Timespan.fromSeconds(50)), bmp: 145 },
+      { duration: Timespan.fromMinutes(14).add(Timespan.fromSeconds(50)), bmp: 145 },
 
-      { time: Timespan.fromSeconds(50), tempo: Timespan.fromMinutes(3).add(Timespan.fromSeconds(40)) },
-      { time: Timespan.fromMinutes(2).add(Timespan.fromSeconds(50)), bmp: 132 },
+      { duration: Timespan.fromSeconds(50), tempo: Timespan.fromMinutes(3).add(Timespan.fromSeconds(40)) },
+      { duration: Timespan.fromMinutes(2).add(Timespan.fromSeconds(50)), bmp: 132 },
 
-      { time: Timespan.fromSeconds(50), tempo: Timespan.fromMinutes(3).add(Timespan.fromSeconds(40)) },
+      { duration: Timespan.fromSeconds(50), tempo: Timespan.fromMinutes(3).add(Timespan.fromSeconds(40)) },
 
-      { time: Timespan.fromMinutes(10), bmp: 145 },
+      { duration: Timespan.fromMinutes(10), bmp: 145 },
     ]);
   });
 
@@ -57,15 +57,15 @@ describe('calculateStages', () => {
     const result = calculateStages(stages)
 
     expect(result.map(({ from, to, type, ...rest }) => rest)).toStrictEqual([
-      { time: Timespan.fromMinutes(9).add(Timespan.fromSeconds(50)), bmp: 145 },
+      { duration: Timespan.fromMinutes(9).add(Timespan.fromSeconds(50)), bmp: 145 },
 
-      { time: Timespan.fromMinutes(6).add(Timespan.fromSeconds(10)), bmp: 172 },
-      { time: Timespan.fromMinutes(1).add(Timespan.fromSeconds(50)), bmp: 132 },
-      { time: Timespan.fromMinutes(6).add(Timespan.fromSeconds(10)), bmp: 172 },
-      { time: Timespan.fromMinutes(1).add(Timespan.fromSeconds(50)), bmp: 132 },
-      { time: Timespan.fromMinutes(6).add(Timespan.fromSeconds(10)), bmp: 172 },
+      { duration: Timespan.fromMinutes(6).add(Timespan.fromSeconds(10)), bmp: 172 },
+      { duration: Timespan.fromMinutes(1).add(Timespan.fromSeconds(50)), bmp: 132 },
+      { duration: Timespan.fromMinutes(6).add(Timespan.fromSeconds(10)), bmp: 172 },
+      { duration: Timespan.fromMinutes(1).add(Timespan.fromSeconds(50)), bmp: 132 },
+      { duration: Timespan.fromMinutes(6).add(Timespan.fromSeconds(10)), bmp: 172 },
 
-      { time: Timespan.fromMinutes(10), bmp: 145 },
+      { duration: Timespan.fromMinutes(10), bmp: 145 },
     ]);
   });
 });

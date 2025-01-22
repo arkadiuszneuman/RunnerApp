@@ -5,6 +5,20 @@ export class Timespan {
     this._totalMilliseconds = milliseconds;
   }
 
+  static parse(text: string): Timespan {
+    const splitted = text.split(':')
+
+    if (splitted.length === 3) {
+      return Timespan.fromHours(Number(splitted[0])).add(Timespan.fromMinutes(Number(splitted[1]))).add(Timespan.fromSeconds(Number(splitted[2])));
+    }
+
+    if (splitted.length === 2) {
+      return Timespan.fromMinutes(Number(splitted[0])).add(Timespan.fromSeconds(Number(splitted[1])));
+    }
+
+    throw Error('Text to parse should be in 00:00:00 or 00:00 format');
+  }
+
   static fromSeconds(seconds: number): Timespan {
     return new Timespan(seconds * 1000);
   }

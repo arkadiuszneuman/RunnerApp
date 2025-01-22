@@ -1,6 +1,7 @@
 import { expect, describe, it } from 'vitest'
 import { calculateSpeedByHeartRate, calculateSpeedByTempo } from './speedCalculator'
-import { Timespan } from '../../calc/src/Timespan'
+import { Timespan } from '@/services/Timespan'
+import dayjs from 'dayjs'
 
 describe('Speed Calculator', () => {
   it('speed is not changed when heart rate is similar to target', () => {
@@ -29,13 +30,40 @@ describe('Speed Calculator', () => {
     expect(newSpeed).toBe(10.1)
 
     newSpeed = calculateSpeedByHeartRate(151, 145, 10)
-    expect(newSpeed).toBe(9.8)
+    expect(newSpeed).toBe(9.9)
     newSpeed = calculateSpeedByHeartRate(160, 145, 10)
-    expect(newSpeed).toBe(9.4)
+    expect(newSpeed).toBe(9.9)
     newSpeed = calculateSpeedByHeartRate(170, 145, 10)
-    expect(newSpeed).toBe(9)
+    expect(newSpeed).toBe(9.8)
     newSpeed = calculateSpeedByHeartRate(180, 145, 10)
-    expect(newSpeed).toBe(8.6)
+    expect(newSpeed).toBe(9.7)
+  })
+
+  it('speed is changed heart rate is highly different based on sprints', () => {
+    let time = Timespan.parse('02:00')
+    let newSpeed = calculateSpeedByHeartRate(70, 145, 10, time)
+    expect(newSpeed).toBe(13)
+    newSpeed = calculateSpeedByHeartRate(100, 145, 10, time)
+    expect(newSpeed).toBe(11.8)
+    newSpeed = calculateSpeedByHeartRate(129, 145, 10, time)
+    expect(newSpeed).toBe(10.6)
+
+    newSpeed = calculateSpeedByHeartRate(120, 175, 10, time)
+    expect(newSpeed).toBe(12.2)
+    newSpeed = calculateSpeedByHeartRate(150, 175, 10, time)
+    expect(newSpeed).toBe(11)
+
+    time = Timespan.parse("03:00")
+    newSpeed = calculateSpeedByHeartRate(120, 175, 10, time)
+    expect(newSpeed).toBe(11.9)
+    newSpeed = calculateSpeedByHeartRate(150, 175, 10, time)
+    expect(newSpeed).toBe(10.9)
+
+    time = Timespan.parse("15:00")
+    newSpeed = calculateSpeedByHeartRate(120, 175, 10, time)
+    expect(newSpeed).toBe(10.6)
+    newSpeed = calculateSpeedByHeartRate(150, 175, 10, time)
+    expect(newSpeed).toBe(10.3)
   })
 
   it('speed is changed based on tempo', () => {

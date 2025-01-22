@@ -40,4 +40,22 @@ describe('Timespan', () => {
       expect(span.toString()).toBe('23:00:00');
     });
   });
+
+  describe('parse', () => {
+    it('should parse minutes and seconds', () => {
+      let result = Timespan.parse("12:32")
+      expect(result.toString()).toBe('00:12:32');
+
+      result = Timespan.parse("02:03")
+      expect(result.toString()).toBe('00:02:03');
+    });
+
+    it('should parse hours, minutes and seconds', () => {
+      let result = Timespan.parse("15:12:32")
+      expect(result.toString()).toBe('15:12:32');
+
+      result = Timespan.parse("01:02:03")
+      expect(result.toString()).toBe('01:02:03');
+    });
+  })
 });
