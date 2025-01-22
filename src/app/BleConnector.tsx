@@ -7,16 +7,18 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import { useAtom } from 'jotai';
 import Link from 'next/link';
 import { Timespan } from '../services/Timespan';
 import calculateStages, { StageResult } from '../services/stagesCalculator';
 import BleManager, { TreadmillEvent } from './BleManager';
 import HeartRateManager from './HeartRateManager';
+import { runningStateAtom } from './atoms';
 import Timer from './run/Timer/Timer';
 import { calculateSpeedByHeartRate, calculateSpeedByTempo } from './speedCalculator';
+import useRunningLoop from './useRunningLoop';
 
 export default function BleConnector() {
-  const [isRunning, setIsRunning] = useState(false);
   const [heartRate, setHeartRate] = useState(0);
   const [treadmillSpeed, setTreadmillSpeed] = useState(4);
   const [treadmillIncline] = useState(2);
@@ -27,6 +29,10 @@ export default function BleConnector() {
   const [runningStartedDate, setRunningStartedDate] = useState<Date>(new Date());
 
   const [currentRunningTime, setCurrentRunningTime] = useState<Timespan>(new Timespan());
+
+  const [runningState, setRunningState] = useAtom(runningStateAtom);
+
+  useRunningLoop();
 
   useEffect(() => {
     async function get() {
@@ -60,43 +66,36 @@ export default function BleConnector() {
   );
 
   const timerLoop = useCallback(() => {
-    if (isRunning) {
-      const runningDateDiff = new Date().getTime() - runningStartedDate.getTime();
-      const runningTime = new Timespan(runningDateDiff);
-      setCurrentRunningTime(runningTime);
-      updateCurrentStage(runningTime);
-
-      if (currentStage) {
-        if (new Date().getTime() - lastSpeedChanged.getTime() > 5000) {
-          console.log(new Date().getTime() - lastSpeedChanged.getTime());
-          setLastSpeedChanged(new Date());
-
-          setTreadmillSpeed((oldSpeed) => {
-            let newSpeed = 0;
-            if ('bmp' in currentStage) {
-              const targetHeartRate = currentStage.bmp;
-              newSpeed = calculateSpeedByHeartRate(heartRate, targetHeartRate, oldSpeed);
-            } else {
-              newSpeed = calculateSpeedByTempo(currentStage.tempo);
-            }
-
-            if (oldSpeed != newSpeed) {
-              console.log('sending speed ' + newSpeed);
-
-              BleManager.sendIncAndSpeed(treadmillIncline, newSpeed);
-
-              return newSpeed;
-            }
-
-            return oldSpeed;
-          });
-        }
-      }
-    }
+    // if (isRunning) {
+    //   const runningDateDiff = new Date().getTime() - runningStartedDate.getTime();
+    //   const runningTime = new Timespan(runningDateDiff);
+    //   setCurrentRunningTime(runningTime);
+    //   updateCurrentStage(runningTime);
+    //   if (currentStage) {
+    //     if (new Date().getTime() - lastSpeedChanged.getTime() > 5000) {
+    //       console.log(new Date().getTime() - lastSpeedChanged.getTime());
+    //       setLastSpeedChanged(new Date());
+    //       setTreadmillSpeed((oldSpeed) => {
+    //         let newSpeed = 0;
+    //         if ('bmp' in currentStage) {
+    //           const targetHeartRate = currentStage.bmp;
+    //           newSpeed = calculateSpeedByHeartRate(heartRate, targetHeartRate, oldSpeed);
+    //         } else {
+    //           newSpeed = calculateSpeedByTempo(currentStage.tempo);
+    //         }
+    //         if (oldSpeed != newSpeed) {
+    //           console.log('sending speed ' + newSpeed);
+    //           BleManager.sendIncAndSpeed(treadmillIncline, newSpeed);
+    //           return newSpeed;
+    //         }
+    //         return oldSpeed;
+    //       });
+    //     }
+    //   }
+    // }
   }, [
     currentStage,
     heartRate,
-    isRunning,
     lastSpeedChanged,
     runningStartedDate,
     treadmillIncline,
@@ -111,10 +110,12 @@ export default function BleConnector() {
   const onEventOccured = useCallback(
     (event: TreadmillEvent) => {
       if (event.type === 'btDisconnected' || event.type === 'btStopped') {
-        setIsRunning(false);
+        setRunningState({
+          running: false,
+        });
       }
     },
-    [setIsRunning]
+    [setRunningState]
   );
 
   useEffect(() => {
@@ -134,25 +135,36 @@ export default function BleConnector() {
     try {
       setTreadmillSpeed(4);
 
-      await BleManager.initBTConnection();
-      if (!BleManager.isConnected()) {
-        return;
-      }
+      // await BleManager.initBTConnection();
+      // if (!BleManager.isConnected()) {
+      //   return;
+      // }
 
-      setIsRunning(true);
-      await BleManager.start();
-      BleManager.sendIncAndSpeed(2, 4);
+      // await BleManager.start();
+      // BleManager.sendIncAndSpeed(2, 4);
 
       setRunningStartedDate(new Date(new Date().getTime() + 3000));
+
+      setRunningState((prev) => ({
+        ...prev,
+        running: true,
+        runningStartedDate: new Date(new Date().getTime() + 3000),
+        runningTime: new Timespan(),
+      }));
+
       await wakeLock.request();
     } catch {
-      setIsRunning(false);
+      setRunningState({
+        running: false,
+      });
     }
   }
 
   async function stop() {
-    await BleManager.stop();
-    setIsRunning(false);
+    // await BleManager.stop();
+    setRunningState({
+      running: false,
+    });
     await wakeLock.release();
   }
 
@@ -179,41 +191,44 @@ export default function BleConnector() {
               : 0
           }
         ></Timer>
+
         <Stack spacing={1}>
-          <Stack spacing={1} direction="row">
-            <TextField
-              type="number"
-              variant="outlined"
-              size="small"
-              label="Heart rate"
-              value={heartRate}
-              onChange={(e) => setHeartRate(Number(e.target.value))}
-              slotProps={{
-                input: {
-                  inputProps: {
-                    min: 10,
-                    max: 200,
-                  },
-                },
-              }}
-            />
+          {runningState.running && (
             <Stack spacing={1} direction="row">
-              <Stack spacing={1} direction="column">
-                <Box>Incline: {treadmillIncline}</Box>
-                <Box>Speed: {treadmillSpeed}</Box>
-                {currentStage && 'bmp' in currentStage && (
-                  <Box>Target heart rate: {currentStage.bmp}</Box>
-                )}
-                <Box>Running time: {currentRunningTime.toString()}</Box>
-              </Stack>
-              <Stack spacing={1} direction="column">
-                <Box>Program length: {program.length}</Box>
-                <Box>
-                  Program: {currentStage ? program.indexOf(currentStage) + 1 : 'Not started'}
-                </Box>
+              <TextField
+                type="number"
+                variant="outlined"
+                size="small"
+                label="Heart rate"
+                value={heartRate}
+                onChange={(e) => setHeartRate(Number(e.target.value))}
+                slotProps={{
+                  input: {
+                    inputProps: {
+                      min: 10,
+                      max: 200,
+                    },
+                  },
+                }}
+              />
+              <Stack spacing={1} direction="row">
+                <Stack spacing={1} direction="column">
+                  <Box>Incline: {treadmillIncline}</Box>
+                  <Box>Speed: {treadmillSpeed}</Box>
+                  {currentStage && 'bmp' in currentStage && (
+                    <Box>Target heart rate: {currentStage.bmp}</Box>
+                  )}
+                  <Box>Running time: {runningState.runningTime.toString()}</Box>
+                </Stack>
+                <Stack spacing={1} direction="column">
+                  <Box>Program length: {program.length}</Box>
+                  <Box>
+                    Program: {currentStage ? program.indexOf(currentStage) + 1 : 'Not started'}
+                  </Box>
+                </Stack>
               </Stack>
             </Stack>
-          </Stack>
+          )}
           <Stack spacing={1} direction="row">
             <Button variant="contained" onClick={connectHeartRate}>
               Connect
@@ -221,10 +236,10 @@ export default function BleConnector() {
             <Button variant="contained" color="secondary" href="/add-program" LinkComponent={Link}>
               Add program
             </Button>
-            <Button variant="contained" onClick={startNew} disabled={isRunning}>
+            <Button variant="contained" onClick={startNew} disabled={runningState.running}>
               Start
             </Button>
-            <Button variant="contained" onClick={stop} disabled={!isRunning}>
+            <Button variant="contained" onClick={stop} disabled={!runningState.running}>
               Stop
             </Button>
           </Stack>
