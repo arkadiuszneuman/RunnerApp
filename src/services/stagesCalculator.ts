@@ -37,11 +37,12 @@ function flatStagesAndAddTimes(stages: (Stage | MultiplyStage)[]): FlattenedStag
           const subStage = stage.stages[i];
           oldCurrentTime = currentTime;
 
-          if (x !== stage.times - 1 || i !== stage.stages.length - 1) {
+          if (stage.times === 1 || x !== stage.times - 1 || i !== stage.stages.length - 1) {
             currentTime = currentTime.add(subStage.duration);
 
             stagesToReturn.push({ ...subStage, originalFrom: oldCurrentTime, originalTo: currentTime })
           }
+
         }
       }
       return stagesToReturn

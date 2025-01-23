@@ -80,4 +80,41 @@ describe('calculateStages', () => {
       { duration: Timespan.fromMinutes(15), bmp: 145 },
     ]);
   });
+
+  it('create one stage if one times', () => {
+    const stages = [
+      {
+        times: 1, stages: [
+          { duration: Timespan.fromMinutes(15), bmp: 145, type: 'simple' },
+          { duration: Timespan.fromMinutes(10), bmp: 145, type: 'simple' }
+        ]
+      }
+    ] satisfies MultiplyStage[];
+
+    const result = calculateStages(stages)
+
+    expect(result.map(({ from, to, type, ...rest }) => rest)).toStrictEqual([
+      { duration: Timespan.fromMinutes(15), bmp: 145 },
+      { duration: Timespan.fromMinutes(10), bmp: 145 },
+    ]);
+  });
+
+  it('create two stage if two times', () => {
+    const stages = [
+      {
+        times: 2, stages: [
+          { duration: Timespan.fromMinutes(15), bmp: 145, type: 'simple' },
+          { duration: Timespan.fromMinutes(10), bmp: 145, type: 'simple' }
+        ]
+      }
+    ] satisfies MultiplyStage[];
+
+    const result = calculateStages(stages)
+
+    expect(result.map(({ from, to, type, ...rest }) => rest)).toStrictEqual([
+      { duration: Timespan.fromMinutes(15), bmp: 145 },
+      { duration: Timespan.fromMinutes(10), bmp: 145 },
+      { duration: Timespan.fromMinutes(15), bmp: 145 },
+    ]);
+  });
 });
