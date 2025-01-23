@@ -61,7 +61,8 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
     const stage = stagesWithOriginalTimes[i];
 
     if (stage.type === 'sprint') {
-      const newOriginalFrom = i == 0 ? stage.originalFrom : stage.originalFrom.subtract(Timespan.fromSeconds(10));
+      const newOriginalFromTimespan = i == 0 ? stage.originalFrom : stage.originalFrom.subtract(Timespan.fromSeconds(10));
+      const newOriginalFrom = new Timespan(Math.max(0, newOriginalFromTimespan.totalMilliseconds));
       const newOriginalTo = stage.originalTo;
       const newTime = newOriginalTo.subtract(newOriginalFrom)
 
@@ -74,7 +75,8 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
     } else {
       const isNextSegmentSprint = stagesWithOriginalTimes.length - 1 === i ? false : stagesWithOriginalTimes[i + 1].type === 'sprint'
       const newOriginalFrom = stage.originalFrom;
-      const newOriginalTo = isNextSegmentSprint ? stage.originalTo.subtract(Timespan.fromSeconds(10)) : stage.originalTo;
+      const newOriginalToTimespan = isNextSegmentSprint ? stage.originalTo.subtract(Timespan.fromSeconds(10)) : stage.originalTo
+      const newOriginalTo = new Timespan(Math.max(0, newOriginalToTimespan.totalMilliseconds));
       const newTime = newOriginalTo.subtract(newOriginalFrom)
 
       resultStages.push({

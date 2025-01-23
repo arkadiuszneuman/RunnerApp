@@ -35,7 +35,7 @@ export default function BleConnector() {
       <Box sx={{ padding: 2 }}>
         {runningState.running && (
           <Timer
-            primaryText={currentStage?.to.subtract(runningState.runningTime).toString()}
+            primaryText={currentStage?.to.subtract(runningState.runningTime).toString('mm:ss')}
             primaryTextInfo="Time left"
             secondaryText={
               currentStage ? `${stages.indexOf(currentStage) + 1}/${stages.length}` : ''

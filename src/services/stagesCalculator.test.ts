@@ -93,9 +93,27 @@ describe('calculateStages', () => {
 
     const result = calculateStages(stages)
 
-    expect(result.map(({ from, to, type, ...rest }) => rest)).toStrictEqual([
-      { duration: Timespan.fromMinutes(15), bmp: 145 },
-      { duration: Timespan.fromMinutes(10), bmp: 145 },
+    expect(result.map(({ type, ...rest }) => rest)).toStrictEqual([
+      { duration: Timespan.fromMinutes(15), bmp: 145, from: Timespan.parse('00:00'), to: Timespan.parse('15:00') },
+      { duration: Timespan.fromMinutes(10), bmp: 145, from: Timespan.parse('15:00'), to: Timespan.parse('25:00') },
+    ]);
+  });
+
+  it('create proper stages for short stages', () => {
+    const stages = [
+      {
+        times: 1, stages: [
+          { duration: Timespan.parse('00:05'), bmp: 145, type: 'simple' },
+          { duration: Timespan.parse('00:15'), bmp: 145, type: 'sprint' }
+        ]
+      }
+    ] satisfies MultiplyStage[];
+
+    const result = calculateStages(stages)
+
+    expect(result.map(({ type, ...rest }) => rest)).toStrictEqual([
+      { duration: Timespan.parse('00:00'), bmp: 145, from: Timespan.parse('00:00'), to: Timespan.parse('00:00') },
+      { duration: Timespan.parse('00:20'), bmp: 145, from: Timespan.parse('00:00'), to: Timespan.parse('00:20') },
     ]);
   });
 

@@ -23,8 +23,7 @@ export default function useRunningLoop() {
   const heartRateMonitor = useHeartRate()
 
   useEffect(() => {
-    if (runningTime) {
-
+    if (runningTime && BleManager.isRunning()) {
       if (currentStage) {
         if (new Date().getTime() - lastSpeedChangedDate > 1000) {
           setLastSpeedChangedDateAtom(new Date().getTime());
@@ -62,6 +61,7 @@ export default function useRunningLoop() {
   }, [currentStage, heartRate, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState])
 
   useEffect(() => {
+    console.log('in useRunningLoop useEffect');
     if (!BleManager.isConnected() || !treadmillOptions) {
       return;
     }

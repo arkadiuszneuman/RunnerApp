@@ -58,4 +58,31 @@ describe('Timespan', () => {
       expect(result.toString()).toBe('01:02:03');
     });
   })
+  describe('toString with mm:ss format', () => {
+    it('should format zero timespan correctly', () => {
+      const span = new Timespan();
+      expect(span.toString('mm:ss')).toBe('00:00');
+    });
+
+    it('should convert hours to minutes', () => {
+      const span = new Timespan(3661001); // 1h 1m 1s 1ms
+      expect(span.toString('mm:ss')).toBe('61:01');
+    });
+
+    it('should handle large values', () => {
+      const span = Timespan.fromHours(2); // 2h
+      expect(span.toString('mm:ss')).toBe('120:00');
+    });
+
+    it('should pad single digits with zeros', () => {
+      const span = new Timespan(61000); // 1m 1s
+      expect(span.toString('mm:ss')).toBe('01:01');
+    });
+
+    it('should handle seconds only', () => {
+      const span = Timespan.fromSeconds(45);
+      expect(span.toString('mm:ss')).toBe('00:45');
+    });
+  });
+
 });

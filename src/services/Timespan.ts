@@ -71,7 +71,10 @@ export class Timespan {
     return new Timespan(this._totalMilliseconds - other._totalMilliseconds);
   }
 
-  toString(): string {
+  toString(format: 'hh:mm:ss' | 'mm:ss' = 'hh:mm:ss'): string {
+    if (format === 'mm:ss') {
+      return `${Math.floor(this.totalMinutes).toString().padStart(2, '0')}:${this.seconds.toString().padStart(2, '0')}`;
+    }
     return `${this.hours.toString().padStart(2, '0')}:${this.minutes.toString().padStart(2, '0')}:${this.seconds.toString().padStart(2, '0')}`;
   }
 
