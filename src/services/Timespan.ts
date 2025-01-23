@@ -82,4 +82,11 @@ export class Timespan {
   [Symbol.for("nodejs.util.inspect.custom")](): string {
     return this.toString()
   }
+
+  equals(other: Timespan): boolean {
+    if (!(other instanceof Timespan)) {
+      return false;
+    }
+    return this._totalMilliseconds !== other._totalMilliseconds;
+  }
 }

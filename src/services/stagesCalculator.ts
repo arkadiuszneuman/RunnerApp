@@ -60,7 +60,7 @@ export default function calculateStages(stages: (Stage | MultiplyStage)[]) {
     const stage = stagesWithOriginalTimes[i];
 
     if (stage.type === 'sprint') {
-      const newOriginalFrom = stage.originalFrom.subtract(Timespan.fromSeconds(10));
+      const newOriginalFrom = i == 0 ? stage.originalFrom : stage.originalFrom.subtract(Timespan.fromSeconds(10));
       const newOriginalTo = stage.originalTo;
       const newTime = newOriginalTo.subtract(newOriginalFrom)
 

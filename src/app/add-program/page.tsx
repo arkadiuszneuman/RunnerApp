@@ -1,49 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Timespan } from '@/services/Timespan';
-import { getCurrentProgram, updateCurrentProgram } from '@/services/db/programRepository';
-import { Stage } from '@/services/stagesCalculator';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import { useAtom, useAtomValue } from 'jotai';
 import Link from 'next/link';
+import { programAtom } from '../atoms';
 import EditStage from './EditStage';
+import Section from './Section';
+import { editingSectionAtom } from './atoms';
 
 export default function AddProgram() {
-  const [state, setState] = useState<Stage[]>([]);
-  const [editingStage, setEditingStage] = useState<Stage | undefined>(undefined);
-
-  useEffect(() => {
-    async function get() {
-      const program = await getCurrentProgram();
-      setState(program);
-    }
-
-    get();
-  }, []);
+  const program = useAtomValue(programAtom);
+  const [editingStage, setEditingStage] = useAtom(editingSectionAtom);
 
   return (
     <Box>
-      {state.map((stage, index) => (
-        <Box key={index}>
-          <Box>Type: {stage.type}</Box>
-          <Box>Type: {stage.duration.toString()}</Box>
-          <Box>--------------------</Box>
-        </Box>
+      {program.map((stage, index) => (
+        <Section key={index} section={stage} />
       ))}
-      {editingStage && (
-        <EditStage
-          stage={editingStage}
-          onCancel={() => setEditingStage(undefined)}
-          onStageAdded={async (stage) => {
-            const currentState = [...state, stage];
-            updateCurrentProgram(currentState);
-            setState(currentState);
-            setEditingStage(undefined);
-          }}
-        />
-      )}
+      {editingStage && <EditStage />}
       {!editingStage && (
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" href="/" LinkComponent={Link}>
@@ -51,11 +27,11 @@ export default function AddProgram() {
           </Button>
           <Button
             variant="contained"
+            color="success"
             onClick={() =>
               setEditingStage({
-                type: 'simple',
-                tempo: Timespan.fromMinutes(1),
-                duration: Timespan.fromMinutes(1),
+                times: 1,
+                stages: [],
               })
             }
           >

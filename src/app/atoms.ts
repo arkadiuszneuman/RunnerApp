@@ -1,4 +1,4 @@
-import { StageResult } from "@/services/stagesCalculator";
+import calculateStages, { MultiplyStage, Stage, StageResult } from "@/services/stagesCalculator";
 import { Timespan } from "@/services/Timespan";
 import { atom } from "jotai";
 
@@ -8,6 +8,10 @@ export const runningStateAtom = atom<{
   running: true,
   runningStartedDate: Date
   runningTime: Timespan
+  treadmillOptions: {
+    speed: number,
+    incline: number
+  }
 }>({ running: false })
 
 export const isRunningAtom = atom(get => {
@@ -19,7 +23,17 @@ export const runningStartedDateAtom = atom(get => {
   return runningState.running ? runningState.runningStartedDate : undefined
 })
 
-export const programAtom = atom<StageResult[]>([])
+export const runningTimeAtom = atom(get => {
+  const runningState = get(runningStateAtom)
+  return runningState.running ? runningState.runningTime : undefined
+})
+
+export const programAtom = atom<(Stage | MultiplyStage)[]>([])
+
+export const stagesAtom = atom<StageResult[]>(get => {
+  const program = get(programAtom)
+  return calculateStages(program)
+})
 
 export const currentStageAtom = atom<StageResult | undefined>(get => {
   const runningState = get(runningStateAtom)
@@ -28,9 +42,9 @@ export const currentStageAtom = atom<StageResult | undefined>(get => {
     return undefined
   }
 
-  const program = get(programAtom)
+  const stages = get(stagesAtom)
 
-  for (const stage of program) {
+  for (const stage of stages) {
     if (
       runningState.runningTime.totalMilliseconds >= stage.from.totalMilliseconds &&
       runningState.runningTime.totalMilliseconds < stage.to.totalMilliseconds
@@ -39,3 +53,10 @@ export const currentStageAtom = atom<StageResult | undefined>(get => {
     }
   }
 })
+
+export const treadmillOptionsAtom = atom(get => {
+  const runningState = get(runningStateAtom)
+  return runningState.running ? runningState.treadmillOptions : undefined
+})
+
+export const heartRateAtom = atom<number>()

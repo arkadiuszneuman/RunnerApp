@@ -68,4 +68,16 @@ describe('calculateStages', () => {
       { duration: Timespan.fromMinutes(10), bmp: 145 },
     ]);
   });
+
+  it('first sprint shouldn\'t be minus', () => {
+    const stages = [
+      { duration: Timespan.fromMinutes(15), bmp: 145, type: 'sprint' },
+    ] satisfies (Stage | MultiplyStage)[];
+
+    const result = calculateStages(stages)
+
+    expect(result.map(({ from, to, type, ...rest }) => rest)).toStrictEqual([
+      { duration: Timespan.fromMinutes(15), bmp: 145 },
+    ]);
+  });
 });
