@@ -6,7 +6,6 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
-import { Timespan } from '../services/Timespan';
 import { currentStageAtom, heartRateAtom, runningStateAtom, stagesAtom } from './atoms';
 import Timer from './run/Timer/Timer';
 import useRunningLoop from './useRunningLoop';

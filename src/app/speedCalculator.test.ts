@@ -1,7 +1,6 @@
 import { expect, describe, it } from 'vitest'
 import { calculateSpeedByHeartRate, calculateSpeedByTempo } from './speedCalculator'
 import { Timespan } from '@/services/Timespan'
-import dayjs from 'dayjs'
 
 describe('Speed Calculator', () => {
   it('speed is not changed when heart rate is similar to target', () => {
