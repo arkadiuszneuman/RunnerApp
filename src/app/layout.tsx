@@ -1,4 +1,5 @@
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
+import Box from '@mui/material/Box';
 import type { Metadata } from 'next';
 import { Barlow } from 'next/font/google';
 import Providers from './Providers';
@@ -25,7 +26,17 @@ export default function RootLayout({
     <html lang="en">
       <body className={roboto.variable}>
         <AppRouterCacheProvider>
-          <Providers>{children}</Providers>
+          <Providers>
+            <Box
+              sx={{
+                background:
+                  'linear-gradient(129deg, rgba(50,206,217,1) 0%, rgba(40,148,173,1) 13%, rgba(35,117,149,1) 21%, rgba(28,75,117,1) 37%, rgba(26,27,77,1) 100%);',
+                height: '100%',
+              }}
+            >
+              {children}
+            </Box>
+          </Providers>
         </AppRouterCacheProvider>
       </body>
     </html>

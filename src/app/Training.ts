@@ -1,5 +1,5 @@
+import { calculateSpeedByTempo } from "@/services/speedCalculator";
 import { Stage } from "@/services/stagesCalculator";
-import { calculateSpeedByTempo } from "./speedCalculator";
 
 export default class Training {
   private treadmillSpeed: number;

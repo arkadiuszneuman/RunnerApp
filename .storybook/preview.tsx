@@ -1,9 +1,10 @@
 import React from 'react';
-import { CssBaseline, ThemeProvider } from '@mui/material';
+import { Box, CssBaseline, ThemeProvider } from '@mui/material';
 import { withThemeFromJSXProvider } from '@storybook/addon-themes';
 import { Preview, ReactRenderer } from '@storybook/react';
 import { Barlow } from 'next/font/google';
 import theme from '../src/app/theme';
+import './style.scss';
 
 const roboto = Barlow({
   weight: ['100', '200', '300', '400', '500', '700'],

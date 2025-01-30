@@ -81,12 +81,10 @@ export default function useRunningLoop() {
   }, [currentStage, heartRate, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState])
 
   useEffect(() => {
-    console.log('in useRunningLoop useEffect');
     if (!BleManager.isConnected() || !treadmillOptions) {
       return;
     }
 
-    console.log('sending speed ' + treadmillOptions?.speed);
     BleManager.sendIncAndSpeed(treadmillOptions?.incline, treadmillOptions?.speed);
   }, [treadmillOptions])
 

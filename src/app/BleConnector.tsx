@@ -2,12 +2,14 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Grid2 from '@mui/material/Grid2';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { currentStageAtom, heartRateAtom, runningStateAtom, stagesAtom } from './atoms';
-import Timer from './run/Timer/Timer';
+import RunInfo from './run/RunInfo/RunInfo';
+import Timer from './run/RunInfo/Timer/Timer';
 import useRunningLoop from './useRunningLoop';
 
 export default function BleConnector() {
@@ -33,25 +35,42 @@ export default function BleConnector() {
   return (
     <>
       <Box sx={{ padding: 2 }}>
-        {runningState.running && (
-          <Timer
-            primaryText={currentStage?.to.subtract(runningState.runningTime).toString('mm:ss')}
-            primaryTextInfo="Time left"
-            secondaryText={
-              currentStage ? `${stages.indexOf(currentStage) + 1}/${stages.length}` : ''
-            }
-            secondaryTextInfo="Stage"
-            progress={
-              currentStage
-                ? (currentStage.duration.subtract(
-                    currentStage.to.subtract(runningState.runningTime)
-                  ).totalMilliseconds *
-                    100) /
-                  currentStage.duration.totalMilliseconds
-                : 0
-            }
-          ></Timer>
-        )}
+        <Grid2 container padding={1} justifyContent="center">
+          <Grid2 size={12} display="flex" justifyContent="center">
+            {runningState.running ? (
+              <Timer
+                primaryText={currentStage?.to.subtract(runningState.runningTime).toString('mm:ss')}
+                primaryTextInfo="Time left"
+                secondaryText={
+                  currentStage ? `${stages.indexOf(currentStage) + 1}/${stages.length}` : ''
+                }
+                secondaryTextInfo="Stage"
+                progress={
+                  currentStage
+                    ? (currentStage.duration.subtract(
+                        currentStage.to.subtract(runningState.runningTime)
+                      ).totalMilliseconds *
+                        100) /
+                      currentStage.duration.totalMilliseconds
+                    : 0
+                }
+              />
+            ) : (
+              <Timer
+                primaryText="00:00"
+                primaryTextInfo="Time left"
+                secondaryText={
+                  currentStage ? `${stages.indexOf(currentStage) + 1}/${stages.length}` : '0/0'
+                }
+                secondaryTextInfo="Stage"
+                progress={0}
+              />
+            )}
+          </Grid2>
+          <Grid2>
+            <RunInfo />
+          </Grid2>
+        </Grid2>
 
         <Stack spacing={1}>
           {runningState.running && (

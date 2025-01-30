@@ -10,27 +10,26 @@ const meta = {
 
   // More on argTypes: https://storybook.js.org/docs/api/argtypes
   argTypes: {
-    // backgroundColor: { control: 'color' },
     progress: {
       control: {
-        type: 'number',
+        type: 'range',
         min: 0,
         max: 100,
         step: 1,
       },
     },
   },
-
-  // Use `fn` to spy on the onClick arg, which will appear in the actions panel once invoked: https://storybook.js.org/docs/essentials/actions#action-args
-  // args: { onClick: fn() },
+  args: {
+    progress: 30,
+    primaryText: '12:43',
+    primaryTextInfo: 'Time left',
+    secondaryText: '2/12',
+    secondaryTextInfo: 'Stage',
+  },
 } satisfies Meta<typeof Timer>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 // More on writing stories with args: https://storybook.js.org/docs/writing-stories/args
-export const Primary: Story = {
-  args: {
-    progress: 30,
-  },
-};
+export const Primary: Story = {};
