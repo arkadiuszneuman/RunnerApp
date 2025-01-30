@@ -167,5 +167,44 @@ describe('Training', () => {
 
     result = training.update(139, stage, 1)
     expect(result).toBe(7)
+
+    result = training.update(145, stage, 1)
+    expect(result).toBe(6.9)
+
+    result = training.update(145, stage2, 1)
+    expect(result).toBe(7.4)
+
+    result = training.update(147, stage2, 1)
+    expect(result).toBe(7.6)
+
+    result = training.update(147, stage2, 1)
+    expect(result).toBe(7.8)
+
+    result = training.update(147, stage2, 1)
+    expect(result).toBe(8)
+
+    result = training.update(150, stage2, 1)
+    expect(result).toBe(8.2)
+
+    result = training.update(150, stage2, 1)
+    expect(result).toBe(8.4)
+
+    result = training.update(150, stage2, 1)
+    expect(result).toBe(8.6)
+
+    result = training.update(150, stage2, 1)
+    expect(result).toBe(8.8)
+
+    result = training.update(150, stage2, 1)
+    expect(result).toBe(9)
+
+    result = training.update(155, stage2, 1)
+    expect(result).toBe(9.1)
+
+    result = training.update(155, stage2, 1)
+    expect(result).toBe(9.3)
+
+    result = training.update(157, stage2, 1)
+    expect(result).toBe(9.4)
   })
 })

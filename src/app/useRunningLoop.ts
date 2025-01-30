@@ -5,7 +5,6 @@ import useRunningStateLoop from './useRunningStateLoop';
 import { useWakeLock } from 'react-screen-wake-lock';
 import BleManager, { TreadmillEvent } from './BleManager';
 import { Timespan } from '@/services/Timespan';
-import { calculateSpeedByHeartRate, calculateSpeedByTempo } from './speedCalculator';
 import useHeartRate from './useHeartRate';
 import Training from './Training';
 
