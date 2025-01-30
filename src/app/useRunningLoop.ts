@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { currentStageAtom, heartRateAtom, runningStateAtom, runningTimeAtom, treadmillOptionsAtom } from './atoms';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
 import useRunningStateLoop from './useRunningStateLoop';
@@ -7,6 +7,7 @@ import BleManager, { TreadmillEvent } from './BleManager';
 import { Timespan } from '@/services/Timespan';
 import { calculateSpeedByHeartRate, calculateSpeedByTempo } from './speedCalculator';
 import useHeartRate from './useHeartRate';
+import Training from './Training';
 
 const lastSpeedChangedDateAtom = atom(0)
 
@@ -18,6 +19,7 @@ export default function useRunningLoop() {
   const [lastSpeedChangedDate, setLastSpeedChangedDateAtom] = useAtom(lastSpeedChangedDateAtom)
   const setRunningState = useSetAtom(runningStateAtom)
   const wakeLock = useWakeLock();
+  const training = useRef(new Training(1));
 
   useRunningStateLoop()
   const heartRateMonitor = useHeartRate()
@@ -25,36 +27,54 @@ export default function useRunningLoop() {
   useEffect(() => {
     if (runningTime && BleManager.isRunning()) {
       if (currentStage) {
-        if (new Date().getTime() - lastSpeedChangedDate > 1000) {
+        if (new Date().getTime() - lastSpeedChangedDate >= 1000) {
           setLastSpeedChangedDateAtom(new Date().getTime());
 
-          setRunningState((prev) => {
-            if (prev.running) {
-              const oldSpeed = prev.treadmillOptions.speed
-              const oldState = prev
-              let newSpeed = oldSpeed;
-              if ('bmp' in currentStage) {
-                if (heartRate !== undefined) {
-                  const targetHeartRate = currentStage.bmp;
-                  newSpeed = calculateSpeedByHeartRate(heartRate, targetHeartRate, oldSpeed);
-                }
-              } else {
-                newSpeed = calculateSpeedByTempo(currentStage.tempo);
-              }
-              if (oldSpeed != newSpeed) {
+          if (heartRate !== undefined) {
+            const newSpeed = training.current.update(heartRate, currentStage, 1000);
+
+            setRunningState((prev) => {
+              if (prev.running) {
                 return {
-                  ...oldState, treadmillOptions: {
-                    ...oldState.treadmillOptions,
+                  ...prev,
+                  treadmillOptions: {
+                    ...prev.treadmillOptions,
                     speed: newSpeed
                   }
                 }
               }
 
-              return prev;
-            }
+              return prev
+            });
+          }
 
-            return prev
-          });
+          // setRunningState((prev) => {
+          //   if (prev.running) {
+          //     const oldSpeed = prev.treadmillOptions.speed
+          //     const oldState = prev
+          //     let newSpeed = oldSpeed;
+          //     if ('bmp' in currentStage) {
+          //       if (heartRate !== undefined) {
+          //         const targetHeartRate = currentStage.bmp;
+          //         newSpeed = calculateSpeedByHeartRate(heartRate, targetHeartRate, oldSpeed);
+          //       }
+          //     } else {
+          //       newSpeed = calculateSpeedByTempo(currentStage.tempo);
+          //     }
+          //     if (oldSpeed != newSpeed) {
+          //       return {
+          //         ...oldState, treadmillOptions: {
+          //           ...oldState.treadmillOptions,
+          //           speed: newSpeed
+          //         }
+          //       }
+          //     }
+
+          //     return prev;
+          //   }
+
+          //   return prev
+          // });
         }
       }
     }
@@ -96,6 +116,8 @@ export default function useRunningLoop() {
 
         await BleManager.start();
         BleManager.sendIncAndSpeed(2, 4);
+
+        training.current = new Training(4);
 
         setRunningState((prev) => ({
           ...prev,
