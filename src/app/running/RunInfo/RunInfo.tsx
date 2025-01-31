@@ -34,24 +34,26 @@ function Tile(props: {
   icon?: ReactNode;
 }) {
   return (
-    <Grid2 container direction="column" size={6} spacing={0.5}>
-      <Grid2 container direction="row" spacing={0.5}>
-        <Grid2>
-          <RunInfoCategory textVariant="secondary">{props.icon}</RunInfoCategory>
+    <>
+      <Grid2 container direction="column" spacing={0.5} size={4}>
+        <Grid2 container direction="row" spacing={0.5}>
+          <Grid2>
+            <RunInfoCategory textVariant="secondary">{props.icon}</RunInfoCategory>
+          </Grid2>
+          <Grid2>
+            <RunInfoCategory textVariant="secondary">{props.categoryName}</RunInfoCategory>
+          </Grid2>
         </Grid2>
-        <Grid2>
-          <RunInfoCategory textVariant="secondary">{props.categoryName}</RunInfoCategory>
+        <Grid2 container spacing={0.5} alignItems="end">
+          <Grid2>
+            <RunInfoData>{props.runInfoData}</RunInfoData>
+          </Grid2>
+          <Grid2>
+            <RunInfoUnit>{props.runInfoUnit}</RunInfoUnit>
+          </Grid2>
         </Grid2>
       </Grid2>
-      <Grid2 container spacing={0.5} alignItems="end">
-        <Grid2>
-          <RunInfoData>{props.runInfoData}</RunInfoData>
-        </Grid2>
-        <Grid2>
-          <RunInfoUnit>{props.runInfoUnit}</RunInfoUnit>
-        </Grid2>
-      </Grid2>
-    </Grid2>
+    </>
   );
 }
 
@@ -95,6 +97,7 @@ export default function RunInfo() {
         )}
       </Grid2>
       <Grid2 container rowSpacing={4}>
+        <Grid2 size={2}></Grid2>
         <Tile
           categoryName="Speed"
           runInfoData={runningState.running ? runningState.treadmillOptions.speed : 0}
@@ -107,6 +110,8 @@ export default function RunInfo() {
           runInfoUnit="%"
           icon={<LandscapeIcon sx={{ fontSize: '0.8rem' }} />}
         />
+        <Grid2 size={2}></Grid2>
+        <Grid2 size={2}></Grid2>
         <Tile
           categoryName="Heart rate"
           runInfoData={heartRate ?? 0}
@@ -129,13 +134,15 @@ export default function RunInfo() {
             icon={<FavoriteIcon sx={{ fontSize: '0.8rem' }} />}
           />
         )}
+        <Grid2 size={2}></Grid2>
+        <Grid2 size={4}></Grid2>
         <Tile
           categoryName="Duration"
           runInfoData={runningState.running ? runningState.runningTime.toString('mm:ss') : '00:00'}
           runInfoUnit="min"
           icon={<AccessTimeIcon sx={{ fontSize: '0.8rem' }} />}
         />
-        <Grid2 size={6}></Grid2>
+        <Grid2 size={4}></Grid2>
       </Grid2>
     </Grid2>
   );

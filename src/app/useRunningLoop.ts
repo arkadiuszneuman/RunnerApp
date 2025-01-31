@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { currentStageAtom, heartRateAtom, runningStateAtom, runningTimeAtom, treadmillOptionsAtom } from './atoms';
+import { currentStageAtom, heartRateAtom, runningStateAtom, runningTimeAtom, stagesAtom, treadmillOptionsAtom } from './atoms';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
 import useRunningStateLoop from './useRunningStateLoop';
 import { useWakeLock } from 'react-screen-wake-lock';
@@ -12,6 +12,7 @@ const lastSpeedChangedDateAtom = atom(0)
 
 export default function useRunningLoop() {
   const runningTime = useAtomValue(runningTimeAtom)
+  const stages = useAtomValue(stagesAtom)
   const currentStage = useAtomValue(currentStageAtom)
   const heartRate = useAtomValue(heartRateAtom)
   const treadmillOptions = useAtomValue(treadmillOptionsAtom)
@@ -25,6 +26,10 @@ export default function useRunningLoop() {
 
   useEffect(() => {
     if (runningTime && BleManager.isRunning()) {
+      if (runningTime.totalMilliseconds >= stages[stages.length - 1].to.totalMilliseconds) {
+        stop();
+      }
+
       if (currentStage) {
         if (new Date().getTime() - lastSpeedChangedDate >= 1000) {
           setLastSpeedChangedDateAtom(new Date().getTime());
@@ -77,7 +82,7 @@ export default function useRunningLoop() {
         }
       }
     }
-  }, [currentStage, heartRate, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState])
+  }, [currentStage, heartRate, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState, stages])
 
   useEffect(() => {
     if (!BleManager.isConnected() || !treadmillOptions) {
@@ -102,6 +107,14 @@ export default function useRunningLoop() {
     const removeEvent = BleManager.subscribe(onEventOccured);
     return () => removeEvent();
   }, [onEventOccured]);
+
+  async function stop() {
+    await BleManager.stop();
+    setRunningState({
+      running: false,
+    });
+    await wakeLock.release();
+  }
 
   return {
     start: async () => {
@@ -134,13 +147,8 @@ export default function useRunningLoop() {
         });
       }
     },
-    stop: async () => {
-      await BleManager.stop();
-      setRunningState({
-        running: false,
-      });
-      await wakeLock.release();
-    },
-    connectHeartRateMonitor: heartRateMonitor.connectHeartRate
+    stop: stop,
+    connectHeartRateMonitor: heartRateMonitor.connectHeartRate,
+    heartRateConnected: heartRateMonitor.heartRateConnected
   }
 }

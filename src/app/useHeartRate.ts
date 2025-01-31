@@ -19,6 +19,7 @@ export default function useHeartRate() {
   return {
     connectHeartRate: async () => {
       await HeartRateManager.requestDevice();
-    }
+    },
+    heartRateConnected: () => HeartRateManager.isConnected(),
   }
 }

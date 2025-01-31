@@ -1,7 +1,9 @@
 'use client';
 
 import Button from '@mui/material/Button';
+import Grid2 from '@mui/material/Grid2';
 import { useAtomValue } from 'jotai';
+import Link from 'next/link';
 import { runningStateAtom } from '../atoms';
 import useRunningLoop from '../useRunningLoop';
 import RunInfo from './RunInfo/RunInfo';
@@ -25,15 +27,35 @@ export default function Run() {
   }
 
   return (
-    <>
-      <RunInfo />
-      <Button variant="contained" onClick={startNew} disabled={runningState.running}>
-        Start
-      </Button>
-      <Button variant="contained" onClick={stop} disabled={!runningState.running}>
-        Stop
-      </Button>
-    </>
+    <Grid2 container spacing={4}>
+      <Grid2 size={12}>
+        <RunInfo />
+      </Grid2>
+      <Grid2 container spacing={1} marginX={2} size={12}>
+        <Grid2 size="auto">
+          <Button variant="contained" onClick={startNew} disabled={runningState.running}>
+            Start
+          </Button>
+        </Grid2>
+        <Grid2 size="auto">
+          <Button variant="contained" onClick={stop} disabled={!runningState.running}>
+            Stop
+          </Button>
+        </Grid2>
+        <Grid2 size="grow"></Grid2>
+        <Grid2 size="auto">
+          <Button
+            variant="contained"
+            color="error"
+            href="/"
+            disabled={runningState.running}
+            LinkComponent={Link}
+          >
+            Back
+          </Button>
+        </Grid2>
+      </Grid2>
+    </Grid2>
   );
 
   // const mockData = [

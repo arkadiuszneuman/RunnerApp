@@ -5,11 +5,10 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
-import { runningStateAtom, stagesAtom } from './atoms';
+import { stagesAtom } from './atoms';
 import useRunningLoop from './useRunningLoop';
 
 export default function BleConnector() {
-  const runningState = useAtomValue(runningStateAtom);
   const stages = useAtomValue(stagesAtom);
 
   const runningLoop = useRunningLoop();
@@ -29,7 +28,16 @@ export default function BleConnector() {
             <Button variant="contained" color="secondary" href="/add-program" LinkComponent={Link}>
               Add program
             </Button>
-            <Button variant="contained" href="/running" disabled={runningState.running}>
+            <Button
+              variant="contained"
+              href="/running"
+              LinkComponent={Link}
+              disabled={
+                stages.length === 0 ||
+                (stages.filter((x) => 'bmp' in x).length >= 1 &&
+                  runningLoop.heartRateConnected() === false)
+              }
+            >
               Start running
             </Button>
           </Stack>
