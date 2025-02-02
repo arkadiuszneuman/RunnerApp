@@ -28,30 +28,30 @@ class HeartRateManager {
     }
   }
 
+  public isConnected() {
+    return device?.gatt?.connected ?? false;
+  }
+
   async connectDevice() {
     if (device.gatt?.connected) return;
 
     const server = await device.gatt?.connect();
-    const service = await server?.getPrimaryService("heart_rate");
+    const service = await server?.getPrimaryService('heart_rate');
 
-    heartRate = await service?.getCharacteristic("heart_rate_measurement");
-    heartRate?.addEventListener("characteristicvaluechanged", (e) =>
-      this.handleRateChange(e)
-    );
-
-    console.log("connected");
+    heartRate = await service?.getCharacteristic('heart_rate_measurement');
+    heartRate?.addEventListener('characteristicvaluechanged', (e) => this.handleRateChange(e));
   }
 
   public async requestDevice() {
     //only works for devices advertising heart rate service
-    const _options = { filters: [{ services: ["heart_rate"] }] };
+    const _options = { filters: [{ services: ['heart_rate'] }] };
 
-    // const options = {
+    // const _options = {
     //   acceptAllDevices: true,
     //   optionalServices: ["heart_rate"],
     // };
     device = await navigator.bluetooth.requestDevice(_options);
-    device.addEventListener("gattserverdisconnected", this.connectDevice);
+    device.addEventListener('gattserverdisconnected', this.connectDevice);
     await this.connectDevice();
     await heartRate?.startNotifications();
   }

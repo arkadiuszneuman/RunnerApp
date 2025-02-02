@@ -7,17 +7,22 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest"
+    "test": "vitest",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@alexgorbatchev/storybook-addon-jotai": "^3.0.6",
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^6.4.1",
     "@mui/lab": "6.0.0-beta.22",
     "@mui/material": "^6.3.1",
     "@mui/material-nextjs": "^6.3.1",
     "@mui/x-date-pickers": "^7.24.0",
     "dayjs": "^1.11.13",
+    "jotai": "^2.11.1",
     "next": "15.1.5",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -25,9 +30,19 @@
     "recharts": "^2.15.0"
   },
   "devDependencies": {
+    "@chromatic-com/storybook": "3.2.4",
     "@eslint/eslintrc": "^3",
+    "@storybook/addon-essentials": "8.6.0-alpha.0",
+    "@storybook/addon-interactions": "8.6.0-alpha.0",
+    "@storybook/addon-onboarding": "8.6.0-alpha.0",
+    "@storybook/addon-themes": "8.6.0-alpha.0",
+    "@storybook/blocks": "8.6.0-alpha.0",
+    "@storybook/nextjs": "8.6.0-alpha.0",
+    "@storybook/react": "8.6.0-alpha.0",
+    "@storybook/test": "8.6.0-alpha.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
+    "@trivago/prettier-plugin-sort-imports": "^5.2.1",
     "@types/lodash": "^4.17.14",
     "@types/node": "^20",
     "@types/react": "19.0.7",
@@ -36,8 +51,11 @@
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^9",
     "eslint-config-next": "15.1.5",
+    "eslint-plugin-storybook": "^0.11.2",
     "jsdom": "^26.0.0",
     "lodash": "^4.17.21",
+    "sass": "^1.83.4",
+    "storybook": "8.6.0-alpha.0",
     "typescript": "^5",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.0"
@@ -47,5 +65,10 @@
       "@types/react": "19.0.7",
       "@types/react-dom": "19.0.3"
     }
+  },
+  "eslintConfig": {
+    "extends": [
+      "plugin:storybook/recommended"
+    ]
   }
 }

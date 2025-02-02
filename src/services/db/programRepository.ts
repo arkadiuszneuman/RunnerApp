@@ -1,7 +1,7 @@
 'use client'
 
-import { Stage, StageType } from "../../../calc/src/stagesCalculator"
-import { Timespan } from "../../../calc/src/Timespan";
+import { Stage, StageType } from "../stagesCalculator"
+import { Timespan } from "../Timespan";
 
 let currentProgram: (({
   duration: number;

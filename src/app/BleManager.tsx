@@ -1,6 +1,6 @@
-const S_SERIAL_PORT = "0000fff0-0000-1000-8000-00805f9b34fb";
-const C_SERIAL_PORT_READ = "0000fff1-0000-1000-8000-00805f9b34fb";
-const C_SERIAL_PORT_WRITE = "0000fff2-0000-1000-8000-00805f9b34fb";
+const S_SERIAL_PORT = '0000fff0-0000-1000-8000-00805f9b34fb';
+const C_SERIAL_PORT_READ = '0000fff1-0000-1000-8000-00805f9b34fb';
+const C_SERIAL_PORT_WRITE = '0000fff2-0000-1000-8000-00805f9b34fb';
 
 const STATUS_COMMAND = [2, 81];
 export const START_COMMAND = [2, 83, 1, 0, 0, 0, 0, 0];
@@ -10,9 +10,9 @@ const SPEED_INFO_COMMAND = [2, 80, 2];
 const INCLINE_INFO_COMMAND = [2, 80, 3];
 const TOTAL_INFO_COMMAND = [2, 80, 4];
 export const SPORT_DATA_COMMAND = [2, 82, 0];
-export const EVENT_RUNNING = "running";
-export const EVENT_STARTING = "starting";
-export const EVENT_STOPPED = "stopped";
+export const EVENT_RUNNING = 'running';
+export const EVENT_STARTING = 'starting';
+export const EVENT_STOPPED = 'stopped';
 
 const MESAGE_ENDING = [3];
 const MAX_RETRIES = 5;
@@ -30,14 +30,14 @@ type RunState = {
 
 export type TreadmillEvent =
   | {
-      type: "btConnected" | "btDisconnected" | "btSpeedInfo";
+      type: 'btConnected' | 'btDisconnected' | 'btSpeedInfo';
     }
   | {
-      type: "btStarting" | "btStopped" | "btRunning";
+      type: 'btStarting' | 'btStopped' | 'btRunning';
       state: RunState;
     }
   | {
-      type: "btSpeedInfo";
+      type: 'btSpeedInfo';
       state: {
         minSpeed: number;
         maxSpeed: number;
@@ -53,7 +53,7 @@ class BleManager {
   private lastMessage: number[] | undefined = undefined;
   private messageQueue: number[][] = [];
   private states: RunState = {
-    status: "",
+    status: '',
     value: undefined,
     currentSpeed: 0,
     currentIncline: 0,
@@ -97,7 +97,7 @@ class BleManager {
             const minSpeed = value.getUint8(4);
             const unitSpeed = value.getUint8(5);
             this.emit({
-              type: "btSpeedInfo",
+              type: 'btSpeedInfo',
               state: {
                 maxSpeed,
                 minSpeed,
@@ -107,45 +107,41 @@ class BleManager {
             /* } else if (this.lastMessage === INCLINE_INFO_COMMAND) {
           } else if (this.lastMessage === TOTAL_INFO_COMMAND) { */
           } else if (this.lastMessage === STATUS_COMMAND) {
-            if (
-              valueLength === 5 &&
-              value.getUint8(2) === 0 &&
-              value.getUint8(3) === 81
-            ) {
+            if (valueLength === 5 && value.getUint8(2) === 0 && value.getUint8(3) === 81) {
               this._isRunning = false;
-              this.states.status = "Stopped";
+              this.states.status = 'Stopped';
               this.states.currentSpeed = 0;
               this.states.currentIncline = 0;
 
               if (prevStatus !== this.states.status) {
-                this.emit({ type: "btStopped", state: this.states });
-                console.log("btStopped emit");
+                this.emit({ type: 'btStopped', state: this.states });
+                console.log('btStopped emit');
               }
             } else if (valueLength > 5 && valueLength < 17) {
-              this.states.status = "Starting";
+              this.states.status = 'Starting';
               this.states.currentSpeed = 0;
               this.states.currentIncline = 0;
               if (prevStatus !== this.states.status) {
-                this.emit({ type: "btStarting", state: this.states });
+                this.emit({ type: 'btStarting', state: this.states });
               }
               //statusDiv.innerHTML = "Starting";
             } else if (valueLength === 17) {
-              this.states.status = "Running";
+              this.states.status = 'Running';
               this._isRunning = true;
 
               this.states.currentSpeed = value.getUint8(3) / 10;
               this.states.currentIncline = value.getUint8(4);
 
-              this.emit({ type: "btRunning", state: this.states });
+              this.emit({ type: 'btRunning', state: this.states });
             }
           }
           this.lastMessage = undefined;
         } else {
-          console.log("invalid response");
+          console.log('invalid response');
           this.retries--;
         }
       } else {
-        console.log("invalid response");
+        console.log('invalid response');
         this.retries--;
       }
       if (this.retries <= 0) {
@@ -184,17 +180,13 @@ class BleManager {
   sendMessage(valueArray: number[]) {
     const command = new Uint8Array(valueArray);
     const ending = new Uint8Array(MESAGE_ENDING);
-    const commandMerged = this.mergeTypedArraysUnsafe(
-      command,
-      this.checksum(command),
-      ending
-    );
+    const commandMerged = this.mergeTypedArraysUnsafe(command, this.checksum(command), ending);
 
     try {
       return c_serialPortWrite?.writeValue(commandMerged);
     } catch {
       this.connected = false;
-      this.emit({ type: "btDisconnected" });
+      this.emit({ type: 'btDisconnected' });
     }
   }
 
@@ -225,6 +217,7 @@ class BleManager {
         new Uint8Array([newIncline])
       );
       this.addMessage(Array.from(customIncSpeed));
+      this.addMessage(Array.from(customIncSpeed));
     }
   }
 
@@ -243,7 +236,7 @@ class BleManager {
   initBTConnection() {
     return navigator.bluetooth
       .requestDevice({
-        filters: [{ namePrefix: "FS-" }, { services: [S_SERIAL_PORT] }],
+        filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
       })
       .then((device) => device?.gatt?.connect())
       .then((server) => {
@@ -256,14 +249,11 @@ class BleManager {
       .then((characteristic) => {
         c_serialPortRead = characteristic;
         return c_serialPortRead?.startNotifications().then(() => {
-          console.log("> Notifications started for c_serialPortRead");
-          c_serialPortRead?.addEventListener(
-            "characteristicvaluechanged",
-            (e) => {
-              this.handleNotifications(e);
-            }
-          );
-          c_serialPortRead?.addEventListener("characteristicvalueread", (e) => {
+          console.log('> Notifications started for c_serialPortRead');
+          c_serialPortRead?.addEventListener('characteristicvaluechanged', (e) => {
+            this.handleNotifications(e);
+          });
+          c_serialPortRead?.addEventListener('characteristicvalueread', (e) => {
             this.handleNotifications(e);
           });
           return s_serialPort?.getCharacteristic(C_SERIAL_PORT_WRITE);
@@ -277,7 +267,7 @@ class BleManager {
         setInterval(() => {
           this.intervalHandler();
         }, 200);
-        this.emit({ type: "btConnected" });
+        this.emit({ type: 'btConnected' });
         this.connected = true;
       })
       .catch((error) => {
