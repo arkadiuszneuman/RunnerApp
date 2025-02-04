@@ -10,9 +10,9 @@ export default class Training {
   private lastCurrentSection?: Stage;
 
   // Default PID constants
-  private kp: number = 0.003;
+  private kp: number = 0.023;
   private ki: number = 0;
-  private kd: number = 0.11;
+  private kd: number = 0.286;
 
   constructor(initialSpeed: number) {
     this.treadmillSpeed = initialSpeed;

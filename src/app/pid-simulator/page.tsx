@@ -23,9 +23,9 @@ interface SimulationData {
 
 const HeartRateVisualization: React.FC = () => {
   const [simulationResults, setSimulationResults] = useState<SimulationData[]>([]);
-  const [kp, setKp] = useState<number>(0.003);
+  const [kp, setKp] = useState<number>(0.023);
   const [ki, setKi] = useState<number>(0);
-  const [kd, setKd] = useState<number>(0.14);
+  const [kd, setKd] = useState<number>(0.286);
 
   const simulate = useCallback((kp: number, ki: number, kd: number) => {
     const results: SimulationData[] = [];
@@ -47,6 +47,12 @@ const HeartRateVisualization: React.FC = () => {
       if (t >= 60 * 12) {
         targetHeartRate = 150;
       }
+      // if (t >= 60 * 22) {
+      //   targetHeartRate = 180;
+      // }
+      // if (t >= 60 * 24) {
+      //   targetHeartRate = 150;
+      // }
       const error = targetHeartRate - currentHeartRate;
 
       // PID calculations
@@ -55,7 +61,7 @@ const HeartRateVisualization: React.FC = () => {
       const adjustment = kp * error + ki * integral + kd * derivative;
 
       // Update speed (clamped to limits)
-      treadmillSpeed = Math.max(1, Math.min(18, treadmillSpeed + adjustment));
+      treadmillSpeed = Math.round(Math.max(1, Math.min(18, treadmillSpeed + adjustment)) * 10) / 10;
 
       // Simulate heart rate response
       const heartRateResponseDelay = 140; // Opóźnienie reakcji w sekundach
@@ -71,7 +77,7 @@ const HeartRateVisualization: React.FC = () => {
       // Save the results
       results.push({
         time: t,
-        heartRate: currentHeartRate,
+        heartRate: Math.round(currentHeartRate),
         speed: treadmillSpeed,
       });
     }
