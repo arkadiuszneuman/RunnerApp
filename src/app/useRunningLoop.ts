@@ -24,6 +24,14 @@ export default function useRunningLoop() {
   useRunningStateLoop()
   const heartRateMonitor = useHeartRate()
 
+  const stop = useCallback(async () => {
+    await BleManager.stop();
+    setRunningState({
+      running: false,
+    });
+    await wakeLock.release();
+  }, [setRunningState, wakeLock])
+
   useEffect(() => {
     if (runningTime && BleManager.isRunning()) {
       if (runningTime.totalMilliseconds >= stages[stages.length - 1].to.totalMilliseconds) {
@@ -108,14 +116,6 @@ export default function useRunningLoop() {
     return () => removeEvent();
   }, [onEventOccured]);
 
-  async function stop() {
-    await BleManager.stop();
-    setRunningState({
-      running: false,
-    });
-    await wakeLock.release();
-  }
-
   return {
     start: async () => {
       try {
@@ -135,7 +135,7 @@ export default function useRunningLoop() {
           runningStartedDate: new Date(new Date().getTime() + 3000),
           runningTime: new Timespan(),
           treadmillOptions: {
-            incline: 0,
+            incline: 2,
             speed: 1
           }
         }));
