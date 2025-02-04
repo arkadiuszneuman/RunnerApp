@@ -23,9 +23,9 @@ interface SimulationData {
 
 const HeartRateVisualization: React.FC = () => {
   const [simulationResults, setSimulationResults] = useState<SimulationData[]>([]);
-  const [kp, setKp] = useState<number>(0.008);
-  const [ki, setKi] = useState<number>(0.0001);
-  const [kd, setKd] = useState<number>(0.01);
+  const [kp, setKp] = useState<number>(0.003);
+  const [ki, setKi] = useState<number>(0);
+  const [kd, setKd] = useState<number>(0.14);
 
   const simulate = useCallback((kp: number, ki: number, kd: number) => {
     const results: SimulationData[] = [];
@@ -58,8 +58,8 @@ const HeartRateVisualization: React.FC = () => {
       treadmillSpeed = Math.max(1, Math.min(18, treadmillSpeed + adjustment));
 
       // Simulate heart rate response
-      const heartRateResponseDelay = 90; // Opóźnienie reakcji w sekundach
-      const fitnessFactor = 11; // Współczynnik reakcji tętna
+      const heartRateResponseDelay = 140; // Opóźnienie reakcji w sekundach
+      const fitnessFactor = 13; // Współczynnik reakcji tętna
       const targetHeartRateChange = treadmillSpeed * fitnessFactor;
       const heartRateAdjustment =
         (targetHeartRateChange - currentHeartRate) * (deltaTime / heartRateResponseDelay);

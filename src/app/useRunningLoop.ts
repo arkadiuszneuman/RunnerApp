@@ -82,7 +82,7 @@ export default function useRunningLoop() {
         }
       }
     }
-  }, [currentStage, heartRate, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState, stages])
+  }, [currentStage, heartRate, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState, stages, stop])
 
   useEffect(() => {
     if (!BleManager.isConnected() || !treadmillOptions) {
