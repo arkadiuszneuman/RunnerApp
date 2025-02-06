@@ -40,7 +40,7 @@ const HeartRateVisualization: React.FC = () => {
     let integral = 0;
     let lastError = 0;
 
-    let accumulatedSpeedEffect = 0;
+    // let accumulatedSpeedEffect = 0;
 
     for (let t = 0; t <= simulationTime; t += deltaTime) {
       if (t >= 60 * 10) {
