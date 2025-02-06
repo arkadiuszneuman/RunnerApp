@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.defaults.animation = false;
 
 interface SimulationData {
   time: number;
@@ -23,9 +24,9 @@ interface SimulationData {
 
 const HeartRateVisualization: React.FC = () => {
   const [simulationResults, setSimulationResults] = useState<SimulationData[]>([]);
-  const [kp, setKp] = useState<number>(0.023);
-  const [ki, setKi] = useState<number>(0);
-  const [kd, setKd] = useState<number>(0.286);
+  const [kp, setKp] = useState<number>(0.003);
+  const [ki, setKi] = useState<number>(0.000001);
+  const [kd, setKd] = useState<number>(0.14);
 
   const simulate = useCallback((kp: number, ki: number, kd: number) => {
     const results: SimulationData[] = [];
@@ -39,6 +40,9 @@ const HeartRateVisualization: React.FC = () => {
 
     let integral = 0;
     let lastError = 0;
+    let previousHeartRate = currentHeartRate;
+
+    const treadmillSpeeds: number[] = [];
 
     // let accumulatedSpeedEffect = 0;
 
@@ -55,7 +59,10 @@ const HeartRateVisualization: React.FC = () => {
       if (t >= 60 * 24) {
         targetHeartRate = 150;
       }
-      const error = targetHeartRate - currentHeartRate;
+
+      const heartRateTrend = (currentHeartRate - previousHeartRate) / deltaTime;
+      const predictedHeartRate = currentHeartRate + heartRateTrend * 10; // Przewidujemy tętno za 10 sekund
+      const error = targetHeartRate - predictedHeartRate;
 
       // PID calculations
       integral += error * deltaTime;
@@ -64,15 +71,18 @@ const HeartRateVisualization: React.FC = () => {
 
       // Update speed (clamped to limits)
       treadmillSpeed = Math.round(Math.max(1, Math.min(18, treadmillSpeed + adjustment)) * 10) / 10;
+      treadmillSpeeds.push(treadmillSpeed);
 
       // Simulate heart rate response
-      const heartRateResponseDelay = 140; // Opóźnienie reakcji w sekundach
+      const heartRateResponseDelay = 300; // Opóźnienie reakcji w sekundach
       const fitnessFactor = 13; // Współczynnik reakcji tętna
-      const targetHeartRateChange = treadmillSpeed * fitnessFactor;
+      const oldTreadmillSpeed = treadmillSpeeds[Math.max(0, treadmillSpeeds.length - 20)];
+      const targetHeartRateChange = oldTreadmillSpeed * fitnessFactor;
       const heartRateAdjustment =
         (targetHeartRateChange - currentHeartRate) * (deltaTime / heartRateResponseDelay);
       currentHeartRate += heartRateAdjustment;
       currentHeartRate = Math.max(40, Math.min(currentHeartRate, 190));
+      previousHeartRate = currentHeartRate;
 
       // Update last error
       lastError = error;
@@ -176,7 +186,7 @@ const HeartRateVisualization: React.FC = () => {
           Kd:{' '}
           <input
             type="number"
-            step="0.001"
+            step="0.01"
             value={kd}
             onChange={(e) => setKd(parseFloat(e.target.value))}
           />
