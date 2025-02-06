@@ -8,6 +8,7 @@ export default class Training {
   private lastError: number = 0;
   private integral: number = 0;
   private lastCurrentSection?: Stage;
+  private previousHeartRate: number = 0;
 
   // Default PID constants
   private kp: number = 0.003;
@@ -40,7 +41,12 @@ export default class Training {
     // }
 
     // Calculate error
-    const error = currentSection.bmp - currentHeartRate;
+    if (this.previousHeartRate === 0) {
+      this.previousHeartRate = currentHeartRate;
+    }
+    const heartRateTrend = (currentHeartRate - this.previousHeartRate) / deltaTime;
+    const predictedHeartRate = currentHeartRate + heartRateTrend * 10; // Prediction after 10 seconds
+    const error = currentSection.bmp - predictedHeartRate;
 
     // Update integral and derivative
     this.integral += error * deltaTime;
