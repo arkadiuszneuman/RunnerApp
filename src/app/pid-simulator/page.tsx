@@ -30,7 +30,7 @@ const HeartRateVisualization: React.FC = () => {
   const simulate = useCallback((kp: number, ki: number, kd: number) => {
     const results: SimulationData[] = [];
 
-    const simulationTime = 60 * 30; // 30 minutes in seconds
+    const simulationTime = 60 * 10; // 30 minutes in seconds
     const deltaTime = 1; // step in seconds
 
     let currentHeartRate = 70; // starting heart rate (bpm)
@@ -40,13 +40,15 @@ const HeartRateVisualization: React.FC = () => {
     let integral = 0;
     let lastError = 0;
 
+    let accumulatedSpeedEffect = 0;
+
     for (let t = 0; t <= simulationTime; t += deltaTime) {
-      if (t >= 60 * 10) {
-        targetHeartRate = 180;
-      }
-      if (t >= 60 * 12) {
-        targetHeartRate = 150;
-      }
+      // if (t >= 60 * 10) {
+      //   targetHeartRate = 180;
+      // }
+      // if (t >= 60 * 12) {
+      //   targetHeartRate = 150;
+      // }
       // if (t >= 60 * 22) {
       //   targetHeartRate = 180;
       // }
@@ -61,15 +63,16 @@ const HeartRateVisualization: React.FC = () => {
       const adjustment = kp * error + ki * integral + kd * derivative;
 
       // Update speed (clamped to limits)
-      treadmillSpeed = Math.round(Math.max(1, Math.min(18, treadmillSpeed + adjustment)) * 10) / 10;
+      treadmillSpeed = Math.max(1, Math.min(18, treadmillSpeed + adjustment));
 
       // Simulate heart rate response
-      const heartRateResponseDelay = 140; // Opóźnienie reakcji w sekundach
-      const fitnessFactor = 13; // Współczynnik reakcji tętna
-      const targetHeartRateChange = treadmillSpeed * fitnessFactor;
-      const heartRateAdjustment =
-        (targetHeartRateChange - currentHeartRate) * (deltaTime / heartRateResponseDelay);
+      const heartRateResponseDelay = 30; // Opóźnienie reakcji w sekundach
+      const fitnessFactor = 0.3; // Współczynnik reakcji tętna
+      accumulatedSpeedEffect +=
+        (treadmillSpeed - 6) * fitnessFactor * (deltaTime / heartRateResponseDelay);
+      const heartRateAdjustment = accumulatedSpeedEffect;
       currentHeartRate += heartRateAdjustment;
+      currentHeartRate = Math.max(40, Math.min(currentHeartRate, 190));
 
       // Update last error
       lastError = error;
