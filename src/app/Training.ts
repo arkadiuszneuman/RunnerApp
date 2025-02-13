@@ -40,9 +40,7 @@ export default class Training {
     //   this.kd = 0.05;
     // }
 
-    if (currentHeartRate >= 8) {
-      currentHeartRate = currentHeartRate - 8;
-    }
+    currentHeartRate = currentHeartRate + 8;
 
     // Calculate error
     if (this.previousHeartRate === 0) {
