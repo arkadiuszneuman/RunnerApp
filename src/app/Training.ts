@@ -8,11 +8,12 @@ export default class Training {
   private lastError: number = 0;
   private integral: number = 0;
   private lastCurrentSection?: Stage;
+  private previousHeartRate: number = 0;
 
   // Default PID constants
-  private kp: number = 0.008;
-  private ki: number = 0.0001;
-  private kd: number = 0.01;
+  private kp: number = 0.003;
+  private ki: number = 0.000001;
+  private kd: number = 0.14;
 
   constructor(initialSpeed: number) {
     this.treadmillSpeed = initialSpeed;
@@ -39,8 +40,15 @@ export default class Training {
     //   this.kd = 0.05;
     // }
 
+    currentHeartRate = currentHeartRate + 8;
+
     // Calculate error
-    const error = currentSection.bmp - currentHeartRate;
+    if (this.previousHeartRate === 0) {
+      this.previousHeartRate = currentHeartRate;
+    }
+    const heartRateTrend = (currentHeartRate - this.previousHeartRate) / deltaTime;
+    const predictedHeartRate = currentHeartRate + heartRateTrend * 10; // Prediction after 10 seconds
+    const error = currentSection.bmp - predictedHeartRate;
 
     // Update integral and derivative
     this.integral += error * deltaTime;
