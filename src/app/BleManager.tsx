@@ -234,7 +234,7 @@ class BleManager {
   }
 
   async initBTConnection() {
-    let deviceId = localStorage.getItem('treadmilId');
+    const deviceId = localStorage.getItem('treadmilId');
     let device: BluetoothDevice | undefined = undefined;
     if (deviceId && navigator.bluetooth.getDevices) {
       // Try to get previously paired device

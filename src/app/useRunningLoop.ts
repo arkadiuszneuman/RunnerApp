@@ -7,7 +7,6 @@ import BleManager, { TreadmillEvent } from './BleManager';
 import { Timespan } from '@/services/Timespan';
 import useHeartRate from './useHeartRate';
 import Training from './Training';
-import { set } from 'lodash';
 
 const lastSpeedChangedDateAtom = atom(0)
 
@@ -111,7 +110,7 @@ export default function useRunningLoop() {
         }
       }
     }
-  }, [currentStage, heartRate, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState, stages, stop, treadmillOptions])
+  }, [currentStage, heartRate, currentStageIndex, lastStageIndex, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState, stages, stop, treadmillOptions])
 
   useEffect(() => {
     if (!BleManager.isConnected() || !treadmillOptions) {

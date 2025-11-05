@@ -23,6 +23,7 @@ const meta = {
           treadmillOptions: {
             incline: 2,
             speed: 14.3,
+            isCustomSpeedUsed: false,
           },
         },
         program: [
@@ -45,9 +46,9 @@ const meta = {
       },
     }),
   },
-} satisfies Meta<typeof RunInfo>;
+} satisfies Meta;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj;
 
 export const Primary: Story = {};
