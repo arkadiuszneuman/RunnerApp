@@ -27,14 +27,13 @@ function RunInfoUnit(props: RunnerTypographyProps) {
   );
 }
 
-function Tile(props: {
+function Tile(props: Readonly<{
   categoryName: string;
   runInfoData: string | number;
   runInfoUnit: string;
   icon?: ReactNode;
-}) {
+}>) {
   return (
-    <>
       <Grid2 container direction="column" spacing={0.5} size={4}>
         <Grid2 container direction="row" spacing={0.5}>
           <Grid2>
@@ -53,7 +52,6 @@ function Tile(props: {
           </Grid2>
         </Grid2>
       </Grid2>
-    </>
   );
 }
 

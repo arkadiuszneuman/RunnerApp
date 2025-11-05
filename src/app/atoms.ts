@@ -10,7 +10,8 @@ export const runningStateAtom = atom<{
   runningTime: Timespan
   treadmillOptions: {
     speed: number,
-    incline: number
+    incline: number,
+    isCustomSpeedUsed: boolean
   }
 }>({ running: false })
 
@@ -35,7 +36,7 @@ export const stagesAtom = atom<StageResult[]>(get => {
   return calculateStages(program)
 })
 
-export const currentStageAtom = atom<StageResult | undefined>(get => {
+const currentStageInternalAtom = atom<(StageResult & { stageIndex: number }) | undefined>(get => {
   const runningState = get(runningStateAtom)
 
   if (!runningState.running) {
@@ -44,14 +45,24 @@ export const currentStageAtom = atom<StageResult | undefined>(get => {
 
   const stages = get(stagesAtom)
 
+  let i = 0;
   for (const stage of stages) {
+    ++i;
     if (
       runningState.runningTime.totalMilliseconds >= stage.from.totalMilliseconds &&
       runningState.runningTime.totalMilliseconds < stage.to.totalMilliseconds
     ) {
-      return stage;
+      return { ...stage, stageIndex: i };
     }
   }
+})
+
+export const currentStageAtom = atom<(StageResult) | undefined>(get => {
+  return get(currentStageInternalAtom)
+})
+
+export const currentStageIndexAtom = atom<number | undefined>(get => {
+  return get(currentStageInternalAtom)?.stageIndex
 })
 
 export const treadmillOptionsAtom = atom(get => {

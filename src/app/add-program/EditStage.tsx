@@ -30,7 +30,6 @@ function StageEdit(props: { stage: Stage; onStageChanged?: (stage: Stage) => voi
   }, [props, stage]);
 
   return (
-    <>
       <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}>
         <FormControl fullWidth>
           <InputLabel>Type</InputLabel>
@@ -126,7 +125,6 @@ function StageEdit(props: { stage: Stage; onStageChanged?: (stage: Stage) => voi
           </Box>
         )}
       </Box>
-    </>
   );
 }
 
@@ -134,12 +132,11 @@ function MultiplyStageEdit() {
   const [stage, setStage] = useAtom(editingSectionAtom);
 
   return (
-    <>
       <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}>
         {stage && (
           <>
             <FormControl fullWidth>
-              <InputLabel>Type</InputLabel>
+              <InputLabel>Times</InputLabel>
               <Input
                 type="number"
                 value={stage.times}
@@ -184,7 +181,6 @@ function MultiplyStageEdit() {
           </>
         )}
       </Box>
-    </>
   );
 }
 
