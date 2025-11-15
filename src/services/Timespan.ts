@@ -1,22 +1,62 @@
 export class Timespan {
-  private _totalMilliseconds: number;
+  private readonly _totalMilliseconds: number;
 
   constructor(milliseconds: number = 0) {
     this._totalMilliseconds = milliseconds;
   }
 
+  /**
+   * Serializes the Timespan instance to JSON.
+   * Returns an object with a single property 'totalMilliseconds'.
+   */
+  toJSON(): { totalMilliseconds: number } {
+    return { totalMilliseconds: this._totalMilliseconds };
+  }
+
+  /**
+   * Deserializes a Timespan instance from JSON.
+   * Accepts an object with a 'totalMilliseconds' property.
+   */
+  static fromJSON(json: { totalMilliseconds: number }): Timespan {
+    if (!json || typeof json.totalMilliseconds !== 'number') {
+      throw new Error('Invalid JSON for Timespan');
+    }
+    return new Timespan(json.totalMilliseconds);
+  }
+
+  /**
+   * Reviver function for JSON.parse to automatically deserialize Timespan objects.
+   * Usage: JSON.parse(json, Timespan.reviver)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static reviver(key: string, value: any): any {
+    if (
+      value &&
+      typeof value === 'object' &&
+      typeof value.totalMilliseconds === 'number' &&
+      Object.keys(value).length === 1
+    ) {
+      return Timespan.fromJSON(value);
+    }
+    return value;
+  }
+
   static parse(text: string): Timespan {
-    const splitted = text.split(':')
+    const splitted = text.split(':');
 
     if (splitted.length === 3) {
-      return Timespan.fromHours(Number(splitted[0])).add(Timespan.fromMinutes(Number(splitted[1]))).add(Timespan.fromSeconds(Number(splitted[2])));
+      return Timespan.fromHours(Number(splitted[0]))
+        .add(Timespan.fromMinutes(Number(splitted[1])))
+        .add(Timespan.fromSeconds(Number(splitted[2])));
     }
 
     if (splitted.length === 2) {
-      return Timespan.fromMinutes(Number(splitted[0])).add(Timespan.fromSeconds(Number(splitted[1])));
+      return Timespan.fromMinutes(Number(splitted[0])).add(
+        Timespan.fromSeconds(Number(splitted[1]))
+      );
     }
 
-    throw Error('Text to parse should be in 00:00:00 or 00:00 format');
+    throw new Error('Text to parse should be in 00:00:00 or 00:00 format');
   }
 
   static fromSeconds(seconds: number): Timespan {
@@ -73,23 +113,27 @@ export class Timespan {
 
   toString(format: 'hh:mm:ss' | 'mm:ss' = 'hh:mm:ss'): string {
     if (format === 'mm:ss') {
-      return `${Math.floor(this.totalMinutes).toString().padStart(2, '0')}:${this.seconds.toString().padStart(2, '0')}`;
+      return `${Math.floor(this.totalMinutes).toString().padStart(2, '0')}:${this.seconds
+        .toString()
+        .padStart(2, '0')}`;
     }
-    return `${this.hours.toString().padStart(2, '0')}:${this.minutes.toString().padStart(2, '0')}:${this.seconds.toString().padStart(2, '0')}`;
+    return `${this.hours.toString().padStart(2, '0')}:${this.minutes
+      .toString()
+      .padStart(2, '0')}:${this.seconds.toString().padStart(2, '0')}`;
   }
 
   get [Symbol.toStringTag]() {
-    return this.toString()
+    return this.toString();
   }
 
-  [Symbol.for("nodejs.util.inspect.custom")](): string {
-    return this.toString()
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return this.toString();
   }
 
   equals(other: Timespan): boolean {
     if (!(other instanceof Timespan)) {
       return false;
     }
-    return this._totalMilliseconds !== other._totalMilliseconds;
+    return this._totalMilliseconds === other._totalMilliseconds;
   }
 }

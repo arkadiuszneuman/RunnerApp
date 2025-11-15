@@ -1,5 +1,5 @@
-import { calculateSpeedByTempo } from "@/services/speedCalculator";
-import { Stage } from "@/services/stagesCalculator";
+import { calculateSpeedByTempo } from '@/services/speedCalculator';
+import { Stage } from '@/services/stagesCalculator';
 
 export default class Training {
   private treadmillSpeed: number;
@@ -11,9 +11,9 @@ export default class Training {
   private previousHeartRate: number = 0;
 
   // Default PID constants
-  private kp: number = 0.003;
-  private ki: number = 0.000001;
-  private kd: number = 0.14;
+  private readonly kp: number = 0.003;
+  private readonly ki: number = 0.000001;
+  private readonly kd: number = 0.14;
 
   constructor(initialSpeed: number) {
     this.treadmillSpeed = initialSpeed;
@@ -21,7 +21,7 @@ export default class Training {
 
   // Update the training logic
   public update(currentHeartRate: number, currentSection: Stage, deltaTime: number): number {
-    if ('tempo' in currentSection) {
+    if (currentSection.speedType === 'tempo') {
       return calculateSpeedByTempo(currentSection.tempo);
     }
 
@@ -60,7 +60,8 @@ export default class Training {
 
     // Update treadmill speed
     this.treadmillSpeed += adjustment;
-    this.treadmillSpeed = Math.round(Math.max(this.minSpeed, Math.min(this.treadmillSpeed, this.maxSpeed)) * 10) / 10;
+    this.treadmillSpeed =
+      Math.round(Math.max(this.minSpeed, Math.min(this.treadmillSpeed, this.maxSpeed)) * 10) / 10;
 
     // Save last error
     this.lastError = error;

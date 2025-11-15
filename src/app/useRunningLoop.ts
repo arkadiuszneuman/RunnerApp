@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { currentStageAtom, heartRateAtom, runningStateAtom, runningTimeAtom, stagesAtom, treadmillOptionsAtom } from './atoms';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { currentStageAtom, currentStageIndexAtom, heartRateAtom, runningStateAtom, runningTimeAtom, stagesAtom, treadmillOptionsAtom } from './atoms';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
 import useRunningStateLoop from './useRunningStateLoop';
 import { useWakeLock } from 'react-screen-wake-lock';
@@ -14,6 +14,8 @@ export default function useRunningLoop() {
   const runningTime = useAtomValue(runningTimeAtom)
   const stages = useAtomValue(stagesAtom)
   const currentStage = useAtomValue(currentStageAtom)
+  const currentStageIndex = useAtomValue(currentStageIndexAtom)
+  const [lastStageIndex, setLastStageIndex] = useState<number | undefined>()
   const heartRate = useAtomValue(heartRateAtom)
   const treadmillOptions = useAtomValue(treadmillOptionsAtom)
   const [lastSpeedChangedDate, setLastSpeedChangedDateAtom] = useAtom(lastSpeedChangedDateAtom)
@@ -39,6 +41,24 @@ export default function useRunningLoop() {
       }
 
       if (currentStage) {
+        if (lastStageIndex === undefined || currentStageIndex !== lastStageIndex) {
+          if (treadmillOptions?.isCustomSpeedUsed) {
+            setRunningState((prev) => {
+              if (prev.running) {
+                return {
+                  ...prev,
+                  treadmillOptions: {
+                    ...prev.treadmillOptions,
+                    isCustomSpeedUsed: false
+                  }
+                }
+              }
+
+              return prev
+            });
+          }
+          setLastStageIndex(currentStageIndex);
+        }
         if (new Date().getTime() - lastSpeedChangedDate >= 1000) {
           setLastSpeedChangedDateAtom(new Date().getTime());
 
@@ -90,7 +110,7 @@ export default function useRunningLoop() {
         }
       }
     }
-  }, [currentStage, heartRate, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState, stages, stop])
+  }, [currentStage, heartRate, currentStageIndex, lastStageIndex, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState, stages, stop, treadmillOptions])
 
   useEffect(() => {
     if (!BleManager.isConnected() || !treadmillOptions) {
@@ -107,8 +127,25 @@ export default function useRunningLoop() {
           running: false,
         });
       }
+
+      if (event.type === 'btRunning' && event.state.currentSpeed !== treadmillOptions?.speed) {
+        setRunningState((prev) => {
+          if (prev.running) {
+            return {
+              ...prev,
+              treadmillOptions: {
+                ...prev.treadmillOptions,
+                speed: event.state.currentSpeed,
+                isCustomSpeedUsed: true
+              }
+            }
+          }
+
+          return prev
+        })
+      }
     },
-    [setRunningState]
+    [treadmillOptions, setRunningState]
   );
 
   useEffect(() => {
@@ -136,7 +173,8 @@ export default function useRunningLoop() {
           runningTime: new Timespan(),
           treadmillOptions: {
             incline: 2,
-            speed: 1
+            speed: 1,
+            isCustomSpeedUsed: false
           }
         }));
 

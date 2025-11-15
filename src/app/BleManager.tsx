@@ -233,12 +233,29 @@ class BleManager {
     this.messageQueue.push(msg);
   }
 
-  initBTConnection() {
-    return navigator.bluetooth
-      .requestDevice({
+  async initBTConnection() {
+    const deviceId = localStorage.getItem('treadmilId');
+    let device: BluetoothDevice | undefined = undefined;
+    if (deviceId && navigator.bluetooth.getDevices) {
+      // Try to get previously paired device
+      const devices = await navigator.bluetooth.getDevices();
+      device = devices.find((d) => d.id === deviceId);
+      if (!device) {
+        // Device not found, fallback to modal
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
+        });
+        localStorage.setItem('treadmilId', device.id);
+      }
+    } else {
+      // First time or browser does not support getDevices
+      device = await navigator.bluetooth.requestDevice({
         filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
-      })
-      .then((device) => device?.gatt?.connect())
+      });
+      localStorage.setItem('treadmilId', device.id);
+    }
+
+    return device?.gatt?.connect()
       .then((server) => {
         return server?.getPrimaryService(S_SERIAL_PORT);
       })
@@ -270,8 +287,12 @@ class BleManager {
         this.emit({ type: 'btConnected' });
         this.connected = true;
       })
-      .catch((error) => {
+      .catch(async (error) => {
         console.log(error);
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
+        });
+        localStorage.setItem('treadmilId', device.id);
       });
   }
 

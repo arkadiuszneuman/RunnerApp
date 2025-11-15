@@ -2,7 +2,7 @@ export type HeartRateData = {
   heartRate: number;
 };
 
-let device: BluetoothDevice;
+let device: BluetoothDevice | undefined;
 let heartRate: BluetoothRemoteGATTCharacteristic | undefined;
 
 class HeartRateManager {
@@ -33,9 +33,9 @@ class HeartRateManager {
   }
 
   async connectDevice() {
-    if (device.gatt?.connected) return;
+    if (device?.gatt?.connected) return;
 
-    const server = await device.gatt?.connect();
+    const server = await device?.gatt?.connect();
     const service = await server?.getPrimaryService('heart_rate');
 
     heartRate = await service?.getCharacteristic('heart_rate_measurement');
@@ -43,14 +43,25 @@ class HeartRateManager {
   }
 
   public async requestDevice() {
-    //only works for devices advertising heart rate service
-    const _options = { filters: [{ services: ['heart_rate'] }] };
+    device = undefined;
 
-    // const _options = {
-    //   acceptAllDevices: true,
-    //   optionalServices: ["heart_rate"],
-    // };
-    device = await navigator.bluetooth.requestDevice(_options);
+    // Try to auto-connect to previously selected device
+    const savedDeviceId = localStorage.getItem('heartRateDeviceId');
+    if (savedDeviceId && navigator.bluetooth.getDevices) {
+      const devices = await navigator.bluetooth.getDevices();
+      const found = devices.find((d) => d.id === savedDeviceId);
+      if (found) {
+        device = found;
+      }
+    }
+
+    // Fallback: show modal to select device
+    if (!device) {
+      const _options = { filters: [{ services: ['heart_rate'] }] };
+      device = await navigator.bluetooth.requestDevice(_options);
+      localStorage.setItem('heartRateDeviceId', device.id);
+    }
+    
     device.addEventListener('gattserverdisconnected', this.connectDevice);
     await this.connectDevice();
     await heartRate?.startNotifications();
