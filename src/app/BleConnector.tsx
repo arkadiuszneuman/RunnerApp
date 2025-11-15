@@ -25,7 +25,7 @@ export default function BleConnector() {
             Connect
           </Button>
           <Button variant="contained" color="secondary" href="/add-program" LinkComponent={Link}>
-            Add program
+            Program
           </Button>
           <Button
             variant="contained"
@@ -33,25 +33,12 @@ export default function BleConnector() {
             LinkComponent={Link}
             disabled={
               stages.length === 0 ||
-              (stages.filter((x) => 'bmp' in x).length >= 1 &&
+              (stages.filter((x) => x.speedType === 'bmp').length >= 1 &&
                 runningLoop.heartRateConnected() === false)
             }
           >
             Start running
           </Button>
-        </Stack>
-        <Stack spacing={1} direction="column">
-          {stages.map((stage, index) => (
-            <Box key={index}>
-              <Box>Type: {stage.type}</Box>
-              <Box>Duration: {stage.duration.toString()}</Box>
-              <Box>From: {stage.from.toString()}</Box>
-              <Box>To: {stage.to.toString()}</Box>
-              {'bmp' in stage && <Box>BMP: {stage.bmp}</Box>}
-              {'tempo' in stage && <Box>Tempo: {stage.tempo.toString()}</Box>}
-              <Box>--------------------</Box>
-            </Box>
-          ))}
         </Stack>
       </Stack>
     </Box>

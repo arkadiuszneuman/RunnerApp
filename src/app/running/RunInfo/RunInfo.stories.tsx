@@ -28,19 +28,37 @@ const meta = {
         },
         program: [
           {
-            bmp: 145,
-            duration: Timespan.parse('15:00'),
-            type: 'simple',
+            times: 1,
+            stages: [
+              {
+                speedType: 'bmp',
+                bmp: 145,
+                duration: Timespan.parse('15:00'),
+                type: 'simple',
+              },
+            ],
           },
           {
-            bmp: 170,
-            duration: Timespan.parse('20:00'),
-            type: 'sprint',
+            times: 1,
+            stages: [
+              {
+                speedType: 'bmp',
+                bmp: 170,
+                duration: Timespan.parse('20:00'),
+                type: 'sprint',
+              },
+            ],
           },
           {
-            tempo: Timespan.parse('4:30'),
-            duration: Timespan.parse('5:00'),
-            type: 'sprint',
+            times: 1,
+            stages: [
+              {
+                speedType: 'tempo',
+                tempo: Timespan.parse('4:30'),
+                duration: Timespan.parse('5:00'),
+                type: 'sprint',
+              },
+            ],
           },
         ],
       },

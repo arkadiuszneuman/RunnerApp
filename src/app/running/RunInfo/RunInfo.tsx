@@ -27,31 +27,33 @@ function RunInfoUnit(props: RunnerTypographyProps) {
   );
 }
 
-function Tile(props: Readonly<{
-  categoryName: string;
-  runInfoData: string | number;
-  runInfoUnit: string;
-  icon?: ReactNode;
-}>) {
+function Tile(
+  props: Readonly<{
+    categoryName: string;
+    runInfoData: string | number;
+    runInfoUnit: string;
+    icon?: ReactNode;
+  }>
+) {
   return (
-      <Grid2 container direction="column" spacing={0.5} size={4}>
-        <Grid2 container direction="row" spacing={0.5}>
-          <Grid2>
-            <RunInfoCategory textVariant="secondary">{props.icon}</RunInfoCategory>
-          </Grid2>
-          <Grid2>
-            <RunInfoCategory textVariant="secondary">{props.categoryName}</RunInfoCategory>
-          </Grid2>
+    <Grid2 container direction="column" spacing={0.5} size={4}>
+      <Grid2 container direction="row" spacing={0.5}>
+        <Grid2>
+          <RunInfoCategory textVariant="secondary">{props.icon}</RunInfoCategory>
         </Grid2>
-        <Grid2 container spacing={0.5} alignItems="end">
-          <Grid2>
-            <RunInfoData>{props.runInfoData}</RunInfoData>
-          </Grid2>
-          <Grid2>
-            <RunInfoUnit>{props.runInfoUnit}</RunInfoUnit>
-          </Grid2>
+        <Grid2>
+          <RunInfoCategory textVariant="secondary">{props.categoryName}</RunInfoCategory>
         </Grid2>
       </Grid2>
+      <Grid2 container spacing={0.5} alignItems="end">
+        <Grid2>
+          <RunInfoData>{props.runInfoData}</RunInfoData>
+        </Grid2>
+        <Grid2>
+          <RunInfoUnit>{props.runInfoUnit}</RunInfoUnit>
+        </Grid2>
+      </Grid2>
+    </Grid2>
   );
 }
 
@@ -116,7 +118,7 @@ export default function RunInfo() {
           runInfoUnit="bmp"
           icon={<MonitorHeartIcon sx={{ fontSize: '0.8rem' }} />}
         />
-        {currentStage && 'bmp' in currentStage && (
+        {currentStage?.speedType === 'bmp' && (
           <Tile
             categoryName="Target HR"
             runInfoData={currentStage.bmp}
@@ -124,7 +126,7 @@ export default function RunInfo() {
             icon={<FavoriteIcon sx={{ fontSize: '0.8rem' }} />}
           />
         )}
-        {currentStage && 'tempo' in currentStage && (
+        {currentStage?.speedType === 'tempo' && (
           <Tile
             categoryName="Target tempo"
             runInfoData={currentStage.tempo.toString('mm:ss')}
