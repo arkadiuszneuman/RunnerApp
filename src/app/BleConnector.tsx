@@ -7,9 +7,6 @@ import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { stagesAtom } from './atoms';
 import useRunningLoop from './useRunningLoop';
-
-// Chart imports
-import { LineChart, Line, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import StageChart from './StageChart';
 
 export default function BleConnector() {
