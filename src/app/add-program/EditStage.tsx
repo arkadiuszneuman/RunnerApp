@@ -226,7 +226,7 @@ export default function EditStage() {
         <Box
           component="form"
           onSubmit={handleSubmit}
-          sx={{ gap: 2, display: 'flex', flexDirection: 'column', margin: 2 }}
+          sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}
         >
           <MultiplyStageEdit />
 
@@ -243,12 +243,16 @@ export default function EditStage() {
               {editingStage.id ? 'Update' : 'Add to program'}
             </Button>
             <Box sx={{ flexGrow: 1 }}></Box>
-            <Button variant="contained" color="warning" onClick={() => {
-              if (editingStage.id) {
-                setProgram((prev) => prev.filter((stage) => stage.id !== editingStage.id));
-              }
-              setEditingStage(undefined);
-            }}>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={() => {
+                if (editingStage.id) {
+                  setProgram((prev) => prev.filter((stage) => stage.id !== editingStage.id));
+                }
+                setEditingStage(undefined);
+              }}
+            >
               Delete
             </Button>
           </Stack>

@@ -14,13 +14,13 @@ export default function AddProgram() {
   const [editingStage, setEditingStage] = useAtom(editingSectionAtom);
 
   return (
-    <Box>
+    <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column', margin: 2 }}>
       {editingStage && <EditStage />}
       {!editingStage && (
         <>
           <Program />
           <Stack direction="row" spacing={1}>
-            <Button variant="outlined" href="/" LinkComponent={Link}>
+            <Button variant="contained" color="secondary" href="/" LinkComponent={Link}>
               Back
             </Button>
             <Button

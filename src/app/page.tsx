@@ -1,9 +1,5 @@
-import BleConnector from "./BleConnector";
+import BleConnector from './BleConnector';
 
 export default function Home() {
-  return (
-    <>
-      <BleConnector />
-    </>
-  );
+  return <BleConnector />;
 }
