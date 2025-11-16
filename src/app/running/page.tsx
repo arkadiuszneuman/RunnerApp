@@ -8,12 +8,6 @@ import { runningStateAtom } from '../atoms';
 import useRunningLoop from '../useRunningLoop';
 import RunInfo from './RunInfo/RunInfo';
 
-// const StyledPaper = styled(Paper)(({ theme }) => ({
-//   padding: theme.spacing(2),
-//   textAlign: "center",
-//   color: theme.palette.text.primary,
-// }));
-
 export default function Run() {
   const runningLoop = useRunningLoop();
   const runningState = useAtomValue(runningStateAtom);

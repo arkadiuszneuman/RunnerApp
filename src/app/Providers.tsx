@@ -9,7 +9,7 @@ import objectSupport from 'dayjs/plugin/objectSupport';
 import { Provider } from 'jotai';
 import theme from './theme';
 
-export default function Providers(props: { children?: ReactNode }) {
+export default function Providers(props: Readonly<{ children?: ReactNode }>) {
   useEffect(() => {
     dayjs.extend(objectSupport);
   }, []);

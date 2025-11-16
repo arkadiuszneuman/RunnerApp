@@ -56,7 +56,7 @@ export default function Program() {
   const program = useAtomValue(programAtom);
 
   return (
-    <Box sx={{ margin: 2, display: 'flex', flexDirection: 'column', gap: 1, width: 'fit-content' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: 'fit-content' }}>
       {program.map((section, programIndices) => (
         <Box
           key={programIndices}
