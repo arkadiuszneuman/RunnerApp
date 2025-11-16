@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { currentStageAtom, currentStageIndexAtom, heartRateAtom, runningStateAtom, runningTimeAtom, stagesAtom, treadmillOptionsAtom } from './atoms';
+import {
+  currentStageAtom,
+  currentStageIndexAtom,
+  heartRateAtom,
+  runningStateAtom,
+  runningTimeAtom,
+  stagesAtom,
+  treadmillOptionsAtom,
+} from './atoms';
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
 import useRunningStateLoop from './useRunningStateLoop';
 import { useWakeLock } from 'react-screen-wake-lock';
@@ -8,31 +16,54 @@ import { Timespan } from '@/services/Timespan';
 import useHeartRate from './useHeartRate';
 import Training from './Training';
 
-const lastSpeedChangedDateAtom = atom(0)
+const lastSpeedChangedDateAtom = atom(0);
 
 export default function useRunningLoop() {
-  const runningTime = useAtomValue(runningTimeAtom)
-  const stages = useAtomValue(stagesAtom)
-  const currentStage = useAtomValue(currentStageAtom)
-  const currentStageIndex = useAtomValue(currentStageIndexAtom)
-  const [lastStageIndex, setLastStageIndex] = useState<number | undefined>()
-  const heartRate = useAtomValue(heartRateAtom)
-  const treadmillOptions = useAtomValue(treadmillOptionsAtom)
-  const [lastSpeedChangedDate, setLastSpeedChangedDateAtom] = useAtom(lastSpeedChangedDateAtom)
-  const setRunningState = useSetAtom(runningStateAtom)
-  const wakeLock = useWakeLock();
+  const runningTime = useAtomValue(runningTimeAtom);
+  const stages = useAtomValue(stagesAtom);
+  const currentStage = useAtomValue(currentStageAtom);
+  const currentStageIndex = useAtomValue(currentStageIndexAtom);
+  const [lastStageIndex, setLastStageIndex] = useState<number | undefined>();
+  const heartRate = useAtomValue(heartRateAtom);
+  const treadmillOptions = useAtomValue(treadmillOptionsAtom);
+  const [lastSpeedChangedDate, setLastSpeedChangedDateAtom] = useAtom(lastSpeedChangedDateAtom);
+  const setRunningState = useSetAtom(runningStateAtom);
+  const [wakeLockStatus, setWakeLockStatus] = useState<
+    'connecting' | 'requested' | 'released' | 'error'
+  >('connecting');
+
+  const {
+    isSupported: isWakeLockSupported,
+    request: requestWakeLock,
+    release: releaseWakeLock,
+  } = useWakeLock({
+    reacquireOnPageVisible: true,
+    onRequest: () => setWakeLockStatus('requested'),
+    onRelease: () => setWakeLockStatus('released'),
+    onError: (error) => {
+      console.log('Wake lock error', error);
+      setWakeLockStatus('error');
+    },
+  });
+
   const training = useRef(new Training(1));
 
-  useRunningStateLoop()
-  const heartRateMonitor = useHeartRate()
+  useRunningStateLoop();
+  const heartRateMonitor = useHeartRate();
+
+  useEffect(() => {
+    if (wakeLockStatus !== 'requested') {
+      requestWakeLock();
+    }
+  }, [requestWakeLock, wakeLockStatus]);
 
   const stop = useCallback(async () => {
     await BleManager.stop();
     setRunningState({
       running: false,
     });
-    await wakeLock.release();
-  }, [setRunningState, wakeLock])
+    await releaseWakeLock();
+  }, [setRunningState, releaseWakeLock]);
 
   useEffect(() => {
     if (runningTime && BleManager.isRunning()) {
@@ -49,18 +80,18 @@ export default function useRunningLoop() {
                   ...prev,
                   treadmillOptions: {
                     ...prev.treadmillOptions,
-                    isCustomSpeedUsed: false
-                  }
-                }
+                    isCustomSpeedUsed: false,
+                  },
+                };
               }
 
-              return prev
+              return prev;
             });
           }
           setLastStageIndex(currentStageIndex);
         }
-        if (new Date().getTime() - lastSpeedChangedDate >= 1000) {
-          setLastSpeedChangedDateAtom(new Date().getTime());
+        if (Date.now() - lastSpeedChangedDate >= 1000) {
+          setLastSpeedChangedDateAtom(Date.now());
 
           if (heartRate !== undefined) {
             const newSpeed = training.current.update(heartRate, currentStage, 1000);
@@ -71,12 +102,12 @@ export default function useRunningLoop() {
                   ...prev,
                   treadmillOptions: {
                     ...prev.treadmillOptions,
-                    speed: newSpeed
-                  }
-                }
+                    speed: newSpeed,
+                  },
+                };
               }
 
-              return prev
+              return prev;
             });
           }
 
@@ -110,7 +141,19 @@ export default function useRunningLoop() {
         }
       }
     }
-  }, [currentStage, heartRate, currentStageIndex, lastStageIndex, lastSpeedChangedDate, runningTime, setLastSpeedChangedDateAtom, setRunningState, stages, stop, treadmillOptions])
+  }, [
+    currentStage,
+    heartRate,
+    currentStageIndex,
+    lastStageIndex,
+    lastSpeedChangedDate,
+    runningTime,
+    setLastSpeedChangedDateAtom,
+    setRunningState,
+    stages,
+    stop,
+    treadmillOptions,
+  ]);
 
   useEffect(() => {
     if (!BleManager.isConnected() || !treadmillOptions) {
@@ -118,7 +161,7 @@ export default function useRunningLoop() {
     }
 
     BleManager.sendIncAndSpeed(treadmillOptions?.incline, treadmillOptions?.speed);
-  }, [treadmillOptions])
+  }, [treadmillOptions]);
 
   const onEventOccured = useCallback(
     (event: TreadmillEvent) => {
@@ -136,13 +179,13 @@ export default function useRunningLoop() {
               treadmillOptions: {
                 ...prev.treadmillOptions,
                 speed: event.state.currentSpeed,
-                isCustomSpeedUsed: true
-              }
-            }
+                isCustomSpeedUsed: true,
+              },
+            };
           }
 
-          return prev
-        })
+          return prev;
+        });
       }
     },
     [treadmillOptions, setRunningState]
@@ -169,16 +212,14 @@ export default function useRunningLoop() {
         setRunningState((prev) => ({
           ...prev,
           running: true,
-          runningStartedDate: new Date(new Date().getTime() + 3000),
+          runningStartedDate: new Date(Date.now() + 3000),
           runningTime: new Timespan(),
           treadmillOptions: {
             incline: 2,
             speed: 1,
-            isCustomSpeedUsed: false
-          }
+            isCustomSpeedUsed: false,
+          },
         }));
-
-        await wakeLock.request();
       } catch {
         setRunningState({
           running: false,
@@ -187,6 +228,10 @@ export default function useRunningLoop() {
     },
     stop: stop,
     connectHeartRateMonitor: heartRateMonitor.connectHeartRate,
-    heartRateConnected: heartRateMonitor.heartRateConnected
-  }
+    heartRateConnected: heartRateMonitor.heartRateConnected,
+    wakeLock: {
+      isWakeLockSupported,
+      wakeLockStatus,
+    },
+  };
 }

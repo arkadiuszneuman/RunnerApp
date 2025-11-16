@@ -170,7 +170,7 @@ const HeartRateVisualization: React.FC = () => {
             type="number"
             step="0.001"
             value={kp}
-            onChange={(e) => setKp(parseFloat(e.target.value))}
+            onChange={(e) => setKp(Number.parseFloat(e.target.value))}
           />
         </label>
         <label>
@@ -179,7 +179,7 @@ const HeartRateVisualization: React.FC = () => {
             type="number"
             step="0.00001"
             value={ki}
-            onChange={(e) => setKi(parseFloat(e.target.value))}
+            onChange={(e) => setKi(Number.parseFloat(e.target.value))}
           />
         </label>
         <label>
@@ -188,7 +188,7 @@ const HeartRateVisualization: React.FC = () => {
             type="number"
             step="0.01"
             value={kd}
-            onChange={(e) => setKd(parseFloat(e.target.value))}
+            onChange={(e) => setKd(Number.parseFloat(e.target.value))}
           />
         </label>
       </div>

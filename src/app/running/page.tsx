@@ -7,12 +7,8 @@ import Link from 'next/link';
 import { runningStateAtom } from '../atoms';
 import useRunningLoop from '../useRunningLoop';
 import RunInfo from './RunInfo/RunInfo';
-
-// const StyledPaper = styled(Paper)(({ theme }) => ({
-//   padding: theme.spacing(2),
-//   textAlign: "center",
-//   color: theme.palette.text.primary,
-// }));
+import Box from '@mui/material/Box';
+import RunnerTypography from '../base/RunnerTypography';
 
 export default function Run() {
   const runningLoop = useRunningLoop();
@@ -55,6 +51,15 @@ export default function Run() {
           </Button>
         </Grid2>
       </Grid2>
+      <Box>
+        <RunnerTypography>
+          Wake Lock Supported: {runningLoop.wakeLock.isWakeLockSupported.toString()}
+        </RunnerTypography>
+        <RunnerTypography>Wake Lock Status: {runningLoop.wakeLock.wakeLockStatus}</RunnerTypography>
+        <RunnerTypography>
+          Heart Rate: {runningLoop.heartRateConnected() ? 'Connected' : 'Disconnected'}
+        </RunnerTypography>
+      </Box>
     </Grid2>
   );
 
