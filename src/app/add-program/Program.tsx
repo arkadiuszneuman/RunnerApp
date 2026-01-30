@@ -3,8 +3,9 @@ import { MultiplyStage, Stage, StageType } from '@/services/stagesCalculator';
 import RunnerTypography from '../base/RunnerTypography';
 import { useState } from 'react';
 import { editingSectionAtom } from './atoms';
-import { useAtomValue, useSetAtom } from 'jotai';
-import { programAtom } from '../atoms';
+import { programAtom, programCooldownAtom } from '../atoms';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { Checkbox, FormControlLabel } from '@mui/material';
 
 function Section(props: Readonly<{ section: Stage; hovered: boolean; manyTimes: boolean }>) {
   const getStageTypeName = (type: StageType) => {
@@ -52,11 +53,21 @@ function Section(props: Readonly<{ section: Stage; hovered: boolean; manyTimes: 
 
 export default function Program() {
   const [hoveredStage, setHoveredStage] = useState<Stage | MultiplyStage | undefined>();
+  const [programCooldown, setProgramCooldown] = useAtom(programCooldownAtom);
   const setEditingStage = useSetAtom(editingSectionAtom);
   const program = useAtomValue(programAtom);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: 'fit-content' }}>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={programCooldown}
+            onChange={(e) => setProgramCooldown(e.target.checked)}
+          />
+        }
+        label="Cooldown (4km/h, 0%)"
+      />
       {program.map((section, programIndices) => (
         <Box
           key={programIndices}

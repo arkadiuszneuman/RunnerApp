@@ -3,6 +3,7 @@ import {
   currentStageAtom,
   currentStageIndexAtom,
   heartRateAtom,
+  programCooldownAtom,
   runningStateAtom,
   runningTimeAtom,
   stagesAtom,
@@ -28,6 +29,8 @@ export default function useRunningLoop() {
   const treadmillOptions = useAtomValue(treadmillOptionsAtom);
   const [lastSpeedChangedDate, setLastSpeedChangedDateAtom] = useAtom(lastSpeedChangedDateAtom);
   const setRunningState = useSetAtom(runningStateAtom);
+  const programCooldown = useAtomValue(programCooldownAtom);
+  const [cooldownInitialized, setCooldownInitialized] = useState(false);
   const [wakeLockStatus, setWakeLockStatus] = useState<
     'connecting' | 'requested' | 'released' | 'error'
   >('connecting');
@@ -68,7 +71,28 @@ export default function useRunningLoop() {
   useEffect(() => {
     if (runningTime && BleManager.isRunning()) {
       if (runningTime.totalMilliseconds >= stages[stages.length - 1].to.totalMilliseconds) {
-        stop();
+        if (programCooldown) {
+          if (!cooldownInitialized) {
+            setRunningState((prev) => {
+              if (prev.running) {
+                return {
+                  ...prev,
+                  treadmillOptions: {
+                    ...prev.treadmillOptions,
+                    isCustomSpeedUsed: true,
+                    speed: 4,
+                    incline: 0,
+                  },
+                };
+              }
+
+              return prev;
+            });
+            setCooldownInitialized(true);
+          }
+        } else {
+          stop();
+        }
       }
 
       if (currentStage) {
@@ -171,22 +195,22 @@ export default function useRunningLoop() {
         });
       }
 
-      if (event.type === 'btRunning' && event.state.currentSpeed !== treadmillOptions?.speed) {
-        setRunningState((prev) => {
-          if (prev.running) {
-            return {
-              ...prev,
-              treadmillOptions: {
-                ...prev.treadmillOptions,
-                speed: event.state.currentSpeed,
-                isCustomSpeedUsed: true,
-              },
-            };
-          }
+      // if (event.type === 'btRunning' && event.state.currentSpeed !== treadmillOptions?.speed) {
+      //   setRunningState((prev) => {
+      //     if (prev.running) {
+      //       return {
+      //         ...prev,
+      //         treadmillOptions: {
+      //           ...prev.treadmillOptions,
+      //           speed: event.state.currentSpeed,
+      //           isCustomSpeedUsed: true,
+      //         },
+      //       };
+      //     }
 
-          return prev;
-        });
-      }
+      //     return prev;
+      //   });
+      // }
     },
     [treadmillOptions, setRunningState]
   );
@@ -207,6 +231,7 @@ export default function useRunningLoop() {
         await BleManager.start();
         BleManager.sendIncAndSpeed(2, 4);
 
+        setCooldownInitialized(false);
         training.current = new Training(4);
 
         setRunningState((prev) => ({
