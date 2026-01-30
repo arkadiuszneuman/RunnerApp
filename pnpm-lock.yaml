@@ -70,9 +70,6 @@ importers:
       '@chromatic-com/storybook':
         specifier: 3.2.4
         version: 3.2.4(react@19.2.4)(storybook@8.6.0-alpha.0(prettier@3.4.2))
-      '@eslint/eslintrc':
-        specifier: ^3
-        version: 3.2.0
       '@storybook/addon-essentials':
         specifier: 8.6.0-alpha.0
         version: 8.6.0-alpha.0(@types/react@19.2.10)(storybook@8.6.0-alpha.0(prettier@3.4.2))
