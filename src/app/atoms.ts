@@ -5,18 +5,18 @@ import { atomWithStorage } from 'jotai/utils';
 
 export const runningStateAtom = atom<
   | {
-      running: false;
-    }
+    running: false;
+  }
   | {
-      running: true;
-      runningStartedDate: Date;
-      runningTime: Timespan;
-      treadmillOptions: {
-        speed: number;
-        incline: number;
-        isCustomSpeedUsed: boolean;
-      };
-    }
+    running: true;
+    runningStartedDate: Date;
+    runningTime: Timespan;
+    treadmillOptions: {
+      speed: number;
+      incline: number;
+      isCustomSpeedUsed: boolean;
+    };
+  }
 >({ running: false });
 
 export const isRunningAtom = atom((get) => {
@@ -35,17 +35,21 @@ export const runningTimeAtom = atom((get) => {
 
 // Custom storage to handle Timespan deserialization
 const programStorage = {
-  getItem(key: string, initialValue: (Stage | MultiplyStage)[]) {
+  getItem(key: string, initialValue: { stages: (Stage | MultiplyStage)[]; cooldown: boolean }) {
     if (typeof globalThis === 'undefined' || !globalThis.localStorage) return initialValue;
     const stored = globalThis.localStorage.getItem(key);
     if (!stored) return initialValue;
     try {
-      return JSON.parse(stored, Timespan.reviver);
+      const parsed = JSON.parse(stored, Timespan.reviver);
+      if (Array.isArray(parsed)) {
+        return { stages: parsed, cooldown: false };
+      }
+      return parsed;
     } catch {
       return initialValue;
     }
   },
-  setItem(key: string, value: (Stage | MultiplyStage)[]) {
+  setItem(key: string, value: { stages: (Stage | MultiplyStage)[]; cooldown: boolean }) {
     if (typeof globalThis === 'undefined' || !globalThis.localStorage) return;
     globalThis.localStorage.setItem(key, JSON.stringify(value));
   },
@@ -55,7 +59,29 @@ const programStorage = {
   },
 };
 
-export const programAtom = atomWithStorage<MultiplyStage[]>('programAtom', [], programStorage);
+const programInternalAtom = atomWithStorage<{ stages: MultiplyStage[]; cooldown: boolean }>(
+  'programAtom',
+  { stages: [], cooldown: false },
+  programStorage
+);
+
+export const programAtom = atom(
+  (get) => get(programInternalAtom).stages,
+  (get, set, update: MultiplyStage[] | ((prev: MultiplyStage[]) => MultiplyStage[])) => {
+    const prev = get(programInternalAtom);
+    const newStages = typeof update === 'function' ? update(prev.stages) : update;
+    set(programInternalAtom, { ...prev, stages: newStages });
+  }
+);
+
+export const programCooldownAtom = atom(
+  (get) => get(programInternalAtom).cooldown,
+  (get, set, update: boolean | ((prev: boolean) => boolean)) => {
+    const prev = get(programInternalAtom);
+    const newCooldown = typeof update === 'function' ? update(prev.cooldown) : update;
+    set(programInternalAtom, { ...prev, cooldown: newCooldown });
+  }
+);
 
 export const stagesAtom = atom<StageResult[]>((get) => {
   const program = get(programAtom);
