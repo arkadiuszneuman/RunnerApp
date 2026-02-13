@@ -9,6 +9,8 @@ export const runningStateAtom = atom<
   }
   | {
     running: true;
+    paused: boolean;
+    pauseStartedDate?: Date;
     runningStartedDate: Date;
     runningTime: Timespan;
     treadmillOptions: {
@@ -21,6 +23,11 @@ export const runningStateAtom = atom<
 
 export const isRunningAtom = atom((get) => {
   return get(runningStateAtom).running;
+});
+
+export const isPausedAtom = atom((get) => {
+  const runningState = get(runningStateAtom);
+  return runningState.running && runningState.paused;
 });
 
 export const runningStartedDateAtom = atom((get) => {
