@@ -68,6 +68,37 @@ export default function useRunningLoop() {
     await releaseWakeLock();
   }, [setRunningState, releaseWakeLock]);
 
+  const pause = useCallback(async () => {
+    await BleManager.stop();
+    setRunningState((prev) => {
+      if (prev.running) {
+        return {
+          ...prev,
+          paused: true,
+          pauseStartedDate: new Date(),
+        };
+      }
+      return prev;
+    });
+  }, [setRunningState]);
+
+  const resume = useCallback(async () => {
+    await BleManager.start();
+    setRunningState((prev) => {
+      if (prev.running && prev.paused && prev.pauseStartedDate) {
+        const pauseDuration = Date.now() - prev.pauseStartedDate.getTime();
+        const newStartedDate = new Date(prev.runningStartedDate.getTime() + pauseDuration);
+        return {
+          ...prev,
+          paused: false,
+          pauseStartedDate: undefined,
+          runningStartedDate: newStartedDate,
+        };
+      }
+      return prev;
+    });
+  }, [setRunningState]);
+
   useEffect(() => {
     if (runningTime && BleManager.isRunning()) {
       if (runningTime.totalMilliseconds >= stages[stages.length - 1].to.totalMilliseconds) {
@@ -190,8 +221,13 @@ export default function useRunningLoop() {
   const onEventOccured = useCallback(
     (event: TreadmillEvent) => {
       if (event.type === 'btDisconnected' || event.type === 'btStopped') {
-        setRunningState({
-          running: false,
+        setRunningState((prev) => {
+          if (prev.running && prev.paused && event.type === 'btStopped') {
+            return prev;
+          }
+          return {
+            running: false,
+          };
         });
       }
 
@@ -237,6 +273,7 @@ export default function useRunningLoop() {
         setRunningState((prev) => ({
           ...prev,
           running: true,
+          paused: false,
           runningStartedDate: new Date(Date.now() + 3000),
           runningTime: new Timespan(),
           treadmillOptions: {
@@ -252,6 +289,8 @@ export default function useRunningLoop() {
       }
     },
     stop: stop,
+    pause: pause,
+    resume: resume,
     connectHeartRateMonitor: heartRateMonitor.connectHeartRate,
     heartRateConnected: heartRateMonitor.heartRateConnected,
     wakeLock: {

@@ -4,7 +4,7 @@ import Button from '@mui/material/Button';
 import Grid2 from '@mui/material/Grid2';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
-import { runningStateAtom } from '../atoms';
+import { isPausedAtom, runningStateAtom } from '../atoms';
 import useRunningLoop from '../useRunningLoop';
 import RunInfo from './RunInfo/RunInfo';
 import Box from '@mui/material/Box';
@@ -13,6 +13,7 @@ import RunnerTypography from '../base/RunnerTypography';
 export default function Run() {
   const runningLoop = useRunningLoop();
   const runningState = useAtomValue(runningStateAtom);
+  const isPaused = useAtomValue(isPausedAtom);
 
   async function startNew() {
     await runningLoop.start();
@@ -20,6 +21,14 @@ export default function Run() {
 
   async function stop() {
     await runningLoop.stop();
+  }
+
+  async function pause() {
+    await runningLoop.pause();
+  }
+
+  async function resume() {
+    await runningLoop.resume();
   }
 
   return (
@@ -33,6 +42,13 @@ export default function Run() {
             Start
           </Button>
         </Grid2>
+        {runningState.running && (
+          <Grid2 size="auto">
+            <Button variant="contained" onClick={isPaused ? resume : pause}>
+              {isPaused ? 'Resume' : 'Pause'}
+            </Button>
+          </Grid2>
+        )}
         <Grid2 size="auto">
           <Button variant="contained" onClick={stop} disabled={!runningState.running}>
             Stop

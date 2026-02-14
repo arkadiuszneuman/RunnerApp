@@ -25,6 +25,7 @@ const meta = {
             speed: 14.3,
             isCustomSpeedUsed: false,
           },
+          paused: false
         },
         program: [
           {
