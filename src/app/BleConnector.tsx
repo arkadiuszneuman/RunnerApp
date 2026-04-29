@@ -34,7 +34,7 @@ export default function BleConnector() {
             disabled={
               stages.length === 0 ||
               (stages.filter((x) => x.speedType === 'bmp').length >= 1 &&
-                runningLoop.heartRateConnected() === false)
+                !runningLoop.heartRateConnected())
             }
           >
             Start running

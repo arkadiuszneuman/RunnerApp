@@ -25,21 +25,12 @@ export default class Training {
       return calculateSpeedByTempo(currentSection.tempo);
     }
 
-    // Check if phase time is over
     if (this.lastCurrentSection !== currentSection) {
       this.lastCurrentSection = currentSection;
-      this.integral = 0; // Reset integral to avoid carryover
+      this.integral = 0; // Reset integral to avoid carryover between stages
     }
 
-    // Adjust PID parameters for aggressive phases
-    // if (currentSection.duration.totalMinutes <= 3) {
-    //   this.kp = 0.2; // More aggressive response
-    //   this.kd = 0.1;
-    // } else {
-    //   this.kp = 0.05; // Default response
-    //   this.kd = 0.05;
-    // }
-
+    // Apply a calibration offset to compensate for wrist HR sensor lag
     currentHeartRate = currentHeartRate + 8;
 
     // Calculate error

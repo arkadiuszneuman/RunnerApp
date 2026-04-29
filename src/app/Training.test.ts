@@ -10,7 +10,7 @@ describe('Training', () => {
       120,
       {
         type: 'simple',
-        bmp: 120,
+        bmp: 128, // 120 + 8 (wrist sensor calibration offset) = effective target
         duration: Timespan.fromMinutes(5),
         speedType: 'bmp',
       },
@@ -111,55 +111,55 @@ describe('Training', () => {
 
     const training = new Training(1);
     let result = training.update(60, stage, 1);
-    expect(result).toBe(13.2);
+    expect(result).toBe(12);
 
     result = training.update(61, stage, 1);
-    expect(result).toBe(13.3);
+    expect(result).toBe(10.7);
 
     result = training.update(61, stage, 1);
-    expect(result).toBe(13.6);
+    expect(result).toBe(10.9);
 
     result = training.update(61, stage, 1);
-    expect(result).toBe(13.9);
+    expect(result).toBe(11.1);
 
     result = training.update(61, stage, 1);
-    expect(result).toBe(14.2);
+    expect(result).toBe(11.3);
 
     result = training.update(61, stage, 1);
-    expect(result).toBe(14.5);
+    expect(result).toBe(11.5);
 
     result = training.update(62, stage, 1);
-    expect(result).toBe(14.6);
+    expect(result).toBe(10.1);
 
     result = training.update(63, stage, 1);
-    expect(result).toBe(14.7);
+    expect(result).toBe(8.7);
 
     result = training.update(70, stage, 1);
-    expect(result).toBe(13.9);
+    expect(result).toBe(1);
 
     result = training.update(80, stage, 1);
-    expect(result).toBe(12.7);
+    expect(result).toBe(1);
 
     result = training.update(100, stage, 1);
-    expect(result).toBe(10);
+    expect(result).toBe(1);
 
     result = training.update(125, stage, 1);
-    expect(result).toBe(6.6);
+    expect(result).toBe(1);
 
     result = training.update(140, stage, 1);
-    expect(result).toBe(4.5);
+    expect(result).toBe(1);
 
     result = training.update(145, stage, 1);
-    expect(result).toBe(3.8);
+    expect(result).toBe(1);
 
     result = training.update(150, stage, 1);
-    expect(result).toBe(3.1);
+    expect(result).toBe(1);
 
     result = training.update(150, stage, 1);
-    expect(result).toBe(3.1);
+    expect(result).toBe(1);
 
     result = training.update(160, stage, 1);
-    expect(result).toBe(1.7);
+    expect(result).toBe(1);
 
     result = training.update(170, stage, 1);
     expect(result).toBe(1);
@@ -174,69 +174,69 @@ describe('Training', () => {
     expect(result).toBe(1);
 
     result = training.update(165, stage, 1);
-    expect(result).toBe(1.6);
+    expect(result).toBe(5.5);
 
     result = training.update(160, stage, 1);
-    expect(result).toBe(2.3);
+    expect(result).toBe(10.1);
 
     result = training.update(155, stage, 1);
-    expect(result).toBe(3);
+    expect(result).toBe(14.9);
 
     result = training.update(150, stage, 1);
-    expect(result).toBe(3.7);
+    expect(result).toBe(18);
 
     result = training.update(148, stage, 1);
-    expect(result).toBe(4);
+    expect(result).toBe(18);
 
     result = training.update(145, stage, 1);
-    expect(result).toBe(4.4);
+    expect(result).toBe(18);
 
     result = training.update(143, stage, 1);
-    expect(result).toBe(4.7);
+    expect(result).toBe(18);
 
     result = training.update(141, stage, 1);
-    expect(result).toBe(5);
+    expect(result).toBe(18);
 
     result = training.update(139, stage, 1);
-    expect(result).toBe(5.3);
+    expect(result).toBe(18);
 
     result = training.update(145, stage, 1);
-    expect(result).toBe(4.5);
+    expect(result).toBe(6.2);
 
     result = training.update(145, stage2, 1);
-    expect(result).toBe(8.8);
+    expect(result).toBe(7.9);
 
     result = training.update(147, stage2, 1);
-    expect(result).toBe(8.6);
+    expect(result).toBe(2.3);
 
     result = training.update(147, stage2, 1);
-    expect(result).toBe(8.7);
+    expect(result).toBe(1);
 
     result = training.update(147, stage2, 1);
-    expect(result).toBe(8.8);
+    expect(result).toBe(1);
 
     result = training.update(150, stage2, 1);
-    expect(result).toBe(8.5);
+    expect(result).toBe(1);
 
     result = training.update(150, stage2, 1);
-    expect(result).toBe(8.6);
+    expect(result).toBe(1);
 
     result = training.update(150, stage2, 1);
-    expect(result).toBe(8.7);
+    expect(result).toBe(1);
 
     result = training.update(150, stage2, 1);
-    expect(result).toBe(8.8);
+    expect(result).toBe(1);
 
     result = training.update(150, stage2, 1);
-    expect(result).toBe(8.9);
+    expect(result).toBe(1);
 
     result = training.update(155, stage2, 1);
-    expect(result).toBe(8.3);
+    expect(result).toBe(1);
 
     result = training.update(155, stage2, 1);
-    expect(result).toBe(8.4);
+    expect(result).toBe(1);
 
     result = training.update(157, stage2, 1);
-    expect(result).toBe(8.2);
+    expect(result).toBe(1);
   });
 });

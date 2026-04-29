@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { currentStageAtom, heartRateAtom, runningStateAtom, stagesAtom } from '@/app/atoms';
+import { currentStageAtom, currentStageIndexAtom, heartRateAtom, runningStateAtom, stagesAtom } from '@/app/atoms';
 import RunnerTypography, { RunnerTypographyProps } from '@/app/base/RunnerTypography';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
@@ -61,6 +61,7 @@ export default function RunInfo() {
   const heartRate = useAtomValue(heartRateAtom);
   const runningState = useAtomValue(runningStateAtom);
   const currentStage = useAtomValue(currentStageAtom);
+  const currentStageIndex = useAtomValue(currentStageIndexAtom);
   const stages = useAtomValue(stagesAtom);
 
   return (
@@ -71,7 +72,7 @@ export default function RunInfo() {
             primaryText={currentStage?.to.subtract(runningState.runningTime).toString('mm:ss')}
             primaryTextInfo="Time left"
             secondaryText={
-              currentStage ? `${stages.indexOf(currentStage) + 1}/${stages.length}` : ''
+              currentStage ? `${currentStageIndex ?? 0}/${stages.length}` : ''
             }
             secondaryTextInfo="Stage"
             progress={
@@ -89,7 +90,7 @@ export default function RunInfo() {
             primaryText="00:00"
             primaryTextInfo="Time left"
             secondaryText={
-              currentStage ? `${stages.indexOf(currentStage) + 1}/${stages.length}` : '0/0'
+              currentStage ? `${currentStageIndex ?? 0}/${stages.length}` : '0/0'
             }
             secondaryTextInfo="Stage"
             progress={0}
