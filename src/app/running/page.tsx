@@ -2,7 +2,7 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Grid2 from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { isPausedAtom, runningStateAtom } from '../atoms';
@@ -16,30 +16,30 @@ export default function Run() {
   const isPaused = useAtomValue(isPausedAtom);
 
   return (
-    <Grid2 container spacing={4}>
-      <Grid2 size={12}>
+    <Grid container spacing={4}>
+      <Grid size={12}>
         <RunInfo />
-      </Grid2>
-      <Grid2 container spacing={1} marginX={2} size={12}>
-        <Grid2 size="auto">
+      </Grid>
+      <Grid container spacing={1} sx={{ mx: 2 }} size={12}>
+        <Grid size="auto">
           <Button variant="contained" onClick={runningLoop.start} disabled={runningState.running}>
             Start
           </Button>
-        </Grid2>
+        </Grid>
         {runningState.running && (
-          <Grid2 size="auto">
+          <Grid size="auto">
             <Button variant="contained" onClick={isPaused ? runningLoop.resume : runningLoop.pause}>
               {isPaused ? 'Resume' : 'Pause'}
             </Button>
-          </Grid2>
+          </Grid>
         )}
-        <Grid2 size="auto">
+        <Grid size="auto">
           <Button variant="contained" onClick={runningLoop.stop} disabled={!runningState.running}>
             Stop
           </Button>
-        </Grid2>
-        <Grid2 size="grow"></Grid2>
-        <Grid2 size="auto">
+        </Grid>
+        <Grid size="grow"></Grid>
+        <Grid size="auto">
           <Button
             variant="contained"
             color="error"
@@ -49,8 +49,8 @@ export default function Run() {
           >
             Back
           </Button>
-        </Grid2>
-      </Grid2>
+        </Grid>
+      </Grid>
       <Box>
         <RunnerTypography>
           Wake Lock Supported: {runningLoop.wakeLock.isWakeLockSupported.toString()}
@@ -60,6 +60,6 @@ export default function Run() {
           Heart Rate: {runningLoop.heartRateConnected() ? 'Connected' : 'Disconnected'}
         </RunnerTypography>
       </Box>
-    </Grid2>
+    </Grid>
   );
 }

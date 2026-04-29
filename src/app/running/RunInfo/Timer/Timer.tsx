@@ -2,7 +2,7 @@
 
 import RunnerTypography from '@/app/base/RunnerTypography';
 import Box from '@mui/material/Box';
-import Grid2 from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 
 export default function Timer(props: {
   progress: number;
@@ -18,7 +18,7 @@ export default function Timer(props: {
 
   return (
     <Box sx={{ width: `${size}rem`, height: `${size}rem` }}>
-      <Box position="relative" display="inline-block">
+      <Box sx={{ position: 'relative', display: 'inline-block' }}>
         <svg width="100%" height="100%" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="linearColor" gradientTransform="rotate(70)">
@@ -58,10 +58,11 @@ export default function Timer(props: {
           )}
         </svg>
 
-        <Grid2
+        <Grid
           container
-          direction="column"
           sx={{
+            display: 'flex',
+            flexDirection: 'column',
             position: 'absolute',
             top: `${size / 6}rem`,
             left: 0,
@@ -71,17 +72,18 @@ export default function Timer(props: {
             alignItems: 'center',
           }}
         >
-          <Grid2
+          <Grid
             container
-            direction="column"
             spacing={`${size / 15}rem`}
             sx={{
+              display: 'flex',
+              flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'center',
               marginTop: `${size / 15}rem`,
             }}
           >
-            <Grid2>
+            <Grid>
               <RunnerTypography
                 textVariant="secondary"
                 sx={{
@@ -90,8 +92,8 @@ export default function Timer(props: {
               >
                 {props.primaryTextInfo}
               </RunnerTypography>
-            </Grid2>
-            <Grid2 size="auto">
+            </Grid>
+            <Grid size="auto">
               <RunnerTypography
                 sx={{
                   fontSize: `${size / 4}rem`,
@@ -100,18 +102,19 @@ export default function Timer(props: {
               >
                 {props.primaryText}
               </RunnerTypography>
-            </Grid2>
-          </Grid2>
+            </Grid>
+          </Grid>
 
-          <Grid2
+          <Grid
             container
-            direction="column"
             sx={{
+              display: 'flex',
+              flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'center',
             }}
           >
-            <Grid2>
+            <Grid>
               <RunnerTypography
                 sx={{
                   fontSize: `${size / 17}rem`,
@@ -119,8 +122,8 @@ export default function Timer(props: {
               >
                 {props.secondaryText}
               </RunnerTypography>
-            </Grid2>
-            <Grid2>
+            </Grid>
+            <Grid>
               <RunnerTypography
                 textVariant="secondary"
                 sx={{
@@ -129,9 +132,9 @@ export default function Timer(props: {
               >
                 {props.secondaryTextInfo}
               </RunnerTypography>
-            </Grid2>
-          </Grid2>
-        </Grid2>
+            </Grid>
+          </Grid>
+        </Grid>
       </Box>
     </Box>
   );
