@@ -18,7 +18,7 @@ export default function Run() {
   return (
     <Grid container spacing={4}>
       <Grid size={12}>
-        <RunInfo />
+        <RunInfo onResetManualSpeed={runningLoop.resetManualSpeed} />
       </Grid>
       <Grid container spacing={1} sx={{ mx: 2 }} size={12}>
         <Grid size="auto">

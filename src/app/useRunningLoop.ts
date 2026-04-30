@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  actualTreadmillSpeedAtom,
   currentStageAtom,
   currentStageIndexAtom,
   heartRateAtom,
@@ -10,7 +11,7 @@ import {
   stagesAtom,
   treadmillOptionsAtom,
 } from './atoms';
-import { atom, useAtom, useAtomValue } from 'jotai';import useRunningStateLoop from './useRunningStateLoop';
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';import useRunningStateLoop from './useRunningStateLoop';
 import { useWakeLock } from 'react-screen-wake-lock';
 import axios from 'axios';
 import BleManager, { TreadmillEvent } from './BleManager';
@@ -53,6 +54,11 @@ export default function useRunningLoop() {
   });
 
   const training = useRef(new Training(1));
+
+  // Manual speed override detection
+  const lastCommandedSpeedRef = useRef<number>(0);
+  const consecutiveDivergentCountRef = useRef<number>(0);
+  const setActualTreadmillSpeed = useSetAtom(actualTreadmillSpeedAtom);
 
   // Telemetry state
   const runIdRef = useRef<string | null>(null);
@@ -125,6 +131,26 @@ export default function useRunningLoop() {
           paused: false,
           pauseStartedDate: undefined,
           runningStartedDate: newStartedDate,
+          treadmillOptions: {
+            ...prev.treadmillOptions,
+            isManualSpeedActive: false,
+          },
+        };
+      }
+      return prev;
+    });
+  }, [setRunningState]);
+
+  const resetManualSpeed = useCallback(() => {
+    consecutiveDivergentCountRef.current = 0;
+    setRunningState((prev) => {
+      if (prev.running && prev.treadmillOptions.isManualSpeedActive) {
+        return {
+          ...prev,
+          treadmillOptions: {
+            ...prev.treadmillOptions,
+            isManualSpeedActive: false,
+          },
         };
       }
       return prev;
@@ -275,6 +301,13 @@ export default function useRunningLoop() {
       return;
     }
 
+    // Don't override the user's manual speed — let the treadmill maintain it.
+    if (treadmillOptions.isManualSpeedActive) {
+      return;
+    }
+
+    lastCommandedSpeedRef.current = treadmillOptions.speed;
+    consecutiveDivergentCountRef.current = 0;
     BleManager.sendIncAndSpeed(treadmillOptions?.incline, treadmillOptions?.speed);
   }, [treadmillOptions]);
 
@@ -291,24 +324,42 @@ export default function useRunningLoop() {
         });
       }
 
-      // if (event.type === 'btRunning' && event.state.currentSpeed !== treadmillOptions?.speed) {
-      //   setRunningState((prev) => {
-      //     if (prev.running) {
-      //       return {
-      //         ...prev,
-      //         treadmillOptions: {
-      //           ...prev.treadmillOptions,
-      //           speed: event.state.currentSpeed,
-      //           isCustomSpeedUsed: true,
-      //         },
-      //       };
-      //     }
+      if (event.type === 'btRunning') {
+        const treadmillSpeed = event.state.currentSpeed;
+        setActualTreadmillSpeed(treadmillSpeed);
 
-      //     return prev;
-      //   });
-      // }
+        // Detect manual speed override: if the treadmill reports a speed significantly
+        // different from what the app last commanded for 3+ consecutive readings, the
+        // user has manually overridden speed on the treadmill.
+        setRunningState((prev) => {
+          if (!prev.running || prev.treadmillOptions.isManualSpeedActive) {
+            consecutiveDivergentCountRef.current = 0;
+            return prev;
+          }
+
+          const diff = Math.abs(treadmillSpeed - lastCommandedSpeedRef.current);
+          if (diff > 0.5) {
+            consecutiveDivergentCountRef.current++;
+            if (consecutiveDivergentCountRef.current >= 3) {
+              consecutiveDivergentCountRef.current = 0;
+              training.current.syncToSpeed(treadmillSpeed);
+              return {
+                ...prev,
+                treadmillOptions: {
+                  ...prev.treadmillOptions,
+                  isManualSpeedActive: true,
+                },
+              };
+            }
+          } else {
+            consecutiveDivergentCountRef.current = 0;
+          }
+
+          return prev;
+        });
+      }
     },
-    [treadmillOptions, setRunningState]
+    [setRunningState, setActualTreadmillSpeed],
   );
 
   useEffect(() => {
@@ -360,6 +411,7 @@ export default function useRunningLoop() {
             incline: 2,
             speed: 1,
             isCustomSpeedUsed: false,
+            isManualSpeedActive: false,
           },
         }));
       } catch {
@@ -371,6 +423,7 @@ export default function useRunningLoop() {
     stop: stop,
     pause: pause,
     resume: resume,
+    resetManualSpeed,
     connectHeartRateMonitor: heartRateMonitor.connectHeartRate,
     heartRateConnected: heartRateMonitor.heartRateConnected,
     wakeLock: {
