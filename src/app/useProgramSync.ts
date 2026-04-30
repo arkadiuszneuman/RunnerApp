@@ -1,6 +1,6 @@
 'use client';
 
-import { useAtom, useSetAtom } from 'jotai';
+import { useAtom } from 'jotai';
 import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
@@ -10,11 +10,17 @@ import { activeProgramIdAtom, programInternalAtom } from './atoms';
 
 export function useProgramSync() {
   const [programState, setProgramState] = useAtom(programInternalAtom);
-  const setActiveProgramId = useSetAtom(activeProgramIdAtom);
+  const [activeProgramId, setActiveProgramId] = useAtom(activeProgramIdAtom);
   const activeProgramIdRef = useRef<string | null>(null);
   const loadedRef = useRef(false);
   const { status } = useSession();
   const router = useRouter();
+
+  // Keep the ref in sync with the atom so saves always target the current program,
+  // even when it is changed from outside (e.g. the programs list page).
+  useEffect(() => {
+    activeProgramIdRef.current = activeProgramId;
+  }, [activeProgramId]);
 
   // Load activeProgramId from settings once authenticated, then load that program's data
   useEffect(() => {
@@ -24,7 +30,6 @@ export function useProgramSync() {
       .get('/api/user-settings')
       .then(async (res) => {
         const id: string | null = res.data?.activeProgramId ?? null;
-        activeProgramIdRef.current = id;
         setActiveProgramId(id);
 
         if (!id) return;
