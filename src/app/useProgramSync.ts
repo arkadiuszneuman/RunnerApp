@@ -3,6 +3,8 @@
 import { useAtom, useSetAtom } from 'jotai';
 import { useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Timespan } from '@/services/Timespan';
 import { activeProgramIdAtom, programInternalAtom } from './atoms';
 
@@ -11,9 +13,13 @@ export function useProgramSync() {
   const setActiveProgramId = useSetAtom(activeProgramIdAtom);
   const activeProgramIdRef = useRef<string | null>(null);
   const loadedRef = useRef(false);
+  const { status } = useSession();
+  const router = useRouter();
 
-  // On mount: load activeProgramId from settings, then load that program's data
+  // Load activeProgramId from settings once authenticated, then load that program's data
   useEffect(() => {
+    if (status !== 'authenticated') return;
+
     axios
       .get('/api/user-settings')
       .then(async (res) => {
@@ -29,13 +35,17 @@ export function useProgramSync() {
         const program = JSON.parse(programRes.data as string, Timespan.reviver);
         if (program?.data) setProgramState(program.data);
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (axios.isAxiosError(err) && err.response?.status === 401) {
+          router.push('/login');
+        }
+      })
       .finally(() => {
         setTimeout(() => {
           loadedRef.current = true;
         }, 0);
       });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save to DB on change (debounced 1 s)
   useEffect(() => {
