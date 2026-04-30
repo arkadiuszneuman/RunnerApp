@@ -57,12 +57,12 @@ class HeartRateManager {
 
     // Fallback: show modal to select device
     if (!device) {
-      const _options = { filters: [{ services: ['heart_rate'] }] };
-      device = await navigator.bluetooth.requestDevice(_options);
+      const options = { filters: [{ services: ['heart_rate'] }] };
+      device = await navigator.bluetooth.requestDevice(options);
       localStorage.setItem('heartRateDeviceId', device.id);
     }
-    
-    device.addEventListener('gattserverdisconnected', this.connectDevice);
+
+    device.addEventListener('gattserverdisconnected', () => this.connectDevice());
     await this.connectDevice();
     await heartRate?.startNotifications();
   }

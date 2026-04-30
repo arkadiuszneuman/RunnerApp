@@ -1,3 +1,5 @@
+/// <reference types="@types/web-bluetooth" />
+
 const S_SERIAL_PORT = '0000fff0-0000-1000-8000-00805f9b34fb';
 const C_SERIAL_PORT_READ = '0000fff1-0000-1000-8000-00805f9b34fb';
 const C_SERIAL_PORT_WRITE = '0000fff2-0000-1000-8000-00805f9b34fb';

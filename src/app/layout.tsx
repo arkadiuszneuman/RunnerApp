@@ -1,6 +1,7 @@
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import type { Metadata } from 'next';
 import { Barlow } from 'next/font/google';
+import NavBar from './base/NavBar';
 import Providers from './Providers';
 import './globals.css';
 
@@ -31,7 +32,10 @@ export default function RootLayout({
         }}
       >
         <AppRouterCacheProvider>
-          <Providers>{children}</Providers>
+          <Providers>
+            <NavBar />
+            {children}
+          </Providers>
         </AppRouterCacheProvider>
       </body>
     </html>

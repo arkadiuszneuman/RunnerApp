@@ -3,19 +3,21 @@ import {
   currentStageAtom,
   currentStageIndexAtom,
   heartRateAtom,
+  programAtom,
   programCooldownAtom,
   runningStateAtom,
   runningTimeAtom,
   stagesAtom,
   treadmillOptionsAtom,
 } from './atoms';
-import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
-import useRunningStateLoop from './useRunningStateLoop';
+import { atom, useAtom, useAtomValue } from 'jotai';import useRunningStateLoop from './useRunningStateLoop';
 import { useWakeLock } from 'react-screen-wake-lock';
+import axios from 'axios';
 import BleManager, { TreadmillEvent } from './BleManager';
 import { Timespan } from '@/services/Timespan';
 import useHeartRate from './useHeartRate';
 import Training from './Training';
+import type { TelemetryPoint } from '@/types/telemetry';
 
 const lastSpeedChangedDateAtom = atom(0);
 
@@ -28,7 +30,8 @@ export default function useRunningLoop() {
   const heartRate = useAtomValue(heartRateAtom);
   const treadmillOptions = useAtomValue(treadmillOptionsAtom);
   const [lastSpeedChangedDate, setLastSpeedChangedDateAtom] = useAtom(lastSpeedChangedDateAtom);
-  const setRunningState = useSetAtom(runningStateAtom);
+  const [runningState, setRunningState] = useAtom(runningStateAtom);
+  const program = useAtomValue(programAtom);
   const programCooldown = useAtomValue(programCooldownAtom);
   const [cooldownInitialized, setCooldownInitialized] = useState(false);
   const [wakeLockStatus, setWakeLockStatus] = useState<
@@ -51,6 +54,12 @@ export default function useRunningLoop() {
 
   const training = useRef(new Training(1));
 
+  // Telemetry state
+  const runIdRef = useRef<string | null>(null);
+  const telemetryRef = useRef<TelemetryPoint[]>([]);
+  const lastTelemetryPointRef = useRef<Omit<TelemetryPoint, 't'> | null>(null);
+  const flushIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useRunningStateLoop();
   const heartRateMonitor = useHeartRate();
 
@@ -60,15 +69,38 @@ export default function useRunningLoop() {
     }
   }, [requestWakeLock, wakeLockStatus]);
 
+  const flushTelemetry = useCallback(
+    (extra?: { finishedAt?: string; durationMs?: number }) => {
+      if (!runIdRef.current || !runningState.running) return;
+      const payload = {
+        startedAt: runningState.runningStartedDate.toISOString(),
+        telemetry: telemetryRef.current,
+        ...extra,
+      };
+      axios.patch(`/api/runs/${runIdRef.current}`, payload).catch(() => {});
+    },
+    [runningState]
+  );
+
   const stop = useCallback(async () => {
+    if (runningState.running) {
+      const finishedAt = new Date().toISOString();
+      const durationMs = runningState.runningTime.totalMilliseconds;
+      flushTelemetry({ finishedAt, durationMs });
+    }
+
+    if (flushIntervalRef.current) {
+      clearInterval(flushIntervalRef.current);
+      flushIntervalRef.current = null;
+    }
+
     await BleManager.stop();
-    setRunningState({
-      running: false,
-    });
+    setRunningState({ running: false });
     await releaseWakeLock();
-  }, [setRunningState, releaseWakeLock]);
+  }, [runningState, flushTelemetry, setRunningState, releaseWakeLock]);
 
   const pause = useCallback(async () => {
+    flushTelemetry();
     await BleManager.stop();
     setRunningState((prev) => {
       if (prev.running) {
@@ -80,7 +112,7 @@ export default function useRunningLoop() {
       }
       return prev;
     });
-  }, [setRunningState]);
+  }, [flushTelemetry, setRunningState]);
 
   const resume = useCallback(async () => {
     await BleManager.start();
@@ -164,6 +196,34 @@ export default function useRunningLoop() {
 
               return prev;
             });
+
+            // Record telemetry point — only when values change
+            const elapsedS = Math.floor(runningTime.totalMilliseconds / 1000);
+            const thr = currentStage.speedType === 'bmp' ? currentStage.bmp : 0;
+            const phr = training.current.lastState?.predictedHr ?? 0;
+            const err = training.current.lastState?.error ?? 0;
+            const point: Omit<TelemetryPoint, 't'> = {
+              hr: heartRate,
+              thr,
+              phr,
+              spd: newSpeed,
+              inc: treadmillOptions?.incline ?? 0,
+              si: currentStageIndex ?? 0,
+              err,
+            };
+            const last = lastTelemetryPointRef.current;
+            if (
+              !last ||
+              last.hr !== point.hr ||
+              last.thr !== point.thr ||
+              last.phr !== point.phr ||
+              last.spd !== point.spd ||
+              last.inc !== point.inc ||
+              last.si !== point.si
+            ) {
+              telemetryRef.current.push({ t: elapsedS, ...point });
+              lastTelemetryPointRef.current = point;
+            }
           }
 
           // setRunningState((prev) => {
@@ -269,6 +329,26 @@ export default function useRunningLoop() {
 
         setCooldownInitialized(false);
         training.current = new Training(4);
+
+        // Reset telemetry state for the new run
+        telemetryRef.current = [];
+        lastTelemetryPointRef.current = null;
+        runIdRef.current = null;
+
+        const startedAt = new Date(Date.now() + 3000).toISOString();
+
+        // Create run record immediately so data is saved even if run is stopped early
+        axios
+          .post('/api/runs', { startedAt })
+          .then(({ data }) => {
+            runIdRef.current = data.id;
+
+            // Flush telemetry every 30 seconds
+            flushIntervalRef.current = setInterval(() => {
+              flushTelemetry();
+            }, 30_000);
+          })
+          .catch(() => {});
 
         setRunningState((prev) => ({
           ...prev,

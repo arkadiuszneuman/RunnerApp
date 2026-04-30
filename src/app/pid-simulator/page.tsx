@@ -61,7 +61,7 @@ const HeartRateVisualization: React.FC = () => {
       }
 
       const heartRateTrend = (currentHeartRate - previousHeartRate) / deltaTime;
-      const predictedHeartRate = currentHeartRate + heartRateTrend * 10; // Przewidujemy tętno za 10 sekund
+      const predictedHeartRate = currentHeartRate + heartRateTrend * 10; // Predict heart rate 10 seconds ahead
       const error = targetHeartRate - predictedHeartRate;
 
       // PID calculations
@@ -74,8 +74,8 @@ const HeartRateVisualization: React.FC = () => {
       treadmillSpeeds.push(treadmillSpeed);
 
       // Simulate heart rate response
-      const heartRateResponseDelay = 300; // Opóźnienie reakcji w sekundach
-      const fitnessFactor = 13; // Współczynnik reakcji tętna
+      const heartRateResponseDelay = 300; // Simulated heart rate response delay in seconds
+      const fitnessFactor = 13; // Heart rate fitness response coefficient
       const oldTreadmillSpeed = treadmillSpeeds[Math.max(0, treadmillSpeeds.length - 20)];
       const targetHeartRateChange = oldTreadmillSpeed * fitnessFactor;
       const heartRateAdjustment =
