@@ -42,3 +42,6 @@ next-env.d.ts
 .vscode/
 
 *storybook.log
+
+storybook-static/
+.env*.local

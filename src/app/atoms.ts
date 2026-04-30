@@ -1,7 +1,6 @@
 import { Timespan } from '@/services/Timespan';
-import calculateStages, { MultiplyStage, Stage, StageResult } from '@/services/stagesCalculator';
+import calculateStages, { MultiplyStage, StageResult } from '@/services/stagesCalculator';
 import { atom } from 'jotai';
-import { atomWithStorage } from 'jotai/utils';
 
 export const runningStateAtom = atom<
   | {
@@ -40,37 +39,12 @@ export const runningTimeAtom = atom((get) => {
   return runningState.running ? runningState.runningTime : undefined;
 });
 
-// Custom storage to handle Timespan deserialization
-const programStorage = {
-  getItem(key: string, initialValue: { stages: (Stage | MultiplyStage)[]; cooldown: boolean }) {
-    if (typeof globalThis === 'undefined' || !globalThis.localStorage) return initialValue;
-    const stored = globalThis.localStorage.getItem(key);
-    if (!stored) return initialValue;
-    try {
-      const parsed = JSON.parse(stored, Timespan.reviver);
-      if (Array.isArray(parsed)) {
-        return { stages: parsed, cooldown: false };
-      }
-      return parsed;
-    } catch {
-      return initialValue;
-    }
-  },
-  setItem(key: string, value: { stages: (Stage | MultiplyStage)[]; cooldown: boolean }) {
-    if (typeof globalThis === 'undefined' || !globalThis.localStorage) return;
-    globalThis.localStorage.setItem(key, JSON.stringify(value));
-  },
-  removeItem(key: string) {
-    if (typeof globalThis === 'undefined' || !globalThis.localStorage) return;
-    globalThis.localStorage.removeItem(key);
-  },
-};
+export const activeProgramIdAtom = atom<string | null>(null);
 
-const programInternalAtom = atomWithStorage<{ stages: MultiplyStage[]; cooldown: boolean }>(
-  'programAtom',
-  { stages: [], cooldown: false },
-  programStorage
-);
+export const programInternalAtom = atom<{ stages: MultiplyStage[]; cooldown: boolean }>({
+  stages: [],
+  cooldown: false,
+});
 
 export const programAtom = atom(
   (get) => get(programInternalAtom).stages,

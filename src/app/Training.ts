@@ -15,6 +15,9 @@ export default class Training {
   private readonly ki: number = 0.000001;
   private readonly kd: number = 0.14;
 
+  /** Populated after each bmp-stage update; null for tempo stages. */
+  public lastState: { predictedHr: number; error: number } | null = null;
+
   constructor(initialSpeed: number) {
     this.treadmillSpeed = initialSpeed;
   }
@@ -22,24 +25,16 @@ export default class Training {
   // Update the training logic
   public update(currentHeartRate: number, currentSection: Stage, deltaTime: number): number {
     if (currentSection.speedType === 'tempo') {
+      this.lastState = null;
       return calculateSpeedByTempo(currentSection.tempo);
     }
 
-    // Check if phase time is over
     if (this.lastCurrentSection !== currentSection) {
       this.lastCurrentSection = currentSection;
-      this.integral = 0; // Reset integral to avoid carryover
+      this.integral = 0; // Reset integral to avoid carryover between stages
     }
 
-    // Adjust PID parameters for aggressive phases
-    // if (currentSection.duration.totalMinutes <= 3) {
-    //   this.kp = 0.2; // More aggressive response
-    //   this.kd = 0.1;
-    // } else {
-    //   this.kp = 0.05; // Default response
-    //   this.kd = 0.05;
-    // }
-
+    // Apply a calibration offset to compensate for wrist HR sensor lag
     currentHeartRate = currentHeartRate + 8;
 
     // Calculate error
@@ -65,6 +60,9 @@ export default class Training {
 
     // Save last error
     this.lastError = error;
+    this.previousHeartRate = currentHeartRate;
+
+    this.lastState = { predictedHr: Math.round(predictedHeartRate), error: Math.round(error * 10) / 10 };
 
     return this.treadmillSpeed;
   }

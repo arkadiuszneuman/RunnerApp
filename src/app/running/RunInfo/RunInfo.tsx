@@ -1,12 +1,12 @@
 import { ReactNode } from 'react';
-import { currentStageAtom, heartRateAtom, runningStateAtom, stagesAtom } from '@/app/atoms';
+import { currentStageAtom, currentStageIndexAtom, heartRateAtom, runningStateAtom, stagesAtom } from '@/app/atoms';
 import RunnerTypography, { RunnerTypographyProps } from '@/app/base/RunnerTypography';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import LandscapeIcon from '@mui/icons-material/Landscape';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
-import { Grid2 } from '@mui/material';
+import { Grid } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import Timer from './Timer/Timer';
 
@@ -36,24 +36,24 @@ function Tile(
   }>
 ) {
   return (
-    <Grid2 container direction="column" spacing={0.5} size={4}>
-      <Grid2 container direction="row" spacing={0.5}>
-        <Grid2>
+    <Grid container sx={{ display: 'flex', flexDirection: 'column' }} spacing={0.5} size={4}>
+      <Grid container direction="row" spacing={0.5}>
+        <Grid>
           <RunInfoCategory textVariant="secondary">{props.icon}</RunInfoCategory>
-        </Grid2>
-        <Grid2>
+        </Grid>
+        <Grid>
           <RunInfoCategory textVariant="secondary">{props.categoryName}</RunInfoCategory>
-        </Grid2>
-      </Grid2>
-      <Grid2 container spacing={0.5} alignItems="end">
-        <Grid2>
+        </Grid>
+      </Grid>
+      <Grid container spacing={0.5} sx={{ alignItems: 'end' }}>
+        <Grid>
           <RunInfoData>{props.runInfoData}</RunInfoData>
-        </Grid2>
-        <Grid2>
+        </Grid>
+        <Grid>
           <RunInfoUnit>{props.runInfoUnit}</RunInfoUnit>
-        </Grid2>
-      </Grid2>
-    </Grid2>
+        </Grid>
+      </Grid>
+    </Grid>
   );
 }
 
@@ -61,17 +61,18 @@ export default function RunInfo() {
   const heartRate = useAtomValue(heartRateAtom);
   const runningState = useAtomValue(runningStateAtom);
   const currentStage = useAtomValue(currentStageAtom);
+  const currentStageIndex = useAtomValue(currentStageIndexAtom);
   const stages = useAtomValue(stagesAtom);
 
   return (
-    <Grid2 container rowSpacing={2} justifyContent="center">
-      <Grid2 size="auto">
+    <Grid container rowSpacing={2} sx={{ justifyContent: 'center' }}>
+      <Grid size="auto">
         {runningState.running ? (
           <Timer
             primaryText={currentStage?.to.subtract(runningState.runningTime).toString('mm:ss')}
             primaryTextInfo="Time left"
             secondaryText={
-              currentStage ? `${stages.indexOf(currentStage) + 1}/${stages.length}` : ''
+              currentStage ? `${currentStageIndex ?? 0}/${stages.length}` : ''
             }
             secondaryTextInfo="Stage"
             progress={
@@ -89,15 +90,15 @@ export default function RunInfo() {
             primaryText="00:00"
             primaryTextInfo="Time left"
             secondaryText={
-              currentStage ? `${stages.indexOf(currentStage) + 1}/${stages.length}` : '0/0'
+              currentStage ? `${currentStageIndex ?? 0}/${stages.length}` : '0/0'
             }
             secondaryTextInfo="Stage"
             progress={0}
           />
         )}
-      </Grid2>
-      <Grid2 container rowSpacing={4}>
-        <Grid2 size={2}></Grid2>
+      </Grid>
+      <Grid container rowSpacing={4}>
+        <Grid size={2}></Grid>
         <Tile
           categoryName="Speed"
           runInfoData={runningState.running ? runningState.treadmillOptions.speed : 0}
@@ -110,8 +111,8 @@ export default function RunInfo() {
           runInfoUnit="%"
           icon={<LandscapeIcon sx={{ fontSize: '0.8rem' }} />}
         />
-        <Grid2 size={2}></Grid2>
-        <Grid2 size={2}></Grid2>
+        <Grid size={2}></Grid>
+        <Grid size={2}></Grid>
         <Tile
           categoryName="Heart rate"
           runInfoData={heartRate ?? 0}
@@ -134,16 +135,16 @@ export default function RunInfo() {
             icon={<FavoriteIcon sx={{ fontSize: '0.8rem' }} />}
           />
         )}
-        <Grid2 size={2}></Grid2>
-        <Grid2 size={4}></Grid2>
+        <Grid size={2}></Grid>
+        <Grid size={4}></Grid>
         <Tile
           categoryName="Duration"
           runInfoData={runningState.running ? runningState.runningTime.toString('mm:ss') : '00:00'}
           runInfoUnit="min"
           icon={<AccessTimeIcon sx={{ fontSize: '0.8rem' }} />}
         />
-        <Grid2 size={4}></Grid2>
-      </Grid2>
-    </Grid2>
+        <Grid size={4}></Grid>
+      </Grid>
+    </Grid>
   );
 }
