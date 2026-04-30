@@ -307,8 +307,16 @@ export default function useRunningLoop() {
       return;
     }
 
+    const prevCommandedSpeed = lastCommandedSpeedRef.current;
     lastCommandedSpeedRef.current = treadmillOptions.speed;
-    consecutiveDivergentCountRef.current = 0;
+
+    // Only reset the detection counter when the program speed actually changes.
+    // Without this guard, the counter would reset every second (on each treadmillOptions
+    // re-render), making manual override impossible to detect.
+    if (Math.abs(treadmillOptions.speed - prevCommandedSpeed) > 0.15) {
+      consecutiveDivergentCountRef.current = 0;
+    }
+
     BleManager.sendIncAndSpeed(treadmillOptions?.incline, treadmillOptions?.speed);
   }, [treadmillOptions]);
 
