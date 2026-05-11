@@ -10,6 +10,7 @@ import { useAtom, useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import EditStage from './EditStage';
+import ImportProgramDialog from './ImportProgramDialog';
 import Program from './Program';
 import { editingSectionAtom } from './atoms';
 import { Timespan } from '@/services/Timespan';
@@ -65,6 +66,7 @@ function ProgramNameEditor() {
 
 export default function AddProgram() {
   const [editingStage, setEditingStage] = useAtom(editingSectionAtom);
+  const [importOpen, setImportOpen] = useState(false);
 
   return (
     <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column', margin: 2 }}>
@@ -76,6 +78,9 @@ export default function AddProgram() {
           <Stack direction="row" spacing={1}>
             <Button variant="contained" color="secondary" href="/" LinkComponent={Link}>
               Back
+            </Button>
+            <Button variant="outlined" color="info" onClick={() => setImportOpen(true)}>
+              Import
             </Button>
             <Button
               variant="contained"
@@ -97,6 +102,7 @@ export default function AddProgram() {
               Add Stage
             </Button>
           </Stack>
+          <ImportProgramDialog open={importOpen} onClose={() => setImportOpen(false)} />
         </>
       )}
     </Box>

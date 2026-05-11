@@ -57,7 +57,7 @@ export default function useRunningLoop() {
 
   // Manual speed override detection
   const lastCommandedSpeedRef = useRef<number>(0);
-  const consecutiveDivergentCountRef = useRef<number>(0);
+  const previousActualSpeedRef = useRef<number>(0);
   const setActualTreadmillSpeed = useSetAtom(actualTreadmillSpeedAtom);
 
   // Telemetry state — all refs so flushTelemetry never has a stale closure
@@ -142,7 +142,6 @@ export default function useRunningLoop() {
   }, [setRunningState]);
 
   const resetManualSpeed = useCallback(() => {
-    consecutiveDivergentCountRef.current = 0;
     setRunningState((prev) => {
       if (prev.running && prev.treadmillOptions.isManualSpeedActive) {
         return {
@@ -307,16 +306,7 @@ export default function useRunningLoop() {
       return;
     }
 
-    const prevCommandedSpeed = lastCommandedSpeedRef.current;
     lastCommandedSpeedRef.current = treadmillOptions.speed;
-
-    // Only reset the detection counter when the program speed actually changes.
-    // Without this guard, the counter would reset every second (on each treadmillOptions
-    // re-render), making manual override impossible to detect.
-    if (Math.abs(treadmillOptions.speed - prevCommandedSpeed) > 0.15) {
-      consecutiveDivergentCountRef.current = 0;
-    }
-
     BleManager.sendIncAndSpeed(treadmillOptions?.incline, treadmillOptions?.speed);
   }, [treadmillOptions]);
 
@@ -347,35 +337,36 @@ export default function useRunningLoop() {
         const treadmillSpeed = event.state.currentSpeed;
         setActualTreadmillSpeed(treadmillSpeed);
 
-        // Detect manual speed override: if the treadmill reports a speed significantly
-        // different from what the app last commanded for 3+ consecutive readings, the
-        // user has manually overridden speed on the treadmill.
-        setRunningState((prev) => {
-          if (!prev.running || prev.treadmillOptions.isManualSpeedActive) {
-            consecutiveDivergentCountRef.current = 0;
-            return prev;
-          }
+        // Detect manual speed override using direction analysis:
+        // - gap: how far the treadmill is from the commanded speed
+        // - trend: which direction the treadmill is moving (vs previous reading)
+        //
+        // If the treadmill is moving AWAY from the commanded speed (gap and trend have
+        // opposite signs), the user is controlling it manually.
+        //
+        // This distinguishes manual input from normal ramp-up (where the treadmill moves
+        // TOWARD the commanded speed) and works even for tiny 0.1 km/h button presses.
+        const gap = lastCommandedSpeedRef.current - treadmillSpeed;
+        const trend = treadmillSpeed - previousActualSpeedRef.current;
+        previousActualSpeedRef.current = treadmillSpeed;
 
-          const diff = Math.abs(treadmillSpeed - lastCommandedSpeedRef.current);
-          if (diff > 0.5) {
-            consecutiveDivergentCountRef.current++;
-            if (consecutiveDivergentCountRef.current >= 3) {
-              consecutiveDivergentCountRef.current = 0;
-              training.current.syncToSpeed(treadmillSpeed);
-              return {
-                ...prev,
-                treadmillOptions: {
-                  ...prev.treadmillOptions,
-                  isManualSpeedActive: true,
-                },
-              };
+        const isMovingAwayFromTarget = Math.abs(gap) > 0.05 && gap * trend < 0;
+
+        if (isMovingAwayFromTarget) {
+          setRunningState((prev) => {
+            if (!prev.running || prev.treadmillOptions.isManualSpeedActive) {
+              return prev;
             }
-          } else {
-            consecutiveDivergentCountRef.current = 0;
-          }
-
-          return prev;
-        });
+            training.current.syncToSpeed(treadmillSpeed);
+            return {
+              ...prev,
+              treadmillOptions: {
+                ...prev.treadmillOptions,
+                isManualSpeedActive: true,
+              },
+            };
+          });
+        }
       }
     },
     [setRunningState, setActualTreadmillSpeed, flushTelemetry],
