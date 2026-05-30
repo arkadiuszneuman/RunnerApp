@@ -16,6 +16,7 @@ export const runningStateAtom = atom<
       speed: number;
       incline: number;
       isCustomSpeedUsed: boolean;
+      isManualSpeedActive: boolean;
     };
   }
 >({ running: false });
@@ -102,5 +103,13 @@ export const treadmillOptionsAtom = atom((get) => {
   const runningState = get(runningStateAtom);
   return runningState.running ? runningState.treadmillOptions : undefined;
 });
+
+export const isManualSpeedActiveAtom = atom((get) => {
+  const runningState = get(runningStateAtom);
+  return runningState.running ? runningState.treadmillOptions.isManualSpeedActive : false;
+});
+
+/** Live treadmill speed reported by the device — updated from every btRunning event. */
+export const actualTreadmillSpeedAtom = atom<number>(0);
 
 export const heartRateAtom = atom<number>();

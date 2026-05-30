@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  actualTreadmillSpeedAtom,
   currentStageAtom,
   currentStageIndexAtom,
   heartRateAtom,
@@ -10,7 +11,7 @@ import {
   stagesAtom,
   treadmillOptionsAtom,
 } from './atoms';
-import { atom, useAtom, useAtomValue } from 'jotai';import useRunningStateLoop from './useRunningStateLoop';
+import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai';import useRunningStateLoop from './useRunningStateLoop';
 import { useWakeLock } from 'react-screen-wake-lock';
 import axios from 'axios';
 import BleManager, { TreadmillEvent } from './BleManager';
@@ -54,11 +55,17 @@ export default function useRunningLoop() {
 
   const training = useRef(new Training(1));
 
-  // Telemetry state
+  // Manual speed override detection
+  const lastCommandedSpeedRef = useRef<number>(0);
+  const previousActualSpeedRef = useRef<number>(0);
+  const setActualTreadmillSpeed = useSetAtom(actualTreadmillSpeedAtom);
+
+  // Telemetry state — all refs so flushTelemetry never has a stale closure
   const runIdRef = useRef<string | null>(null);
   const telemetryRef = useRef<TelemetryPoint[]>([]);
   const lastTelemetryPointRef = useRef<Omit<TelemetryPoint, 't'> | null>(null);
   const flushIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const runningStartedDateRef = useRef<Date | null>(null);
 
   useRunningStateLoop();
   const heartRateMonitor = useHeartRate();
@@ -71,23 +78,22 @@ export default function useRunningLoop() {
 
   const flushTelemetry = useCallback(
     (extra?: { finishedAt?: string; durationMs?: number }) => {
-      if (!runIdRef.current || !runningState.running) return;
+      if (!runIdRef.current) return;
       const payload = {
-        startedAt: runningState.runningStartedDate.toISOString(),
+        startedAt: runningStartedDateRef.current?.toISOString(),
         telemetry: telemetryRef.current,
         ...extra,
       };
       axios.patch(`/api/runs/${runIdRef.current}`, payload).catch(() => {});
     },
-    [runningState]
+    [], // stable — uses only refs
   );
 
   const stop = useCallback(async () => {
-    if (runningState.running) {
-      const finishedAt = new Date().toISOString();
-      const durationMs = runningState.runningTime.totalMilliseconds;
-      flushTelemetry({ finishedAt, durationMs });
-    }
+    const finishedAt = new Date().toISOString();
+    const durationMs = runningState.running ? runningState.runningTime.totalMilliseconds : undefined;
+    flushTelemetry({ finishedAt, durationMs });
+    runIdRef.current = null; // prevent double-flush
 
     if (flushIntervalRef.current) {
       clearInterval(flushIntervalRef.current);
@@ -125,6 +131,25 @@ export default function useRunningLoop() {
           paused: false,
           pauseStartedDate: undefined,
           runningStartedDate: newStartedDate,
+          treadmillOptions: {
+            ...prev.treadmillOptions,
+            isManualSpeedActive: false,
+          },
+        };
+      }
+      return prev;
+    });
+  }, [setRunningState]);
+
+  const resetManualSpeed = useCallback(() => {
+    setRunningState((prev) => {
+      if (prev.running && prev.treadmillOptions.isManualSpeedActive) {
+        return {
+          ...prev,
+          treadmillOptions: {
+            ...prev.treadmillOptions,
+            isManualSpeedActive: false,
+          },
         };
       }
       return prev;
@@ -180,8 +205,9 @@ export default function useRunningLoop() {
         if (Date.now() - lastSpeedChangedDate >= 1000) {
           setLastSpeedChangedDateAtom(Date.now());
 
-          if (heartRate !== undefined) {
-            const newSpeed = training.current.update(heartRate, currentStage, 1000);
+          const isTempoStage = currentStage.speedType === 'tempo';
+          if (isTempoStage || heartRate !== undefined) {
+            const newSpeed = training.current.update(heartRate ?? 0, currentStage, 1000);
 
             setRunningState((prev) => {
               if (prev.running) {
@@ -203,7 +229,7 @@ export default function useRunningLoop() {
             const phr = training.current.lastState?.predictedHr ?? 0;
             const err = training.current.lastState?.error ?? 0;
             const point: Omit<TelemetryPoint, 't'> = {
-              hr: heartRate,
+              hr: heartRate ?? 0,
               thr,
               phr,
               spd: newSpeed,
@@ -275,12 +301,28 @@ export default function useRunningLoop() {
       return;
     }
 
+    // Don't override the user's manual speed — let the treadmill maintain it.
+    if (treadmillOptions.isManualSpeedActive) {
+      return;
+    }
+
+    lastCommandedSpeedRef.current = treadmillOptions.speed;
     BleManager.sendIncAndSpeed(treadmillOptions?.incline, treadmillOptions?.speed);
   }, [treadmillOptions]);
 
   const onEventOccured = useCallback(
     (event: TreadmillEvent) => {
       if (event.type === 'btDisconnected' || event.type === 'btStopped') {
+        // Flush telemetry before losing the running state
+        const finishedAt = new Date().toISOString();
+        flushTelemetry({ finishedAt });
+        runIdRef.current = null;
+
+        if (flushIntervalRef.current) {
+          clearInterval(flushIntervalRef.current);
+          flushIntervalRef.current = null;
+        }
+
         setRunningState((prev) => {
           if (prev.running && prev.paused && event.type === 'btStopped') {
             return prev;
@@ -291,24 +333,43 @@ export default function useRunningLoop() {
         });
       }
 
-      // if (event.type === 'btRunning' && event.state.currentSpeed !== treadmillOptions?.speed) {
-      //   setRunningState((prev) => {
-      //     if (prev.running) {
-      //       return {
-      //         ...prev,
-      //         treadmillOptions: {
-      //           ...prev.treadmillOptions,
-      //           speed: event.state.currentSpeed,
-      //           isCustomSpeedUsed: true,
-      //         },
-      //       };
-      //     }
+      if (event.type === 'btRunning') {
+        const treadmillSpeed = event.state.currentSpeed;
+        setActualTreadmillSpeed(treadmillSpeed);
 
-      //     return prev;
-      //   });
-      // }
+        // Detect manual speed override using direction analysis:
+        // - gap: how far the treadmill is from the commanded speed
+        // - trend: which direction the treadmill is moving (vs previous reading)
+        //
+        // If the treadmill is moving AWAY from the commanded speed (gap and trend have
+        // opposite signs), the user is controlling it manually.
+        //
+        // This distinguishes manual input from normal ramp-up (where the treadmill moves
+        // TOWARD the commanded speed) and works even for tiny 0.1 km/h button presses.
+        const gap = lastCommandedSpeedRef.current - treadmillSpeed;
+        const trend = treadmillSpeed - previousActualSpeedRef.current;
+        previousActualSpeedRef.current = treadmillSpeed;
+
+        const isMovingAwayFromTarget = Math.abs(gap) > 0.05 && gap * trend < 0;
+
+        if (isMovingAwayFromTarget) {
+          setRunningState((prev) => {
+            if (!prev.running || prev.treadmillOptions.isManualSpeedActive) {
+              return prev;
+            }
+            training.current.syncToSpeed(treadmillSpeed);
+            return {
+              ...prev,
+              treadmillOptions: {
+                ...prev.treadmillOptions,
+                isManualSpeedActive: true,
+              },
+            };
+          });
+        }
+      }
     },
-    [treadmillOptions, setRunningState]
+    [setRunningState, setActualTreadmillSpeed, flushTelemetry],
   );
 
   useEffect(() => {
@@ -335,7 +396,9 @@ export default function useRunningLoop() {
         lastTelemetryPointRef.current = null;
         runIdRef.current = null;
 
-        const startedAt = new Date(Date.now() + 3000).toISOString();
+        const startDate = new Date(Date.now() + 3000);
+        runningStartedDateRef.current = startDate;
+        const startedAt = startDate.toISOString();
 
         // Create run record immediately so data is saved even if run is stopped early
         axios
@@ -343,10 +406,8 @@ export default function useRunningLoop() {
           .then(({ data }) => {
             runIdRef.current = data.id;
 
-            // Flush telemetry every 30 seconds
-            flushIntervalRef.current = setInterval(() => {
-              flushTelemetry();
-            }, 30_000);
+            // flushTelemetry is stable (no closure deps), so it's safe to reference directly
+            flushIntervalRef.current = setInterval(flushTelemetry, 30_000);
           })
           .catch(() => {});
 
@@ -354,12 +415,13 @@ export default function useRunningLoop() {
           ...prev,
           running: true,
           paused: false,
-          runningStartedDate: new Date(Date.now() + 3000),
+          runningStartedDate: startDate,
           runningTime: new Timespan(),
           treadmillOptions: {
             incline: 2,
             speed: 1,
             isCustomSpeedUsed: false,
+            isManualSpeedActive: false,
           },
         }));
       } catch {
@@ -371,6 +433,7 @@ export default function useRunningLoop() {
     stop: stop,
     pause: pause,
     resume: resume,
+    resetManualSpeed,
     connectHeartRateMonitor: heartRateMonitor.connectHeartRate,
     heartRateConnected: heartRateMonitor.heartRateConnected,
     wakeLock: {
