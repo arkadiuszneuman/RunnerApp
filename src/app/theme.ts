@@ -7,7 +7,7 @@ const theme = createTheme({
     mode: 'dark',
     background: {
       default: 'transparent',
-      paper: 'rgba(255,255,255,0.08)',
+      paper: '#0d5f6e',
     },
   },
   typography: {

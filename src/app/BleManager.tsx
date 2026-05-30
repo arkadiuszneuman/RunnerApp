@@ -62,6 +62,12 @@ class BleManager {
   };
   private retries = MAX_RETRIES;
   private connected = false;
+  private device: BluetoothDevice | undefined = undefined;
+  private intervalId: ReturnType<typeof setInterval> | undefined = undefined;
+  private connectPromise: Promise<void> | undefined = undefined;
+
+  // Stable bound reference so addEventListener/removeEventListener can match the same fn
+  private readonly notificationHandler = (e: Event) => this.handleNotifications(e);
 
   private constructor() {}
 
@@ -235,67 +241,102 @@ class BleManager {
     this.messageQueue.push(msg);
   }
 
-  async initBTConnection() {
-    const deviceId = localStorage.getItem('treadmilId');
+  private cleanupConnection() {
+    if (this.intervalId !== undefined) {
+      clearInterval(this.intervalId);
+      this.intervalId = undefined;
+    }
+
+    if (c_serialPortRead) {
+      // Fire-and-forget; may fail if GATT is already gone
+      c_serialPortRead.stopNotifications().catch(() => {});
+      c_serialPortRead.removeEventListener('characteristicvaluechanged', this.notificationHandler);
+      c_serialPortRead.removeEventListener('characteristicvalueread', this.notificationHandler);
+    }
+
+    s_serialPort = undefined;
+    c_serialPortRead = undefined;
+    c_serialPortWrite = undefined;
+
+    this.connected = false;
+    this._isRunning = false;
+    this.lastMessage = undefined;
+    this.messageQueue = [];
+    this.retries = MAX_RETRIES;
+    this.states = { status: '', value: undefined, currentSpeed: 0, currentIncline: 0 };
+  }
+
+  private async waitForGattDisconnect(timeoutMs = 1000) {
+    const start = Date.now();
+    while (this.device?.gatt?.connected && Date.now() - start < timeoutMs) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  initBTConnection(): Promise<void> {
+    // Deduplicate concurrent calls — return the in-flight promise if one exists
+    if (this.connectPromise) return this.connectPromise;
+    this.connectPromise = this._connect().finally(() => {
+      this.connectPromise = undefined;
+    });
+    return this.connectPromise;
+  }
+
+  private async _connect() {
+    // Tear down any existing session before reconnecting.
+    // On Windows, the browser reuses the same GATT/characteristic objects when
+    // reconnecting to the same device, so we must explicitly disconnect first to
+    // avoid accumulating duplicate intervals and event listeners.
+    const wasConnected = this.device?.gatt?.connected ?? false;
+    this.cleanupConnection();
+    if (wasConnected && this.device?.gatt) {
+      this.device.gatt.disconnect();
+      await this.waitForGattDisconnect();
+    }
+
     let device: BluetoothDevice | undefined = undefined;
+    const deviceId = localStorage.getItem('treadmilId');
     if (deviceId && navigator.bluetooth.getDevices) {
-      // Try to get previously paired device
       const devices = await navigator.bluetooth.getDevices();
       device = devices.find((d) => d.id === deviceId);
-      if (!device) {
-        // Device not found, fallback to modal
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
-        });
-        localStorage.setItem('treadmilId', device.id);
-      }
-    } else {
-      // First time or browser does not support getDevices
+    }
+    if (!device) {
       device = await navigator.bluetooth.requestDevice({
         filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
       });
       localStorage.setItem('treadmilId', device.id);
     }
 
-    return device?.gatt?.connect()
-      .then((server) => {
-        return server?.getPrimaryService(S_SERIAL_PORT);
-      })
-      .then((service) => {
-        s_serialPort = service;
-        return s_serialPort?.getCharacteristic(C_SERIAL_PORT_READ);
-      })
-      .then((characteristic) => {
-        c_serialPortRead = characteristic;
-        return c_serialPortRead?.startNotifications().then(() => {
-          console.log('> Notifications started for c_serialPortRead');
-          c_serialPortRead?.addEventListener('characteristicvaluechanged', (e) => {
-            this.handleNotifications(e);
-          });
-          c_serialPortRead?.addEventListener('characteristicvalueread', (e) => {
-            this.handleNotifications(e);
-          });
-          return s_serialPort?.getCharacteristic(C_SERIAL_PORT_WRITE);
-        });
-      })
-      .then((characteristic) => {
-        c_serialPortWrite = characteristic;
-        this.addMessage(SPEED_INFO_COMMAND);
-        this.addMessage(INCLINE_INFO_COMMAND);
-        this.addMessage(TOTAL_INFO_COMMAND);
-        setInterval(() => {
-          this.intervalHandler();
-        }, 200);
-        this.emit({ type: 'btConnected' });
-        this.connected = true;
-      })
-      .catch(async (error) => {
-        console.log(error);
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
-        });
-        localStorage.setItem('treadmilId', device.id);
-      });
+    this.device = device;
+
+    try {
+      const server = await device.gatt!.connect();
+      const service = await server.getPrimaryService(S_SERIAL_PORT);
+      s_serialPort = service;
+
+      const readChar = await service.getCharacteristic(C_SERIAL_PORT_READ);
+      c_serialPortRead = readChar;
+      await readChar.startNotifications();
+      console.log('> Notifications started for c_serialPortRead');
+      readChar.addEventListener('characteristicvaluechanged', this.notificationHandler);
+      readChar.addEventListener('characteristicvalueread', this.notificationHandler);
+
+      c_serialPortWrite = await service.getCharacteristic(C_SERIAL_PORT_WRITE);
+
+      this.addMessage(SPEED_INFO_COMMAND);
+      this.addMessage(INCLINE_INFO_COMMAND);
+      this.addMessage(TOTAL_INFO_COMMAND);
+      this.intervalId = setInterval(() => {
+        this.intervalHandler();
+      }, 200);
+      this.emit({ type: 'btConnected' });
+      this.connected = true;
+    } catch (error) {
+      // Clear saved device so next attempt opens the picker instead of silently failing again
+      localStorage.removeItem('treadmilId');
+      this.device = undefined;
+      throw error;
+    }
   }
 
   public start() {

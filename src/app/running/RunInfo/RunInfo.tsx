@@ -1,12 +1,13 @@
 import { ReactNode } from 'react';
-import { currentStageAtom, currentStageIndexAtom, heartRateAtom, runningStateAtom, stagesAtom } from '@/app/atoms';
+import { actualTreadmillSpeedAtom, currentStageAtom, currentStageIndexAtom, heartRateAtom, isManualSpeedActiveAtom, runningStateAtom, stagesAtom } from '@/app/atoms';
 import RunnerTypography, { RunnerTypographyProps } from '@/app/base/RunnerTypography';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import LandscapeIcon from '@mui/icons-material/Landscape';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
-import { Grid } from '@mui/material';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import { Button, Chip, Grid } from '@mui/material';
 import { useAtomValue } from 'jotai';
 import Timer from './Timer/Timer';
 
@@ -57,12 +58,16 @@ function Tile(
   );
 }
 
-export default function RunInfo() {
+export default function RunInfo({ onResetManualSpeed }: Readonly<{ onResetManualSpeed?: () => void }>) {
   const heartRate = useAtomValue(heartRateAtom);
   const runningState = useAtomValue(runningStateAtom);
   const currentStage = useAtomValue(currentStageAtom);
   const currentStageIndex = useAtomValue(currentStageIndexAtom);
   const stages = useAtomValue(stagesAtom);
+  const isManualSpeedActive = useAtomValue(isManualSpeedActiveAtom);
+  const actualTreadmillSpeed = useAtomValue(actualTreadmillSpeedAtom);
+
+  const displaySpeed = runningState.running ? runningState.treadmillOptions.speed : 0;
 
   return (
     <Grid container rowSpacing={2} sx={{ justifyContent: 'center' }}>
@@ -99,12 +104,57 @@ export default function RunInfo() {
       </Grid>
       <Grid container rowSpacing={4}>
         <Grid size={2}></Grid>
-        <Tile
-          categoryName="Speed"
-          runInfoData={runningState.running ? runningState.treadmillOptions.speed : 0}
-          runInfoUnit="km/h"
-          icon={<DirectionsRunIcon sx={{ fontSize: '0.8rem' }} />}
-        />
+        {isManualSpeedActive ? (
+          <Grid container sx={{ display: 'flex', flexDirection: 'column' }} spacing={0.5} size={4}>
+            <Grid container direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+              <Grid>
+                <RunInfoCategory textVariant="secondary">
+                  <DirectionsRunIcon sx={{ fontSize: '0.8rem' }} />
+                </RunInfoCategory>
+              </Grid>
+              <Grid>
+                <RunInfoCategory textVariant="secondary">Speed</RunInfoCategory>
+              </Grid>
+              <Grid>
+                <Chip label="MANUAL" size="small" color="warning" sx={{ fontSize: '0.6rem', height: '16px' }} />
+              </Grid>
+            </Grid>
+            <Grid container spacing={0.5} sx={{ alignItems: 'end' }}>
+              <Grid>
+                <RunInfoData>{actualTreadmillSpeed}</RunInfoData>
+              </Grid>
+              <Grid>
+                <RunInfoUnit>km/h</RunInfoUnit>
+              </Grid>
+            </Grid>
+            <Grid>
+              <RunnerTypography sx={{ fontSize: '0.75rem' }} textVariant="secondary">
+                Program: {displaySpeed} km/h
+              </RunnerTypography>
+            </Grid>
+            {onResetManualSpeed && (
+              <Grid>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<RestartAltIcon />}
+                  onClick={onResetManualSpeed}
+                  sx={{ fontSize: '0.7rem', py: 0.25 }}
+                >
+                  Reset
+                </Button>
+              </Grid>
+            )}
+          </Grid>
+        ) : (
+          <Tile
+            categoryName="Speed"
+            runInfoData={displaySpeed}
+            runInfoUnit="km/h"
+            icon={<DirectionsRunIcon sx={{ fontSize: '0.8rem' }} />}
+          />
+        )}
         <Tile
           categoryName="Incline"
           runInfoData={runningState.running ? runningState.treadmillOptions.incline : 0}

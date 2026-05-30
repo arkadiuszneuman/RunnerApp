@@ -22,6 +22,12 @@ export default class Training {
     this.treadmillSpeed = initialSpeed;
   }
 
+  /** Sync the controller's internal speed to a known actual speed (e.g., when resuming from manual override). Resets integral to prevent windup carryover. */
+  public syncToSpeed(speed: number) {
+    this.treadmillSpeed = speed;
+    this.integral = 0;
+  }
+
   // Update the training logic
   public update(currentHeartRate: number, currentSection: Stage, deltaTime: number): number {
     if (currentSection.speedType === 'tempo') {

@@ -24,6 +24,7 @@ const meta = {
             incline: 2,
             speed: 14.3,
             isCustomSpeedUsed: false,
+            isManualSpeedActive: false,
           },
           paused: false
         },
