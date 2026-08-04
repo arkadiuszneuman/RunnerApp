@@ -42,3 +42,5 @@ export { default as useRunningStateLoop } from './state/useRunningStateLoop';
 export { default as useInterval } from './hooks/useInterval';
 
 export type { TelemetryPoint } from './types/telemetry';
+
+export * from './ble';
