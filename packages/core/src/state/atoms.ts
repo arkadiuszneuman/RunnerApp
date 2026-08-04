@@ -2,24 +2,25 @@ import { Timespan } from '../services/Timespan';
 import calculateStages, { MultiplyStage, StageResult } from '../services/stagesCalculator';
 import { atom } from 'jotai';
 
-export const runningStateAtom = atom<
+export interface TreadmillOptions {
+  speed: number;
+  incline: number;
+  isCustomSpeedUsed: boolean;
+  isManualSpeedActive: boolean;
+}
+
+export type RunningState =
+  | { running: false }
   | {
-    running: false;
-  }
-  | {
-    running: true;
-    paused: boolean;
-    pauseStartedDate?: Date;
-    runningStartedDate: Date;
-    runningTime: Timespan;
-    treadmillOptions: {
-      speed: number;
-      incline: number;
-      isCustomSpeedUsed: boolean;
-      isManualSpeedActive: boolean;
+      running: true;
+      paused: boolean;
+      pauseStartedDate?: Date;
+      runningStartedDate: Date;
+      runningTime: Timespan;
+      treadmillOptions: TreadmillOptions;
     };
-  }
->({ running: false });
+
+export const runningStateAtom = atom<RunningState>({ running: false });
 
 export const isRunningAtom = atom((get) => {
   return get(runningStateAtom).running;

@@ -36,11 +36,11 @@ export {
   actualTreadmillSpeedAtom,
   heartRateAtom,
 } from './state/atoms';
-
-export { default as useRunningStateLoop } from './state/useRunningStateLoop';
+export type { RunningState, TreadmillOptions } from './state/atoms';
 
 export { default as useInterval } from './hooks/useInterval';
 
 export type { TelemetryPoint } from './types/telemetry';
 
 export * from './ble';
+export * from './session';
