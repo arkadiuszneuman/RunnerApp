@@ -1,25 +1,25 @@
 import { desc, eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { programs } from '@/lib/db/schema';
+import { getUserId } from '@/lib/session';
 
-export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json(null, { status: 401 });
+export async function GET(request: Request) {
+  const userId = await getUserId(request);
+  if (!userId) return NextResponse.json(null, { status: 401 });
 
   const result = await db
     .select({ id: programs.id, name: programs.name, updatedAt: programs.updatedAt })
     .from(programs)
-    .where(eq(programs.userId, session.user.id))
+    .where(eq(programs.userId, userId))
     .orderBy(desc(programs.updatedAt));
 
   return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json(null, { status: 401 });
+  const userId = await getUserId(request);
+  if (!userId) return NextResponse.json(null, { status: 401 });
 
   const { name, data } = await request.json();
   if (!name?.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const result = await db
     .insert(programs)
     .values({
-      userId: session.user.id,
+      userId,
       name: name.trim(),
       data: data ?? { stages: [], cooldown: false },
     })

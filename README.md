@@ -35,6 +35,9 @@ AUTH_SECRET=<run: openssl rand -base64 32>
 AUTH_TRUST_HOST=true
 AUTH_GOOGLE_ID=<your Google OAuth client ID>       # optional — skip to use email/password only
 AUTH_GOOGLE_SECRET=<your Google OAuth client secret>
+
+MOBILE_JWT_SECRET=<run: openssl rand -base64 32>   # signs mobile access tokens — separate from
+                                                    # AUTH_SECRET so rotating one doesn't sign out the other
 ```
 
 To get Google OAuth credentials, create a project at [console.cloud.google.com](https://console.cloud.google.com), enable the Google+ API, and add `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI.
@@ -77,6 +80,7 @@ AUTH_SECRET          # openssl rand -base64 32
 AUTH_GOOGLE_ID       # Google OAuth client ID
 AUTH_GOOGLE_SECRET   # Google OAuth client secret
 NEXTAUTH_URL         # https://your-app.vercel.app
+MOBILE_JWT_SECRET    # openssl rand -base64 32 — signs the mobile app's access tokens
 ```
 
 4. On first deploy, run `pnpm db:migrate` locally pointing at the Neon connection string, or trigger it via a one-off Vercel function.
