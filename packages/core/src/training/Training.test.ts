@@ -1,7 +1,7 @@
 import { expect, describe, it } from 'vitest';
 import Training from './Training';
-import { Timespan } from '@/services/Timespan';
-import { Stage } from '@/services/stagesCalculator';
+import { Timespan } from '../services/Timespan';
+import { Stage } from '../services/stagesCalculator';
 
 describe('Training', () => {
   it('should initialize with given speed', () => {
