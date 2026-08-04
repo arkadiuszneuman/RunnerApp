@@ -1,6 +1,6 @@
 import { expect, describe, it } from 'vitest'
 import { calculateSpeedByHeartRate, calculateSpeedByTempo } from './speedCalculator'
-import { Timespan } from '@/services/Timespan'
+import { Timespan } from './Timespan'
 
 describe('Speed Calculator', () => {
   it('speed is not changed when heart rate is similar to target', () => {
