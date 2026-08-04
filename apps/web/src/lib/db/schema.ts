@@ -92,3 +92,21 @@ export const runHistory = pgTable('run_history', {
   data: jsonb('data').notNull().default({}),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 });
+
+/**
+ * Refresh tokens for the mobile app (JWT bearer auth — web keeps using session
+ * cookies). Only a SHA-256 hash of each token is stored. `familyId` is shared by
+ * every token descended from the same login; reuse of an already-rotated token
+ * revokes the whole family, since that's a signal the token was stolen.
+ */
+export const mobileRefreshTokens = pgTable('mobile_refresh_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  familyId: uuid('family_id').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+  revokedAt: timestamp('revoked_at', { mode: 'date' }),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+});
