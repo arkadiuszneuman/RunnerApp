@@ -1,24 +1,59 @@
-import { Box, Button, ButtonText, Heading, Text, VStack } from '@gluestack-ui/themed';
-import { useAuth } from '@/auth/AuthProvider';
+import { Box, Button, ButtonText, VStack } from '@gluestack-ui/themed';
+import { activeProgramIdAtom, stagesAtom } from '@runner/core';
+import { Link, useRouter } from 'expo-router';
+import { useAtomValue } from 'jotai';
+import { useEffect, useState } from 'react';
+import { getProgram } from '@/api/programs';
+import { RunnerText } from '@/components/RunnerText';
+import useRunningLoop from '@/hooks/useRunningLoop';
 
-/**
- * Placeholder home screen — the real BleConnector-equivalent (connect HR,
- * connect treadmill, start run) lands in Phase 6, built against FakeTreadmill.
- * This exists now to prove the auth/navigation loop closes end to end.
- */
 export default function HomeScreen() {
-  const { user, logout } = useAuth();
+  const router = useRouter();
+  const stages = useAtomValue(stagesAtom);
+  const activeProgramId = useAtomValue(activeProgramIdAtom);
+  const [programName, setProgramName] = useState<string | null>(null);
+
+  const runningLoop = useRunningLoop();
+
+  useEffect(() => {
+    if (!activeProgramId) {
+      setProgramName(null);
+      return;
+    }
+    getProgram(activeProgramId)
+      .then((program) => setProgramName(program?.name ?? null))
+      .catch(() => {});
+  }, [activeProgramId]);
+
+  const hasBmpStages = stages.some((stage) => stage.speedType === 'bmp');
+  const startDisabled = stages.length === 0 || (hasBmpStages && !runningLoop.heartRateConnected());
 
   return (
-    <Box flex={1} alignItems="center" justifyContent="center" px={24}>
-      <VStack space="md" alignItems="center">
-        <Heading size="2xl" color="$white">
-          RunnerApp
-        </Heading>
-        <Text color="$white">{user?.name ?? user?.email}</Text>
-        <Button onPress={logout} action="secondary">
-          <ButtonText>Sign out</ButtonText>
+    <Box flex={1} p={16}>
+      <VStack space="md">
+        <Button onPress={runningLoop.connectHeartRateMonitor}>
+          <ButtonText>Connect heart rate</ButtonText>
         </Button>
+
+        <Link href="/(app)/programs" asChild>
+          <Button action="secondary">
+            <ButtonText>Programs</ButtonText>
+          </Button>
+        </Link>
+
+        <Button isDisabled={startDisabled} onPress={() => router.push('/(app)/running')}>
+          <ButtonText>Start running</ButtonText>
+        </Button>
+
+        {programName ? (
+          <RunnerText textTransform="none" remSize={0.85} style={{ opacity: 0.7 }}>
+            Active program: {programName}
+          </RunnerText>
+        ) : (
+          <RunnerText textTransform="none" remSize={0.85} style={{ opacity: 0.7 }}>
+            No program selected — pick one on the Programs screen
+          </RunnerText>
+        )}
       </VStack>
     </Box>
   );

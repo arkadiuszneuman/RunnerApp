@@ -6,6 +6,7 @@
     "@expo-google-fonts/barlow": "^0.4.1",
     "@expo/html-elements": "^0.12.5",
     "@expo/metro-runtime": "~57.0.8",
+    "@expo/vector-icons": "^15.1.1",
     "@gluestack-style/react": "^1.0.57",
     "@gluestack-ui/config": "^1.1.20",
     "@gluestack-ui/themed": "^1.1.73",

@@ -42,6 +42,9 @@ importers:
       '@expo/metro-runtime':
         specifier: ~57.0.8
         version: 57.0.8(@expo/log-box@57.0.2)(expo@57.0.10)(react-dom@19.0.0-rc-fb9a90fa48-20240614(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
+      '@expo/vector-icons':
+        specifier: ^15.1.1
+        version: 15.1.1(expo-font@57.0.1)(react-native@0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
       '@gluestack-style/react':
         specifier: ^1.0.57
         version: 1.0.57
@@ -2021,6 +2024,13 @@ packages:
         optional: true
       react-native-worklets:
         optional: true
+
+  '@expo/vector-icons@15.1.1':
+    resolution: {integrity: sha512-Iu2VkcoI5vygbtYngm7jb4ifxElNVXQYdDrYkT7UCEIiKLeWnQY0wf2ZhHZ+Wro6Sc5TaumpKUOqDRpLi5rkvw==}
+    peerDependencies:
+      expo-font: '>=14.0.4'
+      react: '*'
+      react-native: '*'
 
   '@expo/ws-tunnel@2.0.0':
     resolution: {integrity: sha512-j+JfTRdCk820J9dU0sA2SqshQIKFOMo7ED84w9MJFcebfbNQgsLztEY/SABDkGnjatrW4xGqnUhVRxSBVyCkXw==}
@@ -10326,6 +10336,12 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
       - '@types/react-dom'
+
+  '@expo/vector-icons@15.1.1(expo-font@57.0.1)(react-native@0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)':
+    dependencies:
+      expo-font: 57.0.1(expo@57.0.10)(react-native@0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
+      react: 19.2.3
+      react-native: 0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(@react-native/metro-config@0.86.2(@babel/core@7.29.0(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.3)(supports-color@8.1.1)
 
   '@expo/ws-tunnel@2.0.0(ws@8.18.0)':
     dependencies:

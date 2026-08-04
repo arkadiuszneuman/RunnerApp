@@ -44,3 +44,10 @@ export type { TelemetryPoint } from './types/telemetry';
 
 export * from './ble';
 export * from './session';
+
+export {
+  formatDigits,
+  digitsToTimespan,
+  timespanToDigits,
+  type DurationFields,
+} from './duration/durationInput';

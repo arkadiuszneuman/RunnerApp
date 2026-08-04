@@ -12,6 +12,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { Provider as JotaiProvider } from 'jotai';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
+import { store } from '@/store';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -62,7 +63,7 @@ export default function RootLayout() {
         end={{ x: 1, y: 0.81 }}
         style={{ flex: 1 }}
       >
-        <JotaiProvider>
+        <JotaiProvider store={store}>
           <AuthProvider>
             <RouteGuard />
           </AuthProvider>
