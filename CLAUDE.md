@@ -182,9 +182,8 @@ API routes under `apps/web/src/app/api/` (`programs`, `programs/[id]`, `runs`, `
   `// eslint-disable-next-line @typescript-eslint/no-explicit-any`).
 - UI components use **MUI v9** (`@mui/material`). Theme is defined in `apps/web/src/app/theme.ts`; font is
   Barlow via CSS variable `--font-barlow`.
-- Prettier enforces: single quotes, 100-char print width, CRLF line endings, `es5` trailing commas. Import
-  order: `react` first, then third-party, then local (`^[./]`). Note: most files on disk are currently
-  LF, not CRLF — running `prettier --write` broadly will rewrite line endings across the codebase.
+- Prettier enforces: single quotes, 100-char print width, LF line endings, `es5` trailing commas. Import
+  order: `react` first, then third-party, then local (`^[./]`).
 
 ### Testing
 - Tests live next to their source files (e.g., `Timespan.test.ts` beside `Timespan.ts`).
