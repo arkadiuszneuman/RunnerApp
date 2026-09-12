@@ -4,7 +4,6 @@
   "scripts": {
     "dev": "pnpm -F @runner/web dev",
     "build": "pnpm -F @runner/web build",
-    "mobile": "pnpm -F @runner/mobile start",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "pnpm -r lint",
