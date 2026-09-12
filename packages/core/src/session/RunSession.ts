@@ -45,6 +45,8 @@ export interface RunSessionOptions {
   now?: () => number;
   /** Defaults to 30s, matching the original web implementation. */
   flushIntervalMs?: number;
+  /** Called with a message when a telemetry flush fails. Defaults to a no-op. */
+  logger?: (message: string) => void;
 }
 
 /**
@@ -66,6 +68,7 @@ export class RunSession {
   private readonly api: RunApi;
   private readonly now: () => number;
   private readonly flushIntervalMs: number;
+  private readonly logger: (message: string) => void;
 
   private training = new Training(1);
   private cooldownInitialized = false;
@@ -79,6 +82,7 @@ export class RunSession {
   private telemetry: TelemetryPoint[] = [];
   private lastTelemetryPoint: Omit<TelemetryPoint, 't'> | null = null;
   private flushIntervalId: ReturnType<typeof setInterval> | undefined;
+  private stopPromise: Promise<void> | undefined;
 
   constructor(opts: RunSessionOptions) {
     this.store = opts.store;
@@ -86,6 +90,7 @@ export class RunSession {
     this.api = opts.api;
     this.now = opts.now ?? Date.now;
     this.flushIntervalMs = opts.flushIntervalMs ?? 30_000;
+    this.logger = opts.logger ?? (() => {});
 
     this.treadmill.subscribe(this.onTreadmillEvent);
   }
@@ -163,7 +168,23 @@ export class RunSession {
     }
   }
 
-  async stop(): Promise<void> {
+  /**
+   * Dedupes concurrent callers (mirrors the connect-dedup pattern in the
+   * BleTransport implementations): pump() calls this without awaiting it
+   * whenever the program ends without cooldown, and the UI's Stop button can
+   * call it independently around the same time. Without this, two overlapping
+   * calls would both read `state`/`runId` before either finished, double-fire
+   * `treadmill.stop()`, and race to set `runningStateAtom`.
+   */
+  stop(): Promise<void> {
+    if (this.stopPromise) return this.stopPromise;
+    this.stopPromise = this._stop().finally(() => {
+      this.stopPromise = undefined;
+    });
+    return this.stopPromise;
+  }
+
+  private async _stop(): Promise<void> {
     const state = this.store.get(runningStateAtom);
     const finishedAt = new Date(this.now()).toISOString();
     const durationMs = state.running ? state.runningTime.totalMilliseconds : undefined;
@@ -352,7 +373,12 @@ export class RunSession {
     if (!this.runId) return;
     const state = this.store.get(runningStateAtom);
     const startedAt = state.running ? state.runningStartedDate.toISOString() : undefined;
-    this.api.patchRun(this.runId, { startedAt, telemetry: this.telemetry, ...extra }).catch(() => {});
+    // Deliberately fire-and-forget (a slow/offline flush must never block the
+    // pump loop or the stop/pause flow) but still surfaced via the logger —
+    // silently swallowing this would lose telemetry with no way to notice.
+    this.api
+      .patchRun(this.runId, { startedAt, telemetry: this.telemetry, ...extra })
+      .catch((error) => this.logger(`RunSession: telemetry flush failed: ${error}`));
   }
 
   private startFlushInterval(): void {
