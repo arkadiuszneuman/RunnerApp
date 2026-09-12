@@ -34,26 +34,36 @@ interface Harness {
   nowRef: { current: number };
   createRunCalls: string[];
   patchRunCalls: { id: string; payload: { telemetry: unknown[]; finishedAt?: string; durationMs?: number } }[];
+  loggerMessages: string[];
 }
 
-function makeHarness(flushIntervalMs = 30_000): Harness {
+function makeHarness(flushIntervalMs = 30_000, opts: { failPatchRun?: boolean } = {}): Harness {
   const store = createStore();
   const transport = new FakeTreadmill({ rampRate: 10 }); // fast ramp — not what's under test here
   const treadmill = new TreadmillProtocol({ transport });
   const nowRef = { current: 0 };
   const createRunCalls: string[] = [];
   const patchRunCalls: Harness['patchRunCalls'] = [];
+  const loggerMessages: string[] = [];
   const api: RunApi = {
     async createRun(startedAt) {
       createRunCalls.push(startedAt);
       return { id: 'run-1' };
     },
     async patchRun(id, payload) {
+      if (opts.failPatchRun) throw new Error('network down');
       patchRunCalls.push({ id, payload });
     },
   };
-  const session = new RunSession({ store, treadmill, api, now: () => nowRef.current, flushIntervalMs });
-  return { store, transport, treadmill, session, nowRef, createRunCalls, patchRunCalls };
+  const session = new RunSession({
+    store,
+    treadmill,
+    api,
+    now: () => nowRef.current,
+    flushIntervalMs,
+    logger: (message) => loggerMessages.push(message),
+  });
+  return { store, transport, treadmill, session, nowRef, createRunCalls, patchRunCalls, loggerMessages };
 }
 
 /** Advances the fake clock in 200ms steps (matching the original real-world poll cadence), pumping both the BLE tick and the session on every step. */
@@ -189,6 +199,33 @@ describe('RunSession', () => {
 
     const state = h.store.get(runningStateAtom);
     expect(state.running).toBe(false);
+  });
+
+  it('stop() dedupes concurrent callers into a single treadmill.stop()/flush', async () => {
+    const h = makeHarness();
+    h.store.set(programAtom, testProgram());
+    await connectAndStart(h);
+
+    const stopSpy = vi.spyOn(h.treadmill, 'stop');
+    const patchCallsBefore = h.patchRunCalls.length;
+
+    // Simulates the pump-loop-triggered stop() racing a user pressing the Stop
+    // button around the same time — both should resolve, but only do the work once.
+    await Promise.all([h.session.stop(), h.session.stop()]);
+
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+    expect(h.patchRunCalls.length).toBe(patchCallsBefore + 1);
+    expect(h.store.get(runningStateAtom).running).toBe(false);
+  });
+
+  it('surfaces a failed telemetry flush via the logger instead of swallowing it', async () => {
+    const h = makeHarness(30_000, { failPatchRun: true });
+    h.store.set(programAtom, testProgram());
+    await connectAndStart(h);
+
+    await h.session.stop();
+
+    expect(h.loggerMessages.some((m) => m.includes('telemetry flush failed'))).toBe(true);
   });
 
   it('pause() then resume() shifts runningStartedDate forward by the pause duration', async () => {

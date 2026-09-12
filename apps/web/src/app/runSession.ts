@@ -13,4 +13,9 @@ const api: RunApi = {
   },
 };
 
-export const runSession = new RunSession({ store, treadmill: BleManager, api });
+export const runSession = new RunSession({
+  store,
+  treadmill: BleManager,
+  api,
+  logger: (message) => console.warn(message),
+});
