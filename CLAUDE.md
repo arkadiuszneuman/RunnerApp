@@ -39,9 +39,7 @@ at `apps/web/src/lib/db/schema.ts` and outputs to root `drizzle/`).
 Package manager is **pnpm**. Do not use npm or yarn. To run a script in one package directly:
 `pnpm -F @runner/web <script>` or `pnpm -F @runner/core <script>`.
 
-**Known issues**: `pnpm lint` currently crashes inside `apps/web` (ESLint 10 / `eslint-plugin-react` 7.37
-incompatibility — `contextOrFilename.getFilename is not a function`); treat web lint output as unreliable
-until that's fixed. `packages/core`'s `Training.test.ts` "real world test" currently fails on `main`
+**Known issues**: `packages/core`'s `Training.test.ts` "real world test" currently fails on `main`
 (expects `10.9`, gets `12.3`) — this is a pre-existing failure, not something you introduced if you see it.
 
 Local Postgres is started with `docker compose up -d` (db `runnerapp`, user/pass `runner`, **port 5433** on
