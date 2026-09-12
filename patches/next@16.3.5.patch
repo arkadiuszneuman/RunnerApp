@@ -1,0 +1,14 @@
+diff --git a/config.js b/config.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..e47db4a29c6e6bd63d1d0c936a1746cad9ef1c04
+--- /dev/null
++++ b/config.js
+@@ -0,0 +1,8 @@
++// Next.js 16 dropped the classic `next/config` runtime-config API (and this
++// file along with it) in favor of environment variables / next.config.js.
++// @storybook/nextjs's preset (dist/preset.js, dist/config/preview.js) still
++// does a top-level `require('next/config')` though, so without this stub
++// Storybook fails to start entirely. Patched in via pnpm rather than
++// reconstructed by a postinstall script — see pnpm-workspace.yaml's
++// patchedDependencies.
++module.exports = { getConfig: () => ({}), setConfig: () => {} };
