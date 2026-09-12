@@ -1,6 +1,7 @@
 {
   "name": "runner-app",
   "private": true,
+  "packageManager": "pnpm@11.18.0",
   "scripts": {
     "dev": "pnpm -F @runner/web dev",
     "build": "pnpm -F @runner/web build",
