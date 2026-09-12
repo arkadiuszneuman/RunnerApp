@@ -99,6 +99,9 @@ const HeartRateVisualization: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Recompute the chart whenever a PID constant slider moves — a dev tool,
+    // not something with an external data source to subscribe to instead.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     simulate(kp, ki, kd);
   }, [kp, ki, kd, simulate]);
 
