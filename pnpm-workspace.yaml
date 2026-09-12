@@ -17,3 +17,12 @@ onlyBuiltDependencies:
 overrides:
   '@types/react': 19.2.14
   '@types/react-dom': 19.2.3
+  # Transitive-only vulnerable deps (ReDoS/DoS advisories) with no direct upgrade path —
+  # pinned up to the patched minimum. Re-check `pnpm audit --prod` after bumping next/sass/axios.
+  immutable: '>=5.1.8'
+  picomatch@^2.3.1: '^2.3.2'
+  picomatch@^4.0.3: '^4.0.4'
+  form-data: '>=4.0.6'
+  nanoid: '>=3.3.18'
+  yaml@1: '>=1.10.3'
+  '@babel/core': '>=7.29.1'
