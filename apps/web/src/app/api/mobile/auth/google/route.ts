@@ -37,7 +37,8 @@ export async function POST(request: Request) {
   }
 
   const sub = payload.sub;
-  const email = payload.email as string | undefined;
+  const email = (payload.email as string | undefined)?.toLowerCase().trim();
+  const emailVerified = payload.email_verified === true;
   const name = (payload.name as string | undefined) ?? null;
   const image = (payload.picture as string | undefined) ?? null;
   if (!sub || !email) {
@@ -63,6 +64,19 @@ export async function POST(request: Request) {
       .where(eq(users.email, email))
       .limit(1)
       .then((r) => r[0]);
+
+    // Only auto-link to an existing account by email when Google has actually
+    // verified that email — otherwise an attacker who controls an unverified
+    // address at some IdP could take over an existing credentials account by
+    // typing the victim's email into their own Google account. Checked (rather
+    // than skipped) even when unverified so we fail loudly instead of hitting
+    // the users.email unique constraint on insert below.
+    if (existingUser && !emailVerified) {
+      return NextResponse.json(
+        { error: 'This email is already registered. Sign in with your existing method instead.' },
+        { status: 409 }
+      );
+    }
 
     if (existingUser) {
       userId = existingUser.id;
