@@ -3,8 +3,13 @@ import { eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
+import { isRateLimited, rateLimitKey } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {
+  if (isRateLimited(rateLimitKey(request, 'register'), { windowMs: 10 * 60_000, max: 10 })) {
+    return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 });
+  }
+
   const body = await request.json();
   const { name, email, password } = body as { name?: string; email?: string; password?: string };
 

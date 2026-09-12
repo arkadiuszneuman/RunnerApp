@@ -4,6 +4,7 @@ import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import { db } from './db';
 import { accounts, sessions, users, verificationTokens } from './db/schema';
+import { isRateLimited, rateLimitKey } from './rateLimit';
 import { verifyCredentials } from './verifyCredentials';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -22,8 +23,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
+        if (isRateLimited(rateLimitKey(request, 'web-credentials'), { windowMs: 5 * 60_000, max: 10 })) {
+          return null;
+        }
         return verifyCredentials(credentials.email as string, credentials.password as string);
       },
     }),
