@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { accounts, users } from '@/lib/db/schema';
 import { issueTokenPair } from '@/lib/mobileAuth';
+import { normalizeEmail } from '@/lib/normalizeEmail';
 
 const GOOGLE_JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
@@ -37,7 +38,8 @@ export async function POST(request: Request) {
   }
 
   const sub = payload.sub;
-  const email = (payload.email as string | undefined)?.toLowerCase().trim();
+  const rawEmail = payload.email as string | undefined;
+  const email = rawEmail ? normalizeEmail(rawEmail) : undefined;
   const emailVerified = payload.email_verified === true;
   const name = (payload.name as string | undefined) ?? null;
   const image = (payload.picture as string | undefined) ?? null;
