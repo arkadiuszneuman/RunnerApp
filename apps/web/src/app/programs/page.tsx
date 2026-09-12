@@ -23,7 +23,7 @@ import { useSetAtom } from 'jotai';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Timespan } from '@/services/Timespan';
+import { Timespan } from '@runner/core';
 import { activeProgramIdAtom, programInternalAtom } from '../atoms';
 
 type ProgramSummary = { id: string; name: string; updatedAt: string };

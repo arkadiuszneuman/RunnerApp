@@ -124,8 +124,8 @@ are intentionally schemaless JSONB blobs:
 - `run_history` — one row per run, `data` holds start/finish timestamps + the telemetry array
   (`packages/core/src/types/telemetry.ts`).
 
-`apps/web/src/services/db/programRepository.ts` is a stale stub left over from a pre-database version —
-program data now flows through `/api/programs` + `programAtom`/`useProgramSync`, not this file.
+Program data flows through `/api/programs` + `programAtom`/`useProgramSync` — there is no separate
+repository layer in `apps/web`.
 
 **`Timespan`** (`packages/core/src/services/Timespan.ts`) — immutable value object (ms internally). Always
 construct via static factories (`Timespan.fromSeconds`, `Timespan.fromMinutes`, `Timespan.parse`). Has a
@@ -134,10 +134,8 @@ construct via static factories (`Timespan.fromSeconds`, `Timespan.fromMinutes`, 
 string first) rather than the default JSON parsing, or nested Timespans deserialize as plain
 `{ totalMilliseconds }` objects. See `useProgramSync.ts` for the pattern.
 
-`apps/web/src/services/*` (Timespan, stagesCalculator, speedCalculator, programTextParser,
-trainingDefaults) and `apps/web/src/app/Training.ts` / `apps/web/src/hooks/useInterval.ts` are thin
-re-export shims over `@runner/core` — import from `@runner/core` directly in new code rather than adding to
-these shims.
+Import domain logic (`Timespan`, `calculateStages`, `MultiplyStage`/`Stage`, `parseProgram`, `Training`,
+`useInterval`, etc.) from `@runner/core` directly — `apps/web` has no local re-export shims for these.
 
 ### Training program model
 

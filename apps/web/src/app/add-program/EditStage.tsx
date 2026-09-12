@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Timespan } from '@/services/Timespan';
-import { Stage, StageType } from '@/services/stagesCalculator';
+import { Stage, StageType, Timespan } from '@runner/core';
 import { Input } from '@mui/material';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';

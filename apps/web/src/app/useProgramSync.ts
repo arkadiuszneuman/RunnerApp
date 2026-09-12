@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Timespan } from '@/services/Timespan';
+import { Timespan } from '@runner/core';
 import { activeProgramIdAtom, programInternalAtom } from './atoms';
 
 export function useProgramSync() {
