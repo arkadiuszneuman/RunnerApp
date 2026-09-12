@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { MultiplyStage, Stage, StageType } from '@/services/stagesCalculator';
+import { MultiplyStage, Stage, StageType } from '@runner/core';
 import RunnerTypography from '../base/RunnerTypography';
 import { useState } from 'react';
 import { editingSectionAtom } from './atoms';

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useWakeLock } from 'react-screen-wake-lock';
-import useInterval from '@/hooks/useInterval';
+import { useInterval } from '@runner/core';
 import BleManager from './BleManager';
 import useHeartRate from './useHeartRate';
 import { runSession } from './runSession';

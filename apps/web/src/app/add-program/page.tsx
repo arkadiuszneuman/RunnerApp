@@ -13,7 +13,7 @@ import EditStage from './EditStage';
 import ImportProgramDialog from './ImportProgramDialog';
 import Program from './Program';
 import { editingSectionAtom } from './atoms';
-import { Timespan } from '@/services/Timespan';
+import { Timespan } from '@runner/core';
 import { activeProgramIdAtom } from '../atoms';
 
 function ProgramNameEditor() {

@@ -10,7 +10,7 @@ import Typography from '@mui/material/Typography';
 import { useSetAtom } from 'jotai';
 import { useState } from 'react';
 import { programAtom } from '../atoms';
-import { parseProgram } from '@/services/programTextParser';
+import { parseProgram } from '@runner/core';
 
 interface ImportProgramDialogProps {
   open: boolean;

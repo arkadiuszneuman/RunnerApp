@@ -1,5 +1,5 @@
 import { heartRateAtom, programAtom, runningStateAtom } from '@/app/atoms';
-import { Timespan } from '@/services/Timespan';
+import { Timespan } from '@runner/core';
 import { atomsForStorybook } from '@alexgorbatchev/storybook-addon-jotai';
 import type { Meta, StoryObj } from '@storybook/react';
 import RunInfo from './RunInfo';
