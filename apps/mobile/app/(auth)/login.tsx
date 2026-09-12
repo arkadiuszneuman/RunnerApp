@@ -60,14 +60,14 @@ export default function LoginScreen() {
           Sign in
         </Heading>
 
-        <Button onPress={handleGoogle} isDisabled={googleLoading} mb={16}>
+        <Button testID="login-google-button" onPress={handleGoogle} isDisabled={googleLoading} mb={16}>
           {googleLoading ? <ButtonSpinner /> : <ButtonText>Sign in with Google</ButtonText>}
         </Button>
 
         <Divider my={16} />
 
         {error ? (
-          <Alert action="error" mb={16}>
+          <Alert testID="login-error-alert" action="error" mb={16}>
             <AlertText>{error}</AlertText>
           </Alert>
         ) : null}
@@ -76,6 +76,7 @@ export default function LoginScreen() {
           <FormControl>
             <Input>
               <InputField
+                testID="login-email-input"
                 placeholder="Email"
                 autoCapitalize="none"
                 keyboardType="email-address"
@@ -87,6 +88,7 @@ export default function LoginScreen() {
           <FormControl>
             <Input>
               <InputField
+                testID="login-password-input"
                 placeholder="Password"
                 secureTextEntry
                 value={password}
@@ -94,7 +96,7 @@ export default function LoginScreen() {
               />
             </Input>
           </FormControl>
-          <Button onPress={handleCredentials} isDisabled={loading}>
+          <Button testID="login-submit-button" onPress={handleCredentials} isDisabled={loading}>
             {loading ? <ButtonSpinner /> : <ButtonText>Sign in</ButtonText>}
           </Button>
         </VStack>
@@ -102,7 +104,7 @@ export default function LoginScreen() {
         <Text color="$white" mt={16} textAlign="center">
           No account?{' '}
           <Link href="/(auth)/register">
-            <Text color="$white" textDecorationLine="underline">
+            <Text testID="login-register-link" color="$white" textDecorationLine="underline">
               Register
             </Text>
           </Link>

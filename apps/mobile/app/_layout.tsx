@@ -4,15 +4,17 @@ import {
   Barlow_700Bold,
   useFonts,
 } from '@expo-google-fonts/barlow';
-import { config } from '@gluestack-ui/config';
 import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useSegments, Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { Provider as JotaiProvider } from 'jotai';
 import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { store } from '@/store';
+import { config } from '@/theme/gluestackConfig';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -56,6 +58,7 @@ export default function RootLayout() {
 
   return (
     <GluestackUIProvider config={config} colorMode="dark">
+      <StatusBar style="light" />
       <LinearGradient
         colors={GRADIENT_COLORS}
         locations={GRADIENT_LOCATIONS}
@@ -63,11 +66,13 @@ export default function RootLayout() {
         end={{ x: 1, y: 0.81 }}
         style={{ flex: 1 }}
       >
-        <JotaiProvider store={store}>
-          <AuthProvider>
-            <RouteGuard />
-          </AuthProvider>
-        </JotaiProvider>
+        <SafeAreaProvider>
+          <JotaiProvider store={store}>
+            <AuthProvider>
+              <RouteGuard />
+            </AuthProvider>
+          </JotaiProvider>
+        </SafeAreaProvider>
       </LinearGradient>
     </GluestackUIProvider>
   );

@@ -1,16 +1,29 @@
 import { FakeTreadmill, TreadmillProtocol } from '@runner/core';
-import type { TreadmillEvent } from '@runner/core';
+import type { BleTransport, TreadmillEvent } from '@runner/core';
+import { BlePlxTransport } from './blePlxTransport';
+
+const S_SERIAL_PORT = '0000fff0-0000-1000-8000-00805f9b34fb';
+const C_SERIAL_PORT_READ = '0000fff1-0000-1000-8000-00805f9b34fb';
+const C_SERIAL_PORT_WRITE = '0000fff2-0000-1000-8000-00805f9b34fb';
 
 /**
- * Dev-mode treadmill: FakeTreadmill simulates the belt (ramps toward the
- * commanded speed, answers STATUS realistically) so the whole run flow —
- * screens, PID, telemetry — can be built and exercised without hardware.
- *
- * Phase 7 replaces this transport with BlePlxTransport (react-native-ble-plx)
- * for real devices; TreadmillManager's public surface (matching apps/web's
- * BleManager) stays the same either way, so nothing above this file changes.
+ * The emulator used for e2e/screenshot testing (see .maestro/) has no
+ * Bluetooth, so EXPO_PUBLIC_USE_FAKE_TREADMILL forces FakeTreadmill there —
+ * everywhere else (including real devices without a paired treadmill yet)
+ * talks to real hardware over BlePlxTransport.
  */
-const transport = new FakeTreadmill();
+const fakeTreadmill = new FakeTreadmill();
+const transport: BleTransport =
+  process.env.EXPO_PUBLIC_USE_FAKE_TREADMILL === '1'
+    ? fakeTreadmill
+    : new BlePlxTransport({
+        serviceUuid: S_SERIAL_PORT,
+        readCharUuid: C_SERIAL_PORT_READ,
+        writeCharUuid: C_SERIAL_PORT_WRITE,
+        namePrefix: 'FS-',
+        storageKey: 'treadmillDeviceId',
+      });
+
 const protocol = new TreadmillProtocol({
   transport,
   logger: (message) => console.log(message),
@@ -52,9 +65,11 @@ const TreadmillManager = {
     return protocol.subscribe(callback);
   },
 
-  /** Dev-only: simulate the user pressing the treadmill console's own speed buttons. */
+  /** Dev-only: simulate the user pressing the treadmill console's own speed buttons. No-op on real hardware. */
   simulateManualSpeed(kmh: number): void {
-    transport.manualSpeed(kmh);
+    if (transport === fakeTreadmill) {
+      fakeTreadmill.manualSpeed(kmh);
+    }
   },
 };
 

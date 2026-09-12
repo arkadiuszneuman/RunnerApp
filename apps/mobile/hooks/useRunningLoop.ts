@@ -3,19 +3,19 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useCallback } from 'react';
 import TreadmillManager from '@/ble/treadmillManager';
 import { runSession } from '@/runSession';
+import useHeartRate from './useHeartRate';
 
 /**
  * Thin platform wrapper around the shared RunSession singleton (see
  * runSession.ts) — mirrors apps/web/src/app/useRunningLoop.ts. Owns
- * everything platform-specific: the 200ms pump timer, screen keep-awake, and
- * BLE connect/pairing before delegating to RunSession.start().
- *
- * Heart rate device connection is a stub until Phase 7 wires up a real (or
- * fake) BLE heart rate monitor — bmp-based stages simply won't get a PID
- * update without a heart rate reading, same as on web with no strap connected.
+ * everything platform-specific: the 200ms pump timer, screen keep-awake,
+ * heart rate device connection, and BLE connect/pairing before delegating to
+ * RunSession.start().
  */
 export default function useRunningLoop() {
   useKeepAwake();
+
+  const heartRateMonitor = useHeartRate();
 
   useInterval({ interval: 200, loop: useCallback(() => runSession.pump(), []) });
 
@@ -36,9 +36,8 @@ export default function useRunningLoop() {
     pause,
     resume,
     resetManualSpeed,
-    // TODO(Phase 7): wire a real HeartRateMonitor (ble-plx transport).
-    connectHeartRateMonitor: async () => {},
-    heartRateConnected: () => false,
+    connectHeartRateMonitor: heartRateMonitor.connectHeartRate,
+    heartRateConnected: heartRateMonitor.heartRateConnected,
     wakeLock: {
       isWakeLockSupported: true,
       wakeLockStatus: 'requested' as const,

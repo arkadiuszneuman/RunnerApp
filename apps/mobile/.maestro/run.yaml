@@ -1,0 +1,68 @@
+appId: com.runnerapp.app
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "login-email-input"
+- inputText: "maestro-e2e@runnerapp.test"
+- tapOn:
+    id: "login-password-input"
+- inputText: "maestro123"
+- hideKeyboard
+- tapOn:
+    id: "login-submit-button"
+- assertVisible:
+    id: "home-start-button"
+
+# Build a minimal runnable program: tempo-based, so it needs no heart rate
+# monitor (the emulator has no Bluetooth — see EXPO_PUBLIC_USE_FAKE_TREADMILL
+# in .env.local, which points TreadmillManager at FakeTreadmill instead).
+- tapOn:
+    id: "home-programs-button"
+- tapOn:
+    id: "programs-new-button"
+- tapOn:
+    id: "programs-create-name-input"
+- inputText: "Maestro Run Flow"
+- tapOn:
+    id: "programs-create-submit-button"
+
+- assertVisible: "Add Stage"
+- tapOn: "Add Stage"
+- tapOn: "Bmp"
+- tapOn: "Tempo"
+- tapOn: "Add to program"
+- takeScreenshot: 01-program-with-stage
+
+- tapOn: "Back"
+- tapOn: "Back"
+- assertVisible:
+    id: "home-start-button"
+- takeScreenshot: 02-home-ready-to-start
+
+- tapOn:
+    id: "home-start-button"
+- assertVisible:
+    id: "running-start-button"
+- takeScreenshot: 03-running-screen-idle
+
+- tapOn:
+    id: "running-start-button"
+- extendedWaitUntil:
+    visible:
+      id: "running-pause-resume-button"
+    timeout: 10000
+- takeScreenshot: 04-running-started
+
+- tapOn:
+    id: "running-pause-resume-button"
+- takeScreenshot: 05-running-paused
+- tapOn:
+    id: "running-pause-resume-button"
+- takeScreenshot: 06-running-resumed
+
+- tapOn:
+    id: "running-stop-button"
+- assertNotVisible:
+    id: "running-pause-resume-button"
+- takeScreenshot: 07-running-stopped

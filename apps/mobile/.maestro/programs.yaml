@@ -1,0 +1,42 @@
+appId: com.runnerapp.app
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "login-email-input"
+- inputText: "maestro-e2e@runnerapp.test"
+- tapOn:
+    id: "login-password-input"
+- inputText: "maestro123"
+- hideKeyboard
+- tapOn:
+    id: "login-submit-button"
+- assertVisible:
+    id: "home-start-button"
+
+- tapOn:
+    id: "home-programs-button"
+- assertVisible:
+    id: "programs-new-button"
+- takeScreenshot: 01-programs-list
+
+- tapOn:
+    id: "programs-new-button"
+- tapOn:
+    id: "programs-create-name-input"
+- inputText: "Maestro Programs Test"
+- takeScreenshot: 02-create-program-modal
+- tapOn:
+    id: "programs-create-submit-button"
+
+# Creating a program routes straight into its (empty) stage editor.
+- assertVisible: "Add Stage"
+- takeScreenshot: 03-program-edit-empty
+- tapOn: "Back"
+
+# Back to the programs list, then back to home.
+- tapOn: "Back"
+- assertVisible:
+    id: "home-start-button"
+- assertVisible: "Maestro Programs Test"
+- takeScreenshot: 04-home-with-active-program

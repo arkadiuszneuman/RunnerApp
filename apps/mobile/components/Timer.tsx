@@ -1,5 +1,6 @@
 import { Box } from '@gluestack-ui/themed';
 import { useId } from 'react';
+import { useWindowDimensions } from 'react-native';
 import { Circle, Defs, LinearGradient, Stop, Svg } from 'react-native-svg';
 import { RunnerText } from './RunnerText';
 
@@ -9,21 +10,26 @@ export interface TimerProps {
   primaryTextInfo?: string;
   secondaryText?: string;
   secondaryTextInfo?: string;
-  /** Size in rem, matching the web version's default of 15. */
+  /** Size in rem. Defaults to a value derived from screen width when omitted (see MIN/MAX_REM_SIZE). */
   size?: number;
 }
 
 const REM = 16;
 const MAX = 29;
+/** Default size targets ~55% of screen width, clamped between these — the web version's fixed 15rem is the ceiling. */
+const MIN_REM_SIZE = 10;
+const MAX_REM_SIZE = 15;
 
 /**
  * Mirrors apps/web/.../Timer/Timer.tsx. The strokeDashoffset math ports
- * verbatim. Two deltas from the web version:
+ * verbatim. Deltas from the web version:
  * - `gradientTransform="rotate(70)"` isn't reliably supported by
  *   react-native-svg, so the rotated gradient line is pre-computed as
  *   explicit endpoints: rotating the default (0,0)->(1,0) line by 70° about
  *   the origin gives (0,0)->(cos70°, sin70°) = (0,0)->(0.342, 0.940).
  * - `width="100%"` doesn't work in RN; size is computed in pixels up front.
+ * - the web version's fixed 15rem default doesn't scale down for narrow
+ *   phones, so the default here is derived from window width instead.
  */
 export function Timer({
   progress,
@@ -31,10 +37,13 @@ export function Timer({
   primaryTextInfo,
   secondaryText,
   secondaryTextInfo,
-  size = 15,
+  size,
 }: TimerProps) {
   const gradientId = useId();
-  const pixelSize = size * REM;
+  const { width } = useWindowDimensions();
+  const defaultSize = Math.min(MAX_REM_SIZE, Math.max(MIN_REM_SIZE, (width * 0.55) / REM));
+  const resolvedSize = size ?? defaultSize;
+  const pixelSize = resolvedSize * REM;
   const percentage = 100 - (progress / 100) * (100 - MAX);
 
   return (
@@ -90,15 +99,15 @@ export function Timer({
         }}
       >
         <Box style={{ alignItems: 'center', marginTop: pixelSize / 15 }}>
-          <RunnerText textVariant="secondary" remSize={size / 17}>
+          <RunnerText textVariant="secondary" remSize={resolvedSize / 17}>
             {primaryTextInfo}
           </RunnerText>
-          <RunnerText remSize={size / 4}>{primaryText}</RunnerText>
+          <RunnerText remSize={resolvedSize / 4}>{primaryText}</RunnerText>
         </Box>
 
         <Box style={{ alignItems: 'center' }}>
-          <RunnerText remSize={size / 17}>{secondaryText}</RunnerText>
-          <RunnerText textVariant="secondary" remSize={size / 17}>
+          <RunnerText remSize={resolvedSize / 17}>{secondaryText}</RunnerText>
+          <RunnerText textVariant="secondary" remSize={resolvedSize / 17}>
             {secondaryTextInfo}
           </RunnerText>
         </Box>

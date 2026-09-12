@@ -20,19 +20,28 @@ export default function RunningScreen() {
         <RunInfo onResetManualSpeed={runningLoop.resetManualSpeed} />
 
         <HStack space="sm">
-          <Button onPress={runningLoop.start} isDisabled={runningState.running}>
+          <Button testID="running-start-button" onPress={runningLoop.start} isDisabled={runningState.running}>
             <ButtonText>Start</ButtonText>
           </Button>
           {runningState.running && (
-            <Button onPress={isPaused ? runningLoop.resume : runningLoop.pause}>
+            <Button
+              testID="running-pause-resume-button"
+              onPress={isPaused ? runningLoop.resume : runningLoop.pause}
+            >
               <ButtonText>{isPaused ? 'Resume' : 'Pause'}</ButtonText>
             </Button>
           )}
-          <Button onPress={runningLoop.stop} isDisabled={!runningState.running} action="negative">
+          <Button
+            testID="running-stop-button"
+            onPress={runningLoop.stop}
+            isDisabled={!runningState.running}
+            action="negative"
+          >
             <ButtonText>Stop</ButtonText>
           </Button>
           <Box flex={1} />
           <Button
+            testID="running-back-button"
             onPress={() => router.back()}
             isDisabled={runningState.running}
             action="negative"

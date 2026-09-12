@@ -131,7 +131,7 @@ export default function ProgramsScreen() {
         <RunnerText textTransform="none" remSize={1.25} fontWeight="600">
           Programs
         </RunnerText>
-        <Button size="sm" onPress={() => setCreateOpen(true)}>
+        <Button testID="programs-new-button" size="sm" onPress={() => setCreateOpen(true)}>
           <ButtonIcon as={() => <MaterialIcons name="add" size={16} color="white" />} mr="$1" />
           <ButtonText>New</ButtonText>
         </Button>
@@ -155,7 +155,7 @@ export default function ProgramsScreen() {
           keyExtractor={(p) => p.id}
           ItemSeparatorComponent={() => <Box borderBottomWidth={1} borderBottomColor="rgba(255,255,255,0.1)" />}
           renderItem={({ item }) => (
-            <Pressable onPress={() => handleSelect(item.id)} py={12}>
+            <Pressable testID={`program-item-${item.id}`} onPress={() => handleSelect(item.id)} py={12}>
               <HStack justifyContent="space-between" alignItems="center">
                 <VStack space="xs" flex={1}>
                   <HStack space="sm" alignItems="center">
@@ -173,10 +173,10 @@ export default function ProgramsScreen() {
                   </RunnerText>
                 </VStack>
                 <HStack space="sm">
-                  <Pressable onPress={() => handleEdit(item.id)} p={6}>
+                  <Pressable testID={`program-edit-${item.id}`} onPress={() => handleEdit(item.id)} p={6}>
                     <MaterialIcons name="edit" size={18} color="white" />
                   </Pressable>
-                  <Pressable onPress={() => setDeleteTarget(item)} p={6}>
+                  <Pressable testID={`program-delete-${item.id}`} onPress={() => setDeleteTarget(item)} p={6}>
                     <MaterialIcons name="delete" size={18} color="white" />
                   </Pressable>
                 </HStack>
@@ -202,7 +202,13 @@ export default function ProgramsScreen() {
           </ModalHeader>
           <ModalBody>
             <Input>
-              <InputField placeholder="Program name" value={newName} onChangeText={setNewName} autoFocus />
+              <InputField
+                testID="programs-create-name-input"
+                placeholder="Program name"
+                value={newName}
+                onChangeText={setNewName}
+                autoFocus
+              />
             </Input>
           </ModalBody>
           <ModalFooter>
@@ -217,7 +223,11 @@ export default function ProgramsScreen() {
             >
               <ButtonText>Cancel</ButtonText>
             </Button>
-            <Button onPress={handleCreate} isDisabled={!newName.trim() || creating}>
+            <Button
+              testID="programs-create-submit-button"
+              onPress={handleCreate}
+              isDisabled={!newName.trim() || creating}
+            >
               <ButtonText>Create</ButtonText>
             </Button>
           </ModalFooter>
