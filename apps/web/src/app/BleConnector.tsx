@@ -19,6 +19,10 @@ export default function BleConnector() {
   const runningLoop = useRunningLoop();
 
   useEffect(() => {
+    // Clearing programName synchronously (rather than only from the fetch
+    // below) is intentional: when there's no active program, there is no
+    // fetch to await it from.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!activeProgramId) { setProgramName(null); return; }
     axios
       .get(`/api/programs/${activeProgramId}`)

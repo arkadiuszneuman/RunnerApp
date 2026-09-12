@@ -20,6 +20,9 @@ export default function Run() {
   const isPaused = useAtomValue(isPausedAtom);
   const stages = useAtomValue(stagesAtom);
   const [mounted, setMounted] = useState(false);
+  // Standard hydration-mismatch guard: wakeLock support/status can only be
+  // read client-side, so this flips true one render after mount.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   const wakeLockSupported = mounted && runningLoop.wakeLock.isWakeLockSupported;

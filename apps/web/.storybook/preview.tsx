@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, CssBaseline, ThemeProvider } from '@mui/material';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import { withThemeFromJSXProvider } from '@storybook/addon-themes';
 import { Preview, ReactRenderer } from '@storybook/react';
 import { Barlow } from 'next/font/google';
