@@ -102,6 +102,24 @@ describe('RunSession', () => {
     expect(state.running).toBe(true);
   });
 
+  it('start() refuses to start (and pump() is a no-op) when the program has no stages', async () => {
+    const h = makeHarness();
+    // programAtom defaults to [] — no h.store.set(programAtom, ...) here.
+    await connectAndStart(h);
+
+    expect(h.createRunCalls).toHaveLength(0);
+    expect(h.store.get(runningStateAtom).running).toBe(false);
+
+    // Also guard the case where the program empties out mid-run (pump() must
+    // not throw trying to read stages[stages.length - 1] off an empty array).
+    h.store.set(programAtom, testProgram());
+    await connectAndStart(h);
+    expect(h.store.get(runningStateAtom).running).toBe(true);
+
+    h.store.set(programAtom, []);
+    expect(() => advance(h, 1000)).not.toThrow();
+  });
+
   it('PID moves speed toward the target when heart rate is below target', async () => {
     const h = makeHarness();
     h.store.set(programAtom, testProgram());

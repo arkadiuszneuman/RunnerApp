@@ -10,7 +10,7 @@ import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { isPausedAtom, runningStateAtom } from '../atoms';
+import { isPausedAtom, runningStateAtom, stagesAtom } from '../atoms';
 import useRunningLoop from '../useRunningLoop';
 import RunInfo from './RunInfo/RunInfo';
 
@@ -18,6 +18,7 @@ export default function Run() {
   const runningLoop = useRunningLoop();
   const runningState = useAtomValue(runningStateAtom);
   const isPaused = useAtomValue(isPausedAtom);
+  const stages = useAtomValue(stagesAtom);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -32,9 +33,17 @@ export default function Run() {
       </Grid>
       <Grid container spacing={1} sx={{ mx: 2 }} size={12}>
         <Grid size="auto">
-          <Button variant="contained" onClick={runningLoop.start} disabled={runningState.running}>
-            Start
-          </Button>
+          <Tooltip title={stages.length === 0 ? 'Add at least one stage to your program first' : ''}>
+            <span>
+              <Button
+                variant="contained"
+                onClick={runningLoop.start}
+                disabled={runningState.running || stages.length === 0}
+              >
+                Start
+              </Button>
+            </span>
+          </Tooltip>
         </Grid>
         {runningState.running && (
           <Grid size="auto">
