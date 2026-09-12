@@ -3,17 +3,19 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { runHistory } from '@/lib/db/schema';
 import { getUserId } from '@/lib/session';
+import { parseJsonBody, patchRunSchema } from '@/lib/validation';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getUserId(request);
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const { id } = await params;
-  const data = await request.json();
+  const parsed = await parseJsonBody(request, patchRunSchema);
+  if (!parsed.ok) return parsed.response;
 
   const result = await db
     .update(runHistory)
-    .set({ data })
+    .set({ data: parsed.data })
     .where(and(eq(runHistory.id, id), eq(runHistory.userId, userId)))
     .returning({ id: runHistory.id });
 

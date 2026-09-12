@@ -109,6 +109,9 @@ importers:
       react-screen-wake-lock:
         specifier: ^3.1.1
         version: 3.1.1(react@19.2.5)
+      zod:
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       '@alexgorbatchev/storybook-addon-jotai':
         specifier: 10.0.1
@@ -5809,8 +5812,8 @@ packages:
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
 
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
+  zod@4.6.2:
+    resolution: {integrity: sha512-lh5RCAGFa1Cm2hjtNwLQhSs/AsqdWnTQaBER9fEwN/88pSh7KOtJavtBx/0VlkN/uFd61SwYmljLMDAsHlvzBQ==}
 
 snapshots:
 
@@ -9373,8 +9376,8 @@ snapshots:
       '@babel/parser': 7.29.8
       eslint: 10.2.1(jiti@1.21.7)(supports-color@8.1.1)
       hermes-parser: 0.25.1
-      zod: 4.3.6
-      zod-validation-error: 4.0.2(zod@4.3.6)
+      zod: 4.6.2
+      zod-validation-error: 4.0.2(zod@4.6.2)
 
   eslint-plugin-react@7.37.3(eslint@10.2.1(jiti@1.21.7)(supports-color@8.1.1)):
     dependencies:
@@ -11623,8 +11626,8 @@ snapshots:
 
   yocto-queue@1.1.1: {}
 
-  zod-validation-error@4.0.2(zod@4.3.6):
+  zod-validation-error@4.0.2(zod@4.6.2):
     dependencies:
-      zod: 4.3.6
+      zod: 4.6.2
 
-  zod@4.3.6: {}
+  zod@4.6.2: {}
