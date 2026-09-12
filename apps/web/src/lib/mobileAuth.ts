@@ -55,25 +55,34 @@ export async function rotateRefreshToken(token: string): Promise<RotateResult> {
 
   if (!row) return { ok: false, reason: 'invalid' };
 
-  if (row.revokedAt) {
-    await db
-      .update(mobileRefreshTokens)
-      .set({ revokedAt: new Date() })
-      .where(and(eq(mobileRefreshTokens.familyId, row.familyId), isNull(mobileRefreshTokens.revokedAt)));
-    return { ok: false, reason: 'reused' };
-  }
-
   if (row.expiresAt.getTime() < Date.now()) {
     return { ok: false, reason: 'expired' };
   }
 
   const newRefreshToken = generateRefreshToken();
 
-  await db.transaction(async (tx) => {
-    await tx
+  const result = await db.transaction(async (tx) => {
+    // Atomically claim this token: the WHERE clause means only one of any
+    // concurrent callers can flip revoked_at from NULL. If two requests race
+    // to rotate the same token (e.g. a retried request after a slow/lost
+    // response), the loser sees zero rows updated here instead of both
+    // successfully rotating — which would otherwise mint two valid token
+    // pairs from what should be a single-use token.
+    const claimed = await tx
       .update(mobileRefreshTokens)
       .set({ revokedAt: new Date() })
-      .where(eq(mobileRefreshTokens.id, row.id));
+      .where(and(eq(mobileRefreshTokens.id, row.id), isNull(mobileRefreshTokens.revokedAt)))
+      .returning({ id: mobileRefreshTokens.id });
+
+    if (claimed.length === 0) {
+      // Already revoked by a previous rotation (or another concurrent one) —
+      // treat as theft/replay and kill the whole family.
+      await tx
+        .update(mobileRefreshTokens)
+        .set({ revokedAt: new Date() })
+        .where(and(eq(mobileRefreshTokens.familyId, row.familyId), isNull(mobileRefreshTokens.revokedAt)));
+      return { ok: false as const, reason: 'reused' as const };
+    }
 
     await tx.insert(mobileRefreshTokens).values({
       userId: row.userId,
@@ -81,7 +90,11 @@ export async function rotateRefreshToken(token: string): Promise<RotateResult> {
       tokenHash: hashRefreshToken(newRefreshToken),
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
     });
+
+    return { ok: true as const };
   });
+
+  if (!result.ok) return result;
 
   return {
     ok: true,
