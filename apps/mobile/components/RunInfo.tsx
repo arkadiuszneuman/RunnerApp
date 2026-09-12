@@ -8,7 +8,7 @@ import {
   stagesAtom,
 } from '@runner/core';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Badge, BadgeText, Box, Button, ButtonIcon, ButtonText, HStack, VStack } from '@gluestack-ui/themed';
+import { Badge, BadgeText, Button, ButtonIcon, ButtonText, HStack, VStack } from '@gluestack-ui/themed';
 import { useAtomValue } from 'jotai';
 import type { ReactNode } from 'react';
 import { RunnerText } from './RunnerText';
@@ -38,6 +38,9 @@ function RunInfoUnit({ children }: { children?: ReactNode }) {
   );
 }
 
+/** Two tiles per row, with room to breathe — replaces the old 3-column-grid-with-empty-spacer-Box hack. */
+const TILE_WIDTH = '48%';
+
 function Tile({
   categoryName,
   runInfoData,
@@ -45,7 +48,7 @@ function Tile({
   icon,
 }: Readonly<{ categoryName: string; runInfoData: string | number; runInfoUnit: string; icon?: ReactNode }>) {
   return (
-    <VStack space="xs" width="33%">
+    <VStack space="xs" width={TILE_WIDTH}>
       <HStack space="xs" alignItems="center">
         {icon}
         <RunInfoCategory>{categoryName}</RunInfoCategory>
@@ -100,9 +103,9 @@ export function RunInfo({ onResetManualSpeed }: Readonly<{ onResetManualSpeed?: 
         />
       )}
 
-      <HStack flexWrap="wrap" width="100%" rowGap={16}>
+      <HStack flexWrap="wrap" width="100%" justifyContent="space-between" rowGap={16}>
         {isManualSpeedActive ? (
-          <VStack space="xs" width="33%">
+          <VStack space="xs" width={TILE_WIDTH}>
             <HStack space="xs" alignItems="center">
               {tileIcon('directions-run')}
               <RunInfoCategory>Speed</RunInfoCategory>
@@ -135,8 +138,6 @@ export function RunInfo({ onResetManualSpeed }: Readonly<{ onResetManualSpeed?: 
           icon={tileIcon('landscape')}
         />
 
-        <Box width="33%" />
-
         <Tile categoryName="Heart rate" runInfoData={heartRate ?? 0} runInfoUnit="bmp" icon={tileIcon('monitor-heart')} />
 
         {currentStage?.speedType === 'bmp' && (
@@ -150,8 +151,6 @@ export function RunInfo({ onResetManualSpeed }: Readonly<{ onResetManualSpeed?: 
             icon={tileIcon('favorite')}
           />
         )}
-
-        <Box width="33%" />
 
         <Tile
           categoryName="Duration"

@@ -9,7 +9,10 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "com.runnerapp.app",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "RunnerApp connects to your treadmill and heart rate monitor over Bluetooth."
+      }
     },
     "android": {
       "package": "com.runnerapp.app",
@@ -32,6 +35,13 @@
       "expo-font",
       "expo-splash-screen",
       [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "neverForLocation": true
+        }
+      ],
+      [
         "@react-native-google-signin/google-signin",
         {
           "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID"
@@ -40,6 +50,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d903a98a-50ea-49ab-89be-7910096d928d"
+      }
     }
   }
 }

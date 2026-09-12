@@ -1,0 +1,20 @@
+appId: com.runnerapp.app
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: "login-email-input"
+- takeScreenshot: 01-login-screen
+- tapOn:
+    id: "login-email-input"
+- inputText: "maestro-e2e@runnerapp.test"
+- tapOn:
+    id: "login-password-input"
+- inputText: "maestro123"
+- hideKeyboard
+- takeScreenshot: 02-login-filled
+- tapOn:
+    id: "login-submit-button"
+- assertVisible:
+    id: "home-start-button"
+- takeScreenshot: 03-home-screen

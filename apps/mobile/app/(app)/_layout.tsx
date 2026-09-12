@@ -1,6 +1,6 @@
 import { Box, Button, ButtonText, HStack } from '@gluestack-ui/themed';
 import { Stack } from 'expo-router';
-import { SafeAreaView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RunnerText } from '@/components/RunnerText';
 import { useAuth } from '@/auth/AuthProvider';
 
@@ -20,7 +20,7 @@ function Header() {
       <RunnerText textTransform="none" remSize={0.85} style={{ opacity: 0.7 }}>
         {user.name ?? user.email}
       </RunnerText>
-      <Button size="xs" variant="link" onPress={logout}>
+      <Button testID="header-sign-out-button" size="xs" variant="link" onPress={logout}>
         <ButtonText style={{ opacity: 0.7 }}>Sign out</ButtonText>
       </Button>
     </HStack>
@@ -28,12 +28,11 @@ function Header() {
 }
 
 export default function AppLayout() {
+  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <Box flex={1}>
-        <Header />
-        <Stack screenOptions={{ headerShown: false }} />
-      </Box>
-    </SafeAreaView>
+    <Box flex={1} style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
+      <Header />
+      <Stack screenOptions={{ headerShown: false }} />
+    </Box>
   );
 }

@@ -5,6 +5,21 @@ const REM = 16;
 
 export type RunnerTextVariant = 'primary' | 'secondary';
 
+/**
+ * Barlow ships as three separate static font files (useFonts in
+ * app/_layout.tsx), not weight variants of one family — RN can't synthesize
+ * intermediate weights from them, so the exact loaded family must be picked
+ * per requested weight rather than relying on a `fontWeight` prop.
+ */
+const BARLOW_BY_WEIGHT: Record<string, string> = {
+  '400': 'Barlow_400Regular',
+  normal: 'Barlow_400Regular',
+  '500': 'Barlow_500Medium',
+  '700': 'Barlow_700Bold',
+  bold: 'Barlow_700Bold',
+};
+const DEFAULT_WEIGHT = '500';
+
 export interface RunnerTextProps
   extends Omit<ComponentProps<typeof Text>, 'color' | 'fontSize' | 'lineHeight' | 'size'> {
   textVariant?: RunnerTextVariant;
@@ -23,13 +38,20 @@ export interface RunnerTextProps
  * fontSize and lineHeight are always computed here, excluded from the prop
  * type so a caller can't accidentally shadow them.
  */
-export function RunnerText({ textVariant = 'primary', remSize = 1, ...props }: RunnerTextProps) {
+export function RunnerText({
+  textVariant = 'primary',
+  remSize = 1,
+  fontWeight = DEFAULT_WEIGHT,
+  ...props
+}: RunnerTextProps) {
   const fontSize = remSize * REM;
+  const fontFamily = BARLOW_BY_WEIGHT[String(fontWeight)] ?? BARLOW_BY_WEIGHT[DEFAULT_WEIGHT];
   return (
     <Text
-      fontWeight="500"
       textTransform="uppercase"
       {...props}
+      fontFamily={fontFamily}
+      fontWeight={fontWeight}
       color={textVariant === 'primary' ? '$white' : 'rgba(160,189,255,0.46)'}
       fontSize={fontSize}
       lineHeight={fontSize}
