@@ -1,10 +1,17 @@
 import { and, eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/lib/db';
 import { programs } from '@/lib/db/schema';
 import { getUserId } from '@/lib/session';
+import { parseJsonBody, programDataSchema } from '@/lib/validation';
 
 type Params = { params: Promise<{ id: string }> };
+
+const updateProgramSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  data: programDataSchema.optional(),
+});
 
 export async function GET(request: Request, { params }: Params) {
   const userId = await getUserId(request);
@@ -27,7 +34,9 @@ export async function PUT(request: Request, { params }: Params) {
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const { id } = await params;
-  const body = await request.json();
+  const parsed = await parseJsonBody(request, updateProgramSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (body.name !== undefined) updates.name = body.name;

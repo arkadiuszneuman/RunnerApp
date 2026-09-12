@@ -39,7 +39,8 @@
     "react": "19.2.5",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.5",
-    "react-screen-wake-lock": "^3.1.1"
+    "react-screen-wake-lock": "^3.1.1",
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@alexgorbatchev/storybook-addon-jotai": "10.0.1",

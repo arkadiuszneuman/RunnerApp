@@ -1,8 +1,14 @@
 import { eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/lib/db';
 import { userSettings } from '@/lib/db/schema';
 import { getUserId } from '@/lib/session';
+import { parseJsonBody } from '@/lib/validation';
+
+const userSettingsSchema = z.object({
+  activeProgramId: z.string().nullable(),
+});
 
 export async function GET(request: Request) {
   const userId = await getUserId(request);
@@ -18,7 +24,9 @@ export async function PUT(request: Request) {
   const userId = await getUserId(request);
   if (!userId) return NextResponse.json(null, { status: 401 });
 
-  const data = await request.json();
+  const parsed = await parseJsonBody(request, userSettingsSchema);
+  if (!parsed.ok) return parsed.response;
+  const data = parsed.data;
 
   await db
     .insert(userSettings)
