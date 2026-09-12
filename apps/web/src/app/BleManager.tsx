@@ -18,7 +18,10 @@ const transport = new WebBluetoothTransport({
 
 const protocol = new TreadmillProtocol({
   transport,
-  logger: (message) => console.log(message),
+  // Fires on every malformed/mismatched BLE reply (see handleNotification in
+  // treadmillProtocol.ts) — routine over a real radio link, so only surface
+  // it in development rather than spamming every end user's console.
+  logger: process.env.NODE_ENV === 'development' ? (message) => console.log(message) : undefined,
 });
 
 let intervalId: ReturnType<typeof setInterval> | undefined;
