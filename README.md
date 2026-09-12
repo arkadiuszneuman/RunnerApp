@@ -77,9 +77,14 @@ Open [http://localhost:3010](http://localhost:3010).
 ## Deploy on Vercel
 
 1. Push to GitHub and import the repo in [Vercel](https://vercel.com/new).
-2. Add **Vercel Postgres** from the Storage tab, and set `DATABASE_URL` in your project to the connection
+2. This is a pnpm monorepo — the app Vercel needs to build lives in `apps/web`, not the repo root. In
+   **Project Settings → General → Root Directory**, set it to `apps/web` (Vercel's Next.js framework
+   detection needs this to find `apps/web/package.json`'s `next` dependency) and enable **"Include files
+   outside of the Root Directory in the Build"** (needed since `apps/web` depends on `packages/core` via
+   `workspace:*`).
+3. Add **Vercel Postgres** from the Storage tab, and set `DATABASE_URL` in your project to the connection
    string it gives you (the app reads `DATABASE_URL`, not Vercel's auto-injected `POSTGRES_URL`).
-3. Add these environment variables in Vercel project settings:
+4. Add these environment variables in Vercel project settings:
 
 ```
 DATABASE_URL         # Neon/Vercel Postgres connection string
@@ -90,6 +95,6 @@ NEXTAUTH_URL         # https://your-app.vercel.app
 MOBILE_JWT_SECRET    # openssl rand -base64 32 — only needed if you use the /api/mobile/* endpoints
 ```
 
-4. On first deploy, run `pnpm db:migrate` locally pointing at the Neon connection string, or trigger it via a one-off Vercel function.
+5. On first deploy, run `pnpm db:migrate` locally pointing at the Neon connection string, or trigger it via a one-off Vercel function.
 
 > **Pricing**: Vercel Postgres (Neon) is free on the Hobby plan — 0.5 GB storage, 190 compute hours/month.
