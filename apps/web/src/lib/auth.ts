@@ -8,7 +8,13 @@ import { isRateLimited, rateLimitKey } from './rateLimit';
 import { verifyCredentials } from './verifyCredentials';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
+  // Deliberately not hardcoded to true: trusting the incoming Host/
+  // X-Forwarded-Host header is only safe behind a reverse proxy you control,
+  // since it's otherwise used unauthenticated to build redirect/callback
+  // URLs. Auth.js already derives this from the environment on its own
+  // (AUTH_URL, AUTH_TRUST_HOST, or being on Vercel/Cloudflare Pages — see
+  // @auth/core's env.ts) when left unset here, which matches the
+  // AUTH_TRUST_HOST documented in apps/web/.env.local.example.
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,
