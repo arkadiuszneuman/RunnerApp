@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db } from './db';
 import { users } from './db/schema';
+import { normalizeEmail } from './normalizeEmail';
 
 export interface VerifiedUser {
   id: string;
@@ -18,7 +19,12 @@ const DUMMY_PASSWORD_HASH = '$2b$12$DIYZOqRU2pSt1QUJxskM6OIsl7FTydbzc30.L7oM9Xlh
 
 /** Shared by the Auth.js Credentials provider and the mobile credentials endpoint. */
 export async function verifyCredentials(email: string, password: string): Promise<VerifiedUser | null> {
-  const user = await db.select().from(users).where(eq(users.email, email)).limit(1).then((r) => r[0]);
+  const user = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, normalizeEmail(email)))
+    .limit(1)
+    .then((r) => r[0]);
 
   const isValid = await bcrypt.compare(password, user?.password ?? DUMMY_PASSWORD_HASH);
   if (!user?.password || !isValid) return null;
