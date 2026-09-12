@@ -119,6 +119,10 @@ export class RunSession {
   async start(): Promise<void> {
     try {
       if (!this.treadmill.isConnected()) return;
+      // A program with no stages has no end time for runControlLogic to
+      // compare the running clock against — refuse to start rather than
+      // start the belt and then never stop or progress.
+      if (this.store.get(stagesAtom).length === 0) return;
 
       await this.treadmill.start();
       this.treadmill.sendIncAndSpeed(2, 4);
@@ -213,6 +217,12 @@ export class RunSession {
     if (!state.running) return;
 
     const stages = this.store.get(stagesAtom);
+    // Belt-and-braces alongside start()'s guard: the program could in
+    // principle become empty mid-run (e.g. edited in another tab via
+    // useProgramSync). stages[stages.length - 1] below would throw on an
+    // empty array otherwise.
+    if (stages.length === 0) return;
+
     const currentStage = this.store.get(currentStageAtom);
     const currentStageIndex = this.store.get(currentStageIndexAtom);
     const programCooldown = this.store.get(programCooldownAtom);
