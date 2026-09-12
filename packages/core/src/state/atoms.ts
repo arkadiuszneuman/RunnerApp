@@ -80,6 +80,9 @@ const currentStageInternalAtom = atom<(StageResult & { stageIndex: number }) | u
 
   const stages = get(stagesAtom);
 
+  // 1-based: this is a human-facing ordinal ("stage 1 of 4"), not a 0-based
+  // array index into `stages` — see currentStageIndexAtom below and its use
+  // in RunInfo.tsx's `${currentStageIndex}/${stages.length}` display.
   let i = 0;
   for (const stage of stages) {
     ++i;
@@ -96,6 +99,15 @@ export const currentStageAtom = atom<StageResult | undefined>((get) => {
   return get(currentStageInternalAtom);
 });
 
+/**
+ * 1-based ordinal of the current stage (1 = first stage), not a 0-based
+ * array index — despite the name. Kept this way because its only consumers
+ * (RunInfo.tsx's "N/total" progress display, and RunSession's telemetry/
+ * stage-change tracking, which only needs a value that's stable within a
+ * stage and changes between stages) both treat it as a display ordinal.
+ * Renaming would mean either an off-by-one in the UI or a misleading name —
+ * this comment is the cheaper fix.
+ */
 export const currentStageIndexAtom = atom<number | undefined>((get) => {
   return get(currentStageInternalAtom)?.stageIndex;
 });
