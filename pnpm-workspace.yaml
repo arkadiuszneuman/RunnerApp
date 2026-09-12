@@ -14,6 +14,19 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
 
+patchedDependencies:
+  # @storybook/nextjs requires('next/config'), an API Next.js 16 dropped
+  # entirely — without a stub there, `pnpm storybook` fails outright. Replaces
+  # apps/web's old postinstall script, which reconstructed this same file by
+  # writing directly into node_modules on every install: works, but invisible
+  # in a diff, silently skipped if postinstall scripts are ever disabled
+  # (`pnpm config set enable-pre-post-scripts false`, or a CI running with
+  # --ignore-scripts), and — since pnpm hardlinks from a shared, content-
+  # addressable store — a plain fs.writeFileSync there risks mutating that
+  # shared store entry for every project on the machine using this same next
+  # version. A patch is applied by pnpm itself, every time, deterministically.
+  next@16.3.5: patches/next@16.3.5.patch
+
 overrides:
   '@types/react': 19.2.14
   '@types/react-dom': 19.2.3

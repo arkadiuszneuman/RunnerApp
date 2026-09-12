@@ -15,6 +15,9 @@ overrides:
   yaml@1: '>=1.10.3'
   '@babel/core': '>=7.29.1'
 
+patchedDependencies:
+  next@16.3.5: 21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d
+
 importers:
 
   .:
@@ -60,7 +63,7 @@ importers:
         version: 9.0.0(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@mui/material-nextjs':
         specifier: ^9.0.0
-        version: 9.0.0(@emotion/cache@11.14.0)(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(next@16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react@19.2.5)
+        version: 9.0.0(@emotion/cache@11.14.0)(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(next@16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react@19.2.5)
       '@mui/x-date-pickers':
         specifier: ^9.0.4
         version: 9.0.4(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@mui/material@9.0.0(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@mui/system@9.0.0(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.5))(@types/react@19.2.14)(dayjs@1.11.20)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -90,10 +93,10 @@ importers:
         version: 2.19.1(@babel/core@8.0.5)(@babel/template@8.0.0)(@types/react@19.2.14)(react@19.2.5)
       next:
         specifier: 16.3.5
-        version: 16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)
+        version: 16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)
       next-auth:
         specifier: 5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react@19.2.5)
+        version: 5.0.0-beta.32(next@16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react@19.2.5)
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
@@ -127,7 +130,7 @@ importers:
         version: 10.3.5(storybook@10.3.5(@testing-library/dom@10.4.1)(prettier@3.9.6)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))
       '@storybook/nextjs':
         specifier: ^10.3.5
-        version: 10.3.5(babel-plugin-macros@3.1.0)(esbuild@0.27.7)(next@16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)(storybook@10.3.5(@testing-library/dom@10.4.1)(prettier@3.9.6)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(supports-color@8.1.1)(type-fest@2.19.0)(typescript@6.0.3)(webpack-hot-middleware@2.26.1)(webpack@5.97.1(esbuild@0.27.7))
+        version: 10.3.5(babel-plugin-macros@3.1.0)(esbuild@0.27.7)(next@16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)(storybook@10.3.5(@testing-library/dom@10.4.1)(prettier@3.9.6)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(supports-color@8.1.1)(type-fest@2.19.0)(typescript@6.0.3)(webpack-hot-middleware@2.26.1)(webpack@5.97.1(esbuild@0.27.7))
       '@storybook/react':
         specifier: ^10.3.5
         version: 10.3.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(storybook@10.3.5(@testing-library/dom@10.4.1)(prettier@3.9.6)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(supports-color@8.1.1)(typescript@6.0.3)
@@ -7421,11 +7424,11 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.14
 
-  '@mui/material-nextjs@9.0.0(@emotion/cache@11.14.0)(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(next@16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react@19.2.5)':
+  '@mui/material-nextjs@9.0.0(@emotion/cache@11.14.0)(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1))(@types/react@19.2.14)(next@16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react@19.2.5)':
     dependencies:
       '@babel/runtime': 7.29.2
       '@emotion/react': 11.14.0(@types/react@19.2.14)(react@19.2.5)(supports-color@8.1.1)
-      next: 16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)
+      next: 16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)
       react: 19.2.5
     optionalDependencies:
       '@emotion/cache': 11.14.0
@@ -7778,7 +7781,7 @@ snapshots:
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
 
-  '@storybook/nextjs@10.3.5(babel-plugin-macros@3.1.0)(esbuild@0.27.7)(next@16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)(storybook@10.3.5(@testing-library/dom@10.4.1)(prettier@3.9.6)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(supports-color@8.1.1)(type-fest@2.19.0)(typescript@6.0.3)(webpack-hot-middleware@2.26.1)(webpack@5.97.1(esbuild@0.27.7))':
+  '@storybook/nextjs@10.3.5(babel-plugin-macros@3.1.0)(esbuild@0.27.7)(next@16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)(storybook@10.3.5(@testing-library/dom@10.4.1)(prettier@3.9.6)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(supports-color@8.1.1)(type-fest@2.19.0)(typescript@6.0.3)(webpack-hot-middleware@2.26.1)(webpack@5.97.1(esbuild@0.27.7))':
     dependencies:
       '@babel/core': 8.0.5
       '@babel/plugin-syntax-bigint': 7.8.3(@babel/core@8.0.5)
@@ -7802,7 +7805,7 @@ snapshots:
       css-loader: 6.11.0(webpack@5.97.1(esbuild@0.27.7))
       image-size: 2.0.2
       loader-utils: 3.3.1
-      next: 16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)
+      next: 16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)
       node-polyfill-webpack-plugin: 2.0.1(webpack@5.97.1(esbuild@0.27.7))
       postcss: 8.5.25
       postcss-loader: 8.1.1(postcss@8.5.25)(typescript@6.0.3)(webpack@5.97.1(esbuild@0.27.7))
@@ -10286,13 +10289,13 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  next-auth@5.0.0-beta.32(next@16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react@19.2.5):
+  next-auth@5.0.0-beta.32(next@16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(react@19.2.5):
     dependencies:
       '@auth/core': 0.41.3
-      next: 16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)
+      next: 16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0)
       react: 19.2.5
 
-  next@16.3.5(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0):
+  next@16.3.5(patch_hash=21b8c3b195c583c8ee4839069dd442a4eae14a0cd18c3e9e8445521e6b32e38d)(@babel/core@8.0.5)(@types/node@25.6.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0):
     dependencies:
       '@next/env': 16.3.5
       '@swc/helpers': 0.5.23
