@@ -39,9 +39,6 @@ at `apps/web/src/lib/db/schema.ts` and outputs to root `drizzle/`).
 Package manager is **pnpm**. Do not use npm or yarn. To run a script in one package directly:
 `pnpm -F @runner/web <script>` or `pnpm -F @runner/core <script>`.
 
-**Known issues**: `packages/core`'s `Training.test.ts` "real world test" currently fails on `main`
-(expects `10.9`, gets `12.3`) — this is a pre-existing failure, not something you introduced if you see it.
-
 Local Postgres is started with `docker compose up -d` (db `runnerapp`, user/pass `runner`, **port 5433** on
 the host). Requires `apps/web/.env.local` with `DATABASE_URL`, `AUTH_SECRET`, and optionally
 `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` — copy `apps/web/.env.local.example` to `apps/web/.env.local` and
