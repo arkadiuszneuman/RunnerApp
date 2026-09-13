@@ -42,16 +42,22 @@ export const chartColors = {
 
 export const axisTitleColor = 'rgba(255, 255, 255, 0.55)';
 
+/** mm:ss for a duration given in (possibly fractional) minutes — reuses the
+ * same Timespan formatting the rest of the app uses for durations, instead
+ * of a raw decimal ("3.6666666666666665"). */
+export function formatMinutesAsClock(minutes: number): string {
+  return Timespan.fromMinutes(minutes).toString('mm:ss');
+}
+
 /**
  * All line charts here use a linear x axis in fractional minutes (so
  * telemetry's `t`-in-seconds lines up across charts and with stage
  * boundaries). Minutes-with-decimals reads fine on the axis ticks, but is
  * useless in a hover tooltip — this renders the hovered x as run-clock
- * mm:ss instead, reusing the same Timespan formatting the rest of the app
- * uses for durations.
+ * mm:ss instead.
  */
 export function tooltipTitleAsClock(items: TooltipItem<'line'>[]): string {
   const x = items[0]?.parsed.x;
   if (x === undefined || x === null) return '';
-  return Timespan.fromMinutes(x).toString('mm:ss');
+  return formatMinutesAsClock(x);
 }
