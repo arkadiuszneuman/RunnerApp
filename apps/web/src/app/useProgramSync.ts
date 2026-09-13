@@ -5,22 +5,18 @@ import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Timespan } from '@runner/core';
 import { activeProgramIdAtom, programInternalAtom } from './atoms';
-import { userSettingsLoadedAtom } from './userData';
+import { overlayActiveProgramId } from './offline/overlay';
+import { writes } from './offline/requests';
+import { enqueueWrite, getPendingWrites } from './offline/sync';
+import { claimProgramSave, loadProgramData, setProgramFromServer, userSettingsLoadedAtom } from './userData';
 
 export function useProgramSync() {
-  const [programState, setProgramState] = useAtom(programInternalAtom);
+  const [programState] = useAtom(programInternalAtom);
   const [activeProgramId, setActiveProgramId] = useAtom(activeProgramIdAtom);
   const setUserSettingsLoaded = useSetAtom(userSettingsLoadedAtom);
   const activeProgramIdRef = useRef<string | null>(null);
   const loadedRef = useRef(false);
-  // Set (synchronously, before setProgramState) whenever the *load* effect is
-  // about to write programState, so the save effect's very next run — which
-  // otherwise can't tell "the server just told us this" apart from "the user
-  // just edited this" — skips echoing the freshly-loaded data straight back
-  // as a save.
-  const skipNextSaveRef = useRef(false);
   const { status } = useSession();
   const router = useRouter();
 
@@ -30,50 +26,42 @@ export function useProgramSync() {
     activeProgramIdRef.current = activeProgramId;
   }, [activeProgramId]);
 
-  // Load activeProgramId from settings once authenticated, then load that program's data
+  // Load activeProgramId from settings once authenticated, then load that program's data.
+  // Offline, both reads come from the service worker's cache, with any
+  // still-queued local changes layered on top.
   useEffect(() => {
     if (status !== 'authenticated') return;
 
-    axios
-      .get('/api/user-settings')
-      .then(async (res) => {
-        const id: string | null = res.data?.activeProgramId ?? null;
+    (async () => {
+      try {
+        const [settings, pending] = await Promise.all([axios.get('/api/user-settings'), getPendingWrites()]);
+        const id = overlayActiveProgramId(settings.data?.activeProgramId ?? null, pending);
         setActiveProgramId(id);
-
         if (!id) return;
 
-        const programRes = await axios.get(`/api/programs/${id}`, {
-          transformResponse: [(data) => data],
-        });
-        const program = JSON.parse(programRes.data as string, Timespan.reviver);
-        if (program?.data) {
-          skipNextSaveRef.current = true;
-          setProgramState(program.data);
-        }
-      })
-      .catch((err) => {
+        const data = await loadProgramData(id);
+        if (data) setProgramFromServer(data);
+      } catch (err) {
         if (axios.isAxiosError(err) && err.response?.status === 401) {
           router.push('/login');
         }
-      })
-      .finally(() => {
+      } finally {
         loadedRef.current = true;
         setUserSettingsLoaded(true);
-      });
+      }
+    })();
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Save to DB on change (debounced 1 s)
+  // Save on change (debounced 1 s) through the offline queue, so edits made
+  // without a connection are delivered once it's back.
   useEffect(() => {
     if (!loadedRef.current || !activeProgramIdRef.current) return;
 
-    if (skipNextSaveRef.current) {
-      skipNextSaveRef.current = false;
-      return;
-    }
-
     const id = activeProgramIdRef.current;
     const timer = setTimeout(() => {
-      axios.put(`/api/programs/${id}`, { data: programState }).catch(() => {});
+      if (claimProgramSave(programState)) {
+        void enqueueWrite(writes.updateProgram(id, { data: programState }));
+      }
     }, 1000);
 
     return () => clearTimeout(timer);

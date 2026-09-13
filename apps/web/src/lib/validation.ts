@@ -80,6 +80,13 @@ const telemetryPointSchema = z.object({
 
 /** Body of RunApi.createRun (see packages/core/src/session/RunSession.ts) — POST /api/runs. */
 export const createRunSchema = z.object({
+  /**
+   * Optional client-generated id. The web client always sends one, so a run
+   * started offline can be queued (and its telemetry PATCHes addressed)
+   * before the server has ever seen it — and so a replayed create is
+   * idempotent rather than a duplicate row.
+   */
+  id: z.uuid().optional(),
   startedAt: z.string().min(1),
   programId: z.string().min(1).nullable().optional(),
   program: programDataSchema.optional(),

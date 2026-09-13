@@ -10,6 +10,7 @@ import objectSupport from 'dayjs/plugin/objectSupport';
 import { Provider } from 'jotai';
 import { SessionProvider } from 'next-auth/react';
 import ThemeColorSync from './base/ThemeColorSync';
+import { useOfflineSync } from './offline/useOfflineSync';
 import { useLoadSpeedControllerPreference } from './speedControllerPreference';
 import { store } from './store';
 import theme from './theme';
@@ -20,6 +21,7 @@ function ProgramSyncInitializer() {
   useProgramSync();
   useLoadSpeedControllerPreference();
   useUserDataPreload();
+  useOfflineSync();
   return null;
 }
 

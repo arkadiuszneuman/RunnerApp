@@ -4,6 +4,7 @@ import { ReactNode, useState } from 'react';
 import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import InstallMobileRoundedIcon from '@mui/icons-material/InstallMobileRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import ViewAgendaRoundedIcon from '@mui/icons-material/ViewAgendaRounded';
 import Avatar from '@mui/material/Avatar';
@@ -13,9 +14,12 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
+import { useAtomValue } from 'jotai';
 import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { forgetCachedUserData, installPromptAtom, promptInstall } from '../offline/serviceWorker';
+import SyncIndicator from '../offline/SyncIndicator';
 import { displayFont, glass, tokens } from '../theme';
 
 const NAV_ITEMS = [
@@ -56,7 +60,21 @@ export function BrandMark({ size = 34 }: Readonly<{ size?: number }>) {
 function TopBar() {
   const { data: session } = useSession();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  // Only set while Chromium offers installation (not once installed, not on iOS).
+  const installPrompt = useAtomValue(installPromptAtom);
   const label = session?.user?.name ?? session?.user?.email ?? '';
+
+  const handleInstall = () => {
+    setAnchor(null);
+    void promptInstall();
+  };
+
+  const handleSignOut = async () => {
+    setAnchor(null);
+    // Before signOut: nothing of this account should stay readable offline.
+    await forgetCachedUserData();
+    await signOut({ callbackUrl: '/login' });
+  };
 
   return (
     <Box
@@ -94,22 +112,25 @@ function TopBar() {
             Runner
           </Typography>
         </Box>
-        <IconButton onClick={(e) => setAnchor(e.currentTarget)} aria-label="Account" sx={{ p: 0.5 }}>
-          <Avatar
-            src={session?.user?.image ?? undefined}
-            sx={{
-              width: 34,
-              height: 34,
-              fontSize: '0.95rem',
-              fontWeight: 700,
-              color: tokens.text,
-              background: `linear-gradient(135deg, ${tokens.violet}, ${tokens.heart})`,
-              border: `2px solid ${tokens.borderStrong}`,
-            }}
-          >
-            {label.charAt(0).toUpperCase()}
-          </Avatar>
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <SyncIndicator />
+          <IconButton onClick={(e) => setAnchor(e.currentTarget)} aria-label="Account" sx={{ p: 0.5 }}>
+            <Avatar
+              src={session?.user?.image ?? undefined}
+              sx={{
+                width: 34,
+                height: 34,
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                color: tokens.text,
+                background: `linear-gradient(135deg, ${tokens.violet}, ${tokens.heart})`,
+                border: `2px solid ${tokens.borderStrong}`,
+              }}
+            >
+              {label.charAt(0).toUpperCase()}
+            </Avatar>
+          </IconButton>
+        </Box>
         <Menu
           anchorEl={anchor}
           open={!!anchor}
@@ -127,7 +148,15 @@ function TopBar() {
               </Typography>
             )}
           </Box>
-          <MenuItem onClick={() => signOut({ callbackUrl: '/login' })}>
+          {installPrompt && (
+            <MenuItem onClick={handleInstall}>
+              <ListItemIcon>
+                <InstallMobileRoundedIcon fontSize="small" />
+              </ListItemIcon>
+              Install app
+            </MenuItem>
+          )}
+          <MenuItem onClick={handleSignOut}>
             <ListItemIcon>
               <LogoutRoundedIcon fontSize="small" />
             </ListItemIcon>

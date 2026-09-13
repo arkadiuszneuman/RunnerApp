@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useWakeLock } from 'react-screen-wake-lock';
 import { useInterval } from '@runner/core';
 import BleManager from './BleManager';
+import { isChooserCancelled } from './ble/bluetoothAvailability';
 import useHeartRate from './useHeartRate';
 import { runSession } from './runSession';
 
@@ -42,7 +43,12 @@ export default function useRunningLoop() {
   useInterval({ interval: 200, loop: useCallback(() => runSession.pump(), []) });
 
   const start = useCallback(async () => {
-    await BleManager.initBTConnection();
+    try {
+      await BleManager.initBTConnection();
+    } catch (error) {
+      if (!isChooserCancelled(error)) console.warn('Treadmill connection failed', error);
+      return;
+    }
     if (!BleManager.isConnected()) return;
     await runSession.start();
   }, []);

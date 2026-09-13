@@ -11,12 +11,13 @@ import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
 import Typography from '@mui/material/Typography';
 import { Timespan } from '@runner/core';
-import axios from 'axios';
 import { useAtom, useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { activeProgramIdAtom } from '../atoms';
 import ActionBar from '../base/ActionBar';
 import Page from '../base/Page';
+import { writes } from '../offline/requests';
+import { enqueueWrite } from '../offline/sync';
 import { displayFont, glass, tokens } from '../theme';
 import { activeProgramNameAtom, upsertProgram } from '../userData';
 import EditStage from './EditStage';
@@ -47,10 +48,8 @@ function ProgramNameEditor() {
   const save = () => {
     if (!activeProgramId || !name.trim()) return;
     const trimmed = name.trim();
-    axios
-      .put(`/api/programs/${activeProgramId}`, { name: trimmed })
-      .then(() => upsertProgram({ id: activeProgramId, name: trimmed, updatedAt: new Date().toISOString() }))
-      .catch(() => {});
+    void enqueueWrite(writes.updateProgram(activeProgramId, { name: trimmed }));
+    upsertProgram({ id: activeProgramId, name: trimmed, updatedAt: new Date().toISOString() });
     setEditing(false);
   };
 

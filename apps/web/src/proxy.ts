@@ -9,6 +9,10 @@ export default auth((req) => {
 });
 
 export const config = {
-  // Protect all routes except auth, static assets, and public pages
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|login|register).*)'],
+  // Protect all routes except auth, static assets, and public pages. The PWA
+  // files must stay public too: browsers fetch the manifest without cookies,
+  // and a service worker script that redirects to /login fails to install.
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|login|register|sw.js|manifest.webmanifest|offline.html|icons/|apple-icon).*)',
+  ],
 };

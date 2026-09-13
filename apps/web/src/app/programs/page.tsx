@@ -17,16 +17,27 @@ import Skeleton from '@mui/material/Skeleton';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
-import { Timespan } from '@runner/core';
-import axios from 'axios';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import Snackbar from '@mui/material/Snackbar';
+import { useAtom, useAtomValue } from 'jotai';
 import { useRouter } from 'next/navigation';
-import { activeProgramIdAtom, programInternalAtom } from '../atoms';
+import { activeProgramIdAtom } from '../atoms';
 import EmptyState from '../base/EmptyState';
 import Page from '../base/Page';
 import PulseDot from '../base/PulseDot';
+import type { ProgramData } from '../offline/overlay';
+import { writes } from '../offline/requests';
+import { enqueueWrite } from '../offline/sync';
 import { displayFont, ENTER_DURATION_MS, enter, enterDelayMs, pressable, tokens } from '../theme';
-import { programsAtom, removeProgramFromCache, upsertProgram, type ProgramSummary } from '../userData';
+import {
+  loadProgramData,
+  programsAtom,
+  removeProgramFromCache,
+  setProgramFromServer,
+  upsertProgram,
+  type ProgramSummary,
+} from '../userData';
+
+const EMPTY_PROGRAM: ProgramData = { stages: [], cooldown: false };
 
 export default function ProgramsPage() {
   const router = useRouter();
@@ -34,8 +45,7 @@ export default function ProgramsPage() {
   const loading = programsData === undefined;
   const programs = programsData ?? [];
   const [activeProgramId, setActiveProgramId] = useAtom(activeProgramIdAtom);
-
-  const setProgramState = useSetAtom(programInternalAtom);
+  const [notice, setNotice] = useState('');
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -46,39 +56,48 @@ export default function ProgramsPage() {
   const [deleteTarget, setDeleteTarget] = useState<ProgramSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const setActive = async (id: string) => {
-    await axios.put('/api/user-settings', { activeProgramId: id });
+  /**
+   * Loads the program's data *before* switching to it: if it can't be loaded
+   * (offline, never cached) the editor must not end up showing the previous
+   * program's stages under the new id, where the next edit would save them
+   * over it. Writes go through the offline queue.
+   */
+  const setActive = async (id: string, knownData?: ProgramData) => {
+    const data = knownData ?? (await loadProgramData(id));
+    void enqueueWrite(writes.setActiveProgram(id));
     setActiveProgramId(id);
+    if (data) setProgramFromServer(data);
+  };
 
-    // Load the program into the atom
-    const { data: text } = await axios.get(`/api/programs/${id}`, {
-      transformResponse: [(d) => d],
-    });
-    const program = JSON.parse(text, Timespan.reviver);
-    if (program?.data) setProgramState(program.data);
+  const trySetActive = async (id: string): Promise<boolean> => {
+    try {
+      await setActive(id);
+      return true;
+    } catch {
+      setNotice("This program isn't available offline yet — connect once to load it.");
+      return false;
+    }
   };
 
   const handleSelect = async (id: string) => {
-    await setActive(id);
-    router.push('/');
+    if (await trySetActive(id)) router.push('/');
   };
 
   const handleEdit = async (id: string) => {
-    await setActive(id);
-    router.push('/add-program');
+    if (await trySetActive(id)) router.push('/add-program');
   };
 
   const handleCreate = async () => {
-    if (!newName.trim()) return;
+    const name = newName.trim();
+    if (!name) return;
     setCreating(true);
     try {
-      const { data } = await axios.post('/api/programs', { name: newName.trim() });
+      const id = crypto.randomUUID();
+      void enqueueWrite(writes.createProgram(id, name));
       // So /add-program's name editor (which reads from this same cache) has
       // a name to show immediately, instead of momentarily "Unnamed program".
-      upsertProgram({ id: data.id, name: newName.trim(), updatedAt: new Date().toISOString() });
-      await setActive(data.id);
-      // Reset program data for new empty program
-      setProgramState({ stages: [], cooldown: false });
+      upsertProgram({ id, name, updatedAt: new Date().toISOString() });
+      await setActive(id, EMPTY_PROGRAM);
       router.push('/add-program');
     } finally {
       setCreating(false);
@@ -91,20 +110,18 @@ export default function ProgramsPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await axios.delete(`/api/programs/${deleteTarget.id}`);
+      void enqueueWrite(writes.deleteProgram(deleteTarget.id));
       removeProgramFromCache(deleteTarget.id);
       if (activeProgramId === deleteTarget.id) {
         const next = programs.filter((p) => p.id !== deleteTarget.id)[0]?.id ?? null;
-        await axios.put('/api/user-settings', { activeProgramId: next });
-        setActiveProgramId(next);
-        if (next) {
-          const { data: text } = await axios.get(`/api/programs/${next}`, {
-            transformResponse: [(d) => d],
-          });
-          const program = JSON.parse(text, Timespan.reviver);
-          if (program?.data) setProgramState(program.data);
+        const nextData = next ? await loadProgramData(next).catch(() => undefined) : undefined;
+        if (next && nextData !== undefined) {
+          await setActive(next, nextData ?? EMPTY_PROGRAM);
         } else {
-          setProgramState({ stages: [], cooldown: false });
+          // No other program, or it can't be loaded right now: fall back to none active.
+          void enqueueWrite(writes.setActiveProgram(null));
+          setActiveProgramId(null);
+          setProgramFromServer(EMPTY_PROGRAM);
         }
       }
     } finally {
@@ -289,6 +306,14 @@ export default function ProgramsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={!!notice}
+        message={notice}
+        autoHideDuration={5000}
+        onClose={() => setNotice('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      />
 
       {/* Delete confirm dialog */}
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} fullWidth maxWidth="xs">
