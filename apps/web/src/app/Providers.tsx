@@ -13,10 +13,12 @@ import { useLoadSpeedControllerPreference } from './speedControllerPreference';
 import { store } from './store';
 import theme from './theme';
 import { useProgramSync } from './useProgramSync';
+import { useUserDataPreload } from './userData';
 
 function ProgramSyncInitializer() {
   useProgramSync();
   useLoadSpeedControllerPreference();
+  useUserDataPreload();
   return null;
 }
 

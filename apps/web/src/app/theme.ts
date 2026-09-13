@@ -53,6 +53,12 @@ export const glass = {
 /** Tactile hover/press feedback for tappable cards. */
 export const pressable = {
   cursor: 'pointer',
+  // A tap-and-hold on a card (common on the list rows this is used for)
+  // would otherwise select its text / show the mobile text-selection
+  // callout instead of registering as a tap.
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+  WebkitTouchCallout: 'none',
   transition:
     'transform 240ms var(--ease-out), background-color 240ms ease, border-color 240ms ease',
   '@media (hover: hover)': {
@@ -86,10 +92,22 @@ export function segmentSelectedSx(color: string) {
   return { '&.Mui-selected, &.Mui-selected:hover': { color, backgroundColor: alpha(color, 0.18) } };
 }
 
+/** Timing for `enter()` below, exposed so effects that must wait for a sibling's
+ * entrance to finish (e.g. the active-row glow in programs/page.tsx, which must
+ * not become visible before the row after it has finished appearing) can compute
+ * the same delay without duplicating the numbers. */
+export const ENTER_STEP_MS = 55;
+export const ENTER_DURATION_MS = 560;
+
 /** Staggered entrance animation for list items (keyframes live in globals.css). */
-export function enter(index = 0, stepMs = 55) {
+export function enter(index = 0, stepMs = ENTER_STEP_MS) {
   // `backwards`, not `both`: a retained end keyframe would override :active transforms.
-  return { animation: `fade-up 560ms var(--ease-out) ${index * stepMs}ms backwards` };
+  return { animation: `fade-up ${ENTER_DURATION_MS}ms var(--ease-out) ${index * stepMs}ms backwards` };
+}
+
+/** The entrance delay (ms) `enter(index)` uses — see ENTER_STEP_MS above. */
+export function enterDelayMs(index: number, stepMs = ENTER_STEP_MS) {
+  return index * stepMs;
 }
 
 const theme = createTheme({

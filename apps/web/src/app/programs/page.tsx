@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -19,23 +19,22 @@ import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
 import { Timespan } from '@runner/core';
 import axios from 'axios';
-import { useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useRouter } from 'next/navigation';
 import { activeProgramIdAtom, programInternalAtom } from '../atoms';
 import EmptyState from '../base/EmptyState';
 import Page from '../base/Page';
 import PulseDot from '../base/PulseDot';
-import { displayFont, enter, pressable, tokens } from '../theme';
-
-type ProgramSummary = { id: string; name: string; updatedAt: string };
+import { displayFont, ENTER_DURATION_MS, enter, enterDelayMs, pressable, tokens } from '../theme';
+import { programsAtom, removeProgramFromCache, upsertProgram, type ProgramSummary } from '../userData';
 
 export default function ProgramsPage() {
   const router = useRouter();
-  const [programs, setPrograms] = useState<ProgramSummary[]>([]);
-  const [activeProgramId, setActiveProgramIdState] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const programsData = useAtomValue(programsAtom);
+  const loading = programsData === undefined;
+  const programs = programsData ?? [];
+  const [activeProgramId, setActiveProgramId] = useAtom(activeProgramIdAtom);
 
-  const setActiveProgramIdAtom = useSetAtom(activeProgramIdAtom);
   const setProgramState = useSetAtom(programInternalAtom);
 
   // Create dialog
@@ -47,22 +46,9 @@ export default function ProgramsPage() {
   const [deleteTarget, setDeleteTarget] = useState<ProgramSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      axios.get('/api/programs').then(({ data }) => data),
-      axios.get('/api/user-settings').then(({ data }) => data),
-    ])
-      .then(([list, settings]) => {
-        setPrograms(list ?? []);
-        setActiveProgramIdState(settings?.activeProgramId ?? null);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
   const setActive = async (id: string) => {
     await axios.put('/api/user-settings', { activeProgramId: id });
-    setActiveProgramIdState(id);
-    setActiveProgramIdAtom(id);
+    setActiveProgramId(id);
 
     // Load the program into the atom
     const { data: text } = await axios.get(`/api/programs/${id}`, {
@@ -87,6 +73,9 @@ export default function ProgramsPage() {
     setCreating(true);
     try {
       const { data } = await axios.post('/api/programs', { name: newName.trim() });
+      // So /add-program's name editor (which reads from this same cache) has
+      // a name to show immediately, instead of momentarily "Unnamed program".
+      upsertProgram({ id: data.id, name: newName.trim(), updatedAt: new Date().toISOString() });
       await setActive(data.id);
       // Reset program data for new empty program
       setProgramState({ stages: [], cooldown: false });
@@ -103,13 +92,11 @@ export default function ProgramsPage() {
     setDeleting(true);
     try {
       await axios.delete(`/api/programs/${deleteTarget.id}`);
-      const updated = programs.filter((p) => p.id !== deleteTarget.id);
-      setPrograms(updated);
+      removeProgramFromCache(deleteTarget.id);
       if (activeProgramId === deleteTarget.id) {
-        const next = updated[0]?.id ?? null;
+        const next = programs.filter((p) => p.id !== deleteTarget.id)[0]?.id ?? null;
         await axios.put('/api/user-settings', { activeProgramId: next });
-        setActiveProgramIdState(next);
-        setActiveProgramIdAtom(next);
+        setActiveProgramId(next);
         if (next) {
           const { data: text } = await axios.get(`/api/programs/${next}`, {
             transformResponse: [(d) => d],
@@ -163,6 +150,7 @@ export default function ProgramsPage() {
               variant="outlined"
               onClick={() => handleSelect(p.id)}
               sx={{
+                position: 'relative',
                 mb: 1.25,
                 p: 1.5,
                 pl: 1.75,
@@ -174,10 +162,39 @@ export default function ProgramsPage() {
                 ...(active && {
                   borderColor: alpha(tokens.volt, 0.45),
                   background: `linear-gradient(135deg, ${alpha(tokens.volt, 0.1)}, ${alpha(tokens.cyan, 0.03)})`,
-                  boxShadow: `0 12px 40px -20px ${alpha(tokens.volt, 0.7)}`,
                 }),
               }}
             >
+              {active && (
+                // A glow as a plain boxShadow on the row itself would paint
+                // OVER the row below it while that row is still fading in
+                // (its opacity animation hasn't started painting yet, so
+                // there's nothing there yet to occlude the shadow's
+                // overflow) — then flip to being hidden behind it once that
+                // row finishes appearing, i.e. it visibly jumps mid-animation.
+                // Delaying the glow's own fade-in until after the next row's
+                // entrance has finished means the paint order the glow ends
+                // up in (behind that row) is the only one it's ever seen in.
+                <Box
+                  aria-hidden
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: 'inherit',
+                    boxShadow: `0 12px 40px -20px ${alpha(tokens.volt, 0.7)}`,
+                    pointerEvents: 'none',
+                    zIndex: -1,
+                    // Base state is the settled end state (opacity 1) — the
+                    // `backwards`-filled animation below only overrides this
+                    // during its delay, holding the glow invisible until
+                    // then; without `forwards`, the animation's own effect
+                    // stops once it completes, and *this* value is what's
+                    // left showing afterwards.
+                    opacity: 1,
+                    animation: `fade-in 300ms ease ${enterDelayMs(i + 1) + ENTER_DURATION_MS}ms backwards`,
+                  }}
+                />
+              )}
               <Box
                 sx={{
                   width: 46,

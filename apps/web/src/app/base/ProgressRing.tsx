@@ -15,7 +15,14 @@ export default function ProgressRing({
 
   return (
     <Box sx={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg viewBox="0 0 36 36" width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      {/* SVG clips to its own box by default (a UA-stylesheet `overflow: hidden`),
+          which cropped the glow's drop-shadow at the ring's edge. */}
+      <svg
+        viewBox="0 0 36 36"
+        width={size}
+        height={size}
+        style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}
+      >
         <circle cx={18} cy={18} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
         <circle
           cx={18}
