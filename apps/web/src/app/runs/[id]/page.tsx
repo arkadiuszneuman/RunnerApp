@@ -33,6 +33,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Page from '../../base/Page';
 import ProgressRing from '../../base/ProgressRing';
 import { SpeedControllerBadge } from '../../base/SpeedControllerPicker';
+import { writes } from '../../offline/requests';
+import { enqueueWrite } from '../../offline/sync';
 import { displayFont, enter, glass, stageTypeColor, stageTypeName, tokens } from '../../theme';
 import { cacheRunDetail, removeRunFromCache, runDetailsAtom, type RunRow } from '../../userData';
 import DeviationChart from './charts/DeviationChart';
@@ -167,7 +169,7 @@ export default function RunDetailPage() {
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await axios.delete(`/api/runs/${params.id}`);
+      await enqueueWrite(writes.deleteRun(params.id));
       removeRunFromCache(params.id);
       router.push('/runs');
     } finally {

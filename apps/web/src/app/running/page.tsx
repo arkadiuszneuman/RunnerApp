@@ -16,7 +16,10 @@ import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { isPausedAtom, runningStateAtom, stagesAtom } from '../atoms';
 import ActionBar from '../base/ActionBar';
+import BluetoothNotice, { isBluetoothBlocked } from '../base/BluetoothNotice';
 import SpeedControllerPicker from '../base/SpeedControllerPicker';
+import { useBluetoothAvailability } from '../ble/bluetoothAvailability';
+import { syncToneIcon, useSyncSummary } from '../offline/SyncIndicator';
 import { glass, tokens } from '../theme';
 import useRunningLoop from '../useRunningLoop';
 import RunInfo from './RunInfo/RunInfo';
@@ -72,6 +75,11 @@ export default function Run() {
   const wakeLockSupported = mounted && runningLoop.wakeLock.isWakeLockSupported;
   const wakeLockActive = mounted && runningLoop.wakeLock.wakeLockStatus === 'requested';
   const heartConnected = mounted && runningLoop.heartRateConnected();
+  const bluetooth = useBluetoothAvailability();
+  const bluetoothBlocked = isBluetoothBlocked(bluetooth);
+  // A run never needs the network: this only tells the runner whether it's uploading live yet.
+  const sync = useSyncSummary();
+  const SyncIcon = syncToneIcon[sync.tone];
 
   return (
     <Box sx={{ maxWidth: 520, mx: 'auto', animation: 'fade-in 400ms ease backwards' }}>
@@ -99,8 +107,15 @@ export default function Run() {
             title={`Screen keep-awake: ${wakeLockSupported ? runningLoop.wakeLock.wakeLockStatus : 'not supported'}`}
             icon={<LightModeRoundedIcon />}
           />
+          <StatusIcon
+            active={mounted && (sync.tone === 'ok' || sync.tone === 'syncing')}
+            title={`${sync.label}: ${sync.detail}`}
+            icon={<SyncIcon />}
+          />
         </Box>
       </Box>
+
+      {mounted && <BluetoothNotice availability={bluetooth} sx={{ mb: 1.5 }} />}
 
       <RunInfo onResetManualSpeed={runningLoop.resetManualSpeed} />
 
@@ -112,7 +127,15 @@ export default function Run() {
 
       <ActionBar>
         {!runningState.running ? (
-          <Tooltip title={stages.length === 0 ? 'Add at least one stage to your program first' : ''}>
+          <Tooltip
+            title={
+              bluetoothBlocked
+                ? "The treadmill can't be reached from this browser"
+                : stages.length === 0
+                  ? 'Add at least one stage to your program first'
+                  : ''
+            }
+          >
             <Box component="span" sx={{ flex: 1, display: 'flex' }}>
               <Button
                 fullWidth
@@ -120,7 +143,7 @@ export default function Run() {
                 variant="contained"
                 startIcon={<PlayArrowRoundedIcon />}
                 onClick={runningLoop.start}
-                disabled={stages.length === 0}
+                disabled={stages.length === 0 || bluetoothBlocked}
               >
                 Start
               </Button>

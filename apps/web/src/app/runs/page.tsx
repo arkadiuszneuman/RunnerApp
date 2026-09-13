@@ -17,7 +17,6 @@ import Paper from '@mui/material/Paper';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { Timespan } from '@runner/core';
-import axios from 'axios';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -25,6 +24,8 @@ import EmptyState from '../base/EmptyState';
 import Page from '../base/Page';
 import ProgressRing from '../base/ProgressRing';
 import { SpeedControllerBadge } from '../base/SpeedControllerPicker';
+import { writes } from '../offline/requests';
+import { enqueueWrite } from '../offline/sync';
 import { displayFont, enter, pressable, tokens } from '../theme';
 import { removeRunFromCache, runsAtom, type RunListItem } from '../userData';
 
@@ -86,7 +87,7 @@ export default function RunsPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await axios.delete(`/api/runs/${deleteTarget.id}`);
+      await enqueueWrite(writes.deleteRun(deleteTarget.id));
       removeRunFromCache(deleteTarget.id);
     } finally {
       setDeleting(false);

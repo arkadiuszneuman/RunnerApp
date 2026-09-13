@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const parsed = await parseJsonBody(request, createRunSchema);
   if (!parsed.ok) return parsed.response;
-  const { startedAt, programId, program, controller } = parsed.data;
+  const { id, startedAt, programId, program, controller } = parsed.data;
 
   // Snapshot the program's name at run-start time (scoped to this user) so
   // history still shows it even if the program is later renamed or deleted.
@@ -36,7 +36,24 @@ export async function POST(request: Request) {
   // apps/web/src/app/runs/[id]/page.tsx), so no annotation here.
   const data = { startedAt, telemetry: [], programId, programName, program, controller };
 
-  const result = await db.insert(runHistory).values({ userId, data }).returning({ id: runHistory.id });
+  // Idempotent on a client-supplied id: the offline outbox replays a create
+  // whose response it never received, which must not fail or duplicate.
+  const result = await db
+    .insert(runHistory)
+    .values({ ...(id && { id }), userId, data })
+    .onConflictDoNothing({ target: runHistory.id })
+    .returning({ id: runHistory.id });
+
+  if (result.length === 0) {
+    const existing = await db
+      .select({ id: runHistory.id })
+      .from(runHistory)
+      .where(and(eq(runHistory.id, id!), eq(runHistory.userId, userId)))
+      .limit(1);
+    return existing.length > 0
+      ? NextResponse.json({ id }, { status: 200 })
+      : NextResponse.json({ error: 'Id already in use' }, { status: 409 });
+  }
 
   return NextResponse.json({ id: result[0].id }, { status: 201 });
 }

@@ -5,7 +5,9 @@ import { Timespan, type RunRecord, type RunSummary, type SpeedControllerKind } f
 import axios from 'axios';
 import { atom } from 'jotai';
 import { useSession } from 'next-auth/react';
-import { activeProgramIdAtom } from './atoms';
+import { activeProgramIdAtom, programInternalAtom } from './atoms';
+import { overlayPrograms, overlayRuns, pendingProgram, type ProgramData } from './offline/overlay';
+import { getPendingWrites } from './offline/sync';
 import { store } from './store';
 
 export type ProgramSummary = { id: string; name: string; updatedAt: string };
@@ -86,11 +88,14 @@ export function cacheRunDetail(row: RunRow): void {
   store.set(runDetailsAtom, (prev) => ({ ...prev, [row.id]: row }));
 }
 
-/** Re-fetches the programs list from the server and replaces the cache. Best-effort. */
+/**
+ * Re-fetches the programs list from the server and replaces the cache,
+ * with not-yet-synced offline edits layered on top. Best-effort.
+ */
 export async function refreshPrograms(): Promise<void> {
   try {
-    const { data } = await axios.get('/api/programs');
-    setPrograms(data ?? []);
+    const [{ data }, pending] = await Promise.all([axios.get('/api/programs'), getPendingWrites()]);
+    setPrograms(overlayPrograms(data ?? [], pending));
   } catch {
     // Best-effort background refresh — a failure just leaves the previous cache in place.
   }
@@ -99,11 +104,55 @@ export async function refreshPrograms(): Promise<void> {
 /** Re-fetches the run history list from the server and replaces the cache. Best-effort. */
 export async function refreshRuns(): Promise<void> {
   try {
-    const { data } = await axios.get('/api/runs', { transformResponse: [(raw) => raw] });
-    setRuns(JSON.parse(data, Timespan.reviver) ?? []);
+    const [{ data }, pending] = await Promise.all([
+      axios.get('/api/runs', { transformResponse: [(raw) => raw] }),
+      getPendingWrites(),
+    ]);
+    setRuns(overlayRuns(JSON.parse(data, Timespan.reviver) ?? [], pending));
   } catch {
     // Best-effort background refresh.
   }
+}
+
+/**
+ * Loads one program's stages, preferring any edits still queued offline.
+ * Resolves null for a program with no data (or one deleted offline); rejects
+ * when it's neither reachable nor known locally — e.g. offline, never opened.
+ */
+export async function loadProgramData(id: string): Promise<ProgramData | null> {
+  const pending = pendingProgram(id, await getPendingWrites());
+  if (pending?.deleted) return null;
+  try {
+    const { data } = await axios.get(`/api/programs/${id}`, { transformResponse: [(raw) => raw] });
+    const program = JSON.parse(data, Timespan.reviver);
+    return pending?.data ?? program?.data ?? null;
+  } catch (error) {
+    if (pending?.data) return pending.data;
+    if (pending?.created) return { stages: [], cooldown: false };
+    throw error;
+  }
+}
+
+/**
+ * The JSON of the program state last loaded from, or queued to, the server.
+ * useProgramSync's debounced save compares against it, so loading a program
+ * (or re-selecting one) never echoes it straight back as a save — which,
+ * offline, could push a stale cached copy over newer server data.
+ */
+let lastSyncedProgramJson: string | undefined;
+
+/** Puts server-sourced program data into the editor state without triggering a save. */
+export function setProgramFromServer(data: ProgramData): void {
+  lastSyncedProgramJson = JSON.stringify(data);
+  store.set(programInternalAtom, data);
+}
+
+/** True (and records it as synced) if this state differs from what the server last saw. */
+export function claimProgramSave(data: ProgramData): boolean {
+  const json = JSON.stringify(data);
+  if (json === lastSyncedProgramJson) return false;
+  lastSyncedProgramJson = json;
+  return true;
 }
 
 /**
