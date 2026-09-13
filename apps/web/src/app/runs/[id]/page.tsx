@@ -25,22 +25,22 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
-import { analyzeRun, calculateStages, Timespan, toSeries, type RunRecord } from '@runner/core';
+import { analyzeRun, calculateStages, Timespan, toSeries } from '@runner/core';
 import axios from 'axios';
+import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import Page from '../../base/Page';
 import ProgressRing from '../../base/ProgressRing';
 import { SpeedControllerBadge } from '../../base/SpeedControllerPicker';
 import { displayFont, enter, glass, stageTypeColor, stageTypeName, tokens } from '../../theme';
+import { cacheRunDetail, removeRunFromCache, runDetailsAtom, type RunRow } from '../../userData';
 import DeviationChart from './charts/DeviationChart';
 import HeartRateChart from './charts/HeartRateChart';
 import HrBucketsChart from './charts/HrBucketsChart';
 import InclineChart from './charts/InclineChart';
 import SpeedChart from './charts/SpeedChart';
 import type { StageBand } from './charts/stageShadingPlugin';
-
-type RunRow = { id: string; createdAt: string; data: RunRecord };
 
 const labelSx = {
   fontSize: '0.68rem',
@@ -99,20 +99,46 @@ function stageTargetLabel(stage: {
 export default function RunDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [row, setRow] = useState<RunRow | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Read-through cache: a run opened once (from the history list, or an
+  // earlier visit to this same page) never re-fetches on later visits.
+  const cachedRow = useAtomValue(runDetailsAtom)[params.id];
+  const [isFetching, setIsFetching] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const row: RunRow | null = cachedRow ?? null;
+  const loading = !row && isFetching;
+
   useEffect(() => {
+    setNotFound(false);
+    // cachedRow reflects the value from the render that scheduled this
+    // effect (i.e. as of the last params.id change) — enough to decide
+    // whether a fetch is needed; cacheRunDetail() below is what actually
+    // makes the freshly-fetched row visible via the atom, not this effect
+    // re-running.
+    if (cachedRow) {
+      setIsFetching(false);
+      return;
+    }
+    let cancelled = false;
+    setIsFetching(true);
     axios
       .get(`/api/runs/${params.id}`, { transformResponse: [(data) => data] })
-      .then(({ data }) => setRow(JSON.parse(data, Timespan.reviver)))
-      .catch((err) => {
-        if (axios.isAxiosError(err) && err.response?.status === 404) setNotFound(true);
+      .then(({ data }) => {
+        if (cancelled) return;
+        cacheRunDetail(JSON.parse(data, Timespan.reviver));
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled && axios.isAxiosError(err) && err.response?.status === 404) setNotFound(true);
+      })
+      .finally(() => {
+        if (!cancelled) setIsFetching(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   const analysis = useMemo(() => {
@@ -142,6 +168,7 @@ export default function RunDetailPage() {
     setDeleting(true);
     try {
       await axios.delete(`/api/runs/${params.id}`);
+      removeRunFromCache(params.id);
       router.push('/runs');
     } finally {
       setDeleting(false);
