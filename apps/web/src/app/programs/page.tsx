@@ -1,30 +1,31 @@
 'use client';
 
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
+import { useEffect, useState } from 'react';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import ViewAgendaRoundedIcon from '@mui/icons-material/ViewAgendaRounded';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
+import Paper from '@mui/material/Paper';
+import Skeleton from '@mui/material/Skeleton';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
+import { Timespan } from '@runner/core';
 import axios from 'axios';
 import { useSetAtom } from 'jotai';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { Timespan } from '@runner/core';
 import { activeProgramIdAtom, programInternalAtom } from '../atoms';
+import EmptyState from '../base/EmptyState';
+import Page from '../base/Page';
+import PulseDot from '../base/PulseDot';
+import { displayFont, enter, pressable, tokens } from '../theme';
 
 type ProgramSummary = { id: string; name: string; updatedAt: string };
 
@@ -126,74 +127,127 @@ export default function ProgramsPage() {
   };
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>
-          Programs
-        </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+    <Page
+      eyebrow={loading ? 'Library' : `${programs.length} saved`}
+      title="Programs"
+      action={
+        <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setCreateOpen(true)}>
           New
         </Button>
-      </Box>
-
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress />
-        </Box>
-      )}
+      }
+    >
+      {loading &&
+        [0, 1, 2].map((i) => (
+          <Skeleton key={i} variant="rounded" height={76} sx={{ mb: 1.25, borderRadius: '20px' }} />
+        ))}
 
       {!loading && programs.length === 0 && (
-        <Typography color="text.secondary" sx={{ mt: 2 }}>
-          No programs yet. Create one to get started.
-        </Typography>
+        <EmptyState
+          icon={<ViewAgendaRoundedIcon />}
+          title="No programs yet"
+          text="Create a program to plan your intervals, heart-rate targets and tempo runs."
+          action={
+            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setCreateOpen(true)}>
+              Create program
+            </Button>
+          }
+        />
       )}
 
-      {!loading && programs.length > 0 && (
-        <List disablePadding>
-          {programs.map((p) => (
-            <ListItem
+      {!loading &&
+        programs.map((p, i) => {
+          const active = p.id === activeProgramId;
+          return (
+            <Paper
               key={p.id}
-              disablePadding
-              secondaryAction={
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <IconButton size="small" onClick={() => handleEdit(p.id)} title="Edit">
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => setDeleteTarget(p)} title="Delete">
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              }
-              sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+              variant="outlined"
+              onClick={() => handleSelect(p.id)}
+              sx={{
+                mb: 1.25,
+                p: 1.5,
+                pl: 1.75,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                ...pressable,
+                ...enter(i),
+                ...(active && {
+                  borderColor: alpha(tokens.volt, 0.45),
+                  background: `linear-gradient(135deg, ${alpha(tokens.volt, 0.1)}, ${alpha(tokens.cyan, 0.03)})`,
+                  boxShadow: `0 12px 40px -20px ${alpha(tokens.volt, 0.7)}`,
+                }),
+              }}
             >
-              <ListItemButton onClick={() => handleSelect(p.id)} sx={{ pr: 10 }}>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {p.name}
-                      {p.id === activeProgramId && (
-                        <Chip label="Active" size="small" color="primary" />
-                      )}
+              <Box
+                sx={{
+                  width: 46,
+                  height: 46,
+                  flexShrink: 0,
+                  borderRadius: '14px',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontFamily: displayFont,
+                  fontWeight: 700,
+                  fontSize: '1.4rem',
+                  color: active ? '#0b1200' : tokens.text,
+                  background: active
+                    ? `linear-gradient(135deg, ${tokens.volt}, ${tokens.cyan})`
+                    : tokens.surfaceHover,
+                }}
+              >
+                {p.name.charAt(0).toUpperCase()}
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 600 }} noWrap>
+                  {p.name}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {active && (
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        color: tokens.volt,
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      <PulseDot size={6} />
+                      Active
                     </Box>
-                  }
-                  secondary={`Updated ${new Date(p.updatedAt).toLocaleDateString()}`}
-                />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-      )}
-
-      <Box sx={{ mt: 2 }}>
-        <Button
-          variant="contained"
-          href="/"
-          LinkComponent={Link}
-          sx={{ backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', '&:hover': { backgroundColor: 'rgba(255,255,255,0.25)' } }}
-        >
-          Back
-        </Button>
-      </Box>
+                  )}
+                  <Typography variant="caption" color="text.secondary" noWrap>
+                    Updated {new Date(p.updatedAt).toLocaleDateString()}
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton
+                size="small"
+                title="Edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(p.id);
+                }}
+              >
+                <EditRoundedIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                title="Delete"
+                sx={{ color: 'text.secondary' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget(p);
+                }}
+              >
+                <DeleteOutlineRoundedIcon fontSize="small" />
+              </IconButton>
+            </Paper>
+          );
+        })}
 
       {/* Create dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="xs">
@@ -209,8 +263,10 @@ export default function ProgramsPage() {
             sx={{ mt: 1 }}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setCreateOpen(false); setNewName(''); }}>Cancel</Button>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button variant="glass" onClick={() => { setCreateOpen(false); setNewName(''); }}>
+            Cancel
+          </Button>
           <Button variant="contained" onClick={handleCreate} disabled={!newName.trim() || creating}>
             Create
           </Button>
@@ -221,17 +277,19 @@ export default function ProgramsPage() {
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} fullWidth maxWidth="xs">
         <DialogTitle>Delete program?</DialogTitle>
         <DialogContent>
-          <Typography>
+          <Typography color="text.secondary">
             Delete &ldquo;{deleteTarget?.name}&rdquo;? This cannot be undone.
           </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button variant="glass" onClick={() => setDeleteTarget(null)}>
+            Cancel
+          </Button>
           <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}>
             Delete
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Page>
   );
 }

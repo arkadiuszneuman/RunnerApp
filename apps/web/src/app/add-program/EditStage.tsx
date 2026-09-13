@@ -1,24 +1,55 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Stage, StageType, Timespan } from '@runner/core';
-import { Input } from '@mui/material';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
-import Stack from '@mui/material/Stack';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { Stage, StageType, Timespan } from '@runner/core';
 import dayjs from 'dayjs';
 import { useAtom, useSetAtom } from 'jotai';
 import _ from 'lodash';
 import { programAtom } from '../atoms';
+import ActionBar from '../base/ActionBar';
+import Page from '../base/Page';
+import { displayFont, enter, glass, stageTypeColor, stageTypeName, tokens } from '../theme';
 import { editingSectionAtom } from './atoms';
 
-function StageEdit(props: Readonly<{ stage: Stage; onStageChanged?: (stage: Stage) => void }>) {
+const STAGE_TYPES: StageType[] = ['simple', 'sprint', 'regeneration'];
+
+/** Segmented-control look for a ToggleButtonGroup. */
+const segmentedSx = {
+  width: '100%',
+  p: 0.5,
+  gap: 0.5,
+  borderRadius: '16px',
+  background: 'rgba(255,255,255,0.04)',
+  border: `1px solid ${tokens.border}`,
+  '& .MuiToggleButton-root': {
+    flex: 1,
+    py: 1,
+    border: 0,
+    borderRadius: '12px !important',
+    color: tokens.textMuted,
+    textTransform: 'none',
+    fontWeight: 600,
+    transition: 'background-color 250ms ease, color 250ms ease',
+  },
+} as const;
+
+const selectedSx = (color: string) => ({
+  '&.Mui-selected, &.Mui-selected:hover': { color, backgroundColor: alpha(color, 0.18) },
+});
+
+function StageEdit(props: Readonly<{ stage: Stage; index: number; onStageChanged?: (stage: Stage) => void }>) {
   const [stage, setStage] = useState(props.stage);
 
   useEffect(() => {
@@ -46,63 +77,88 @@ function StageEdit(props: Readonly<{ stage: Stage; onStageChanged?: (stage: Stag
     }
   };
 
+  const color = stageTypeColor[stage.type];
+
   return (
-    <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}>
-      <FormControl fullWidth>
-        <InputLabel>Type</InputLabel>
-        <Select
-          value={props.stage.type}
-          onChange={(e) => setStage((prev) => ({ ...prev, type: e.target.value as StageType }))}
-          label="Type"
-        >
-          <MenuItem value="simple">Run</MenuItem>
-          <MenuItem value="sprint">Sprint</MenuItem>
-          <MenuItem value="regeneration">Regeneration</MenuItem>
-        </Select>
-      </FormControl>
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        borderLeft: `3px solid ${color}`,
+        transition: 'border-color 300ms ease',
+        ...enter(props.index + 1),
+      }}
+    >
+      <Typography sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.2rem' }}>
+        Step {props.index + 1}
+      </Typography>
 
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        <TimePicker
-          label="Segment time"
-          ampm={false}
-          maxTime={dayjs('1977-01-01T12:59:59')}
-          views={['hours', 'minutes', 'seconds']}
-          value={dayjs({
-            hour: stage.duration.hours,
-            minute: stage.duration.minutes,
-            second: stage.duration.seconds,
-          })}
-          selectedSections={'empty'}
-          onChange={(e) => {
-            setStage(
-              (prev) =>
-                ({
-                  ...prev,
-                  duration: Timespan.fromHours(Number(e?.hour()))
-                    .add(Timespan.fromMinutes(Number(e?.minute())))
-                    .add(Timespan.fromSeconds(Number(e?.second()))),
-                } satisfies Stage)
-            );
-          }}
-        />
-      </Box>
+      <ToggleButtonGroup
+        exclusive
+        aria-label="Stage type"
+        value={props.stage.type}
+        onChange={(_event, value: StageType | null) => {
+          if (value) setStage((prev) => ({ ...prev, type: value }));
+        }}
+        sx={segmentedSx}
+      >
+        {STAGE_TYPES.map((type) => (
+          <ToggleButton key={type} value={type} sx={selectedSx(stageTypeColor[type])}>
+            {stageTypeName[type]}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
 
-      <FormControl fullWidth>
-        <InputLabel>Based on</InputLabel>
-        <Select
-          value={stage.speedType}
-          onChange={(e) => onBasedOnChanged(e.target.value as 'bmp' | 'tempo')}
-          label="Type"
-        >
-          <MenuItem value="tempo">Tempo</MenuItem>
-          <MenuItem value="bmp">Bmp</MenuItem>
-        </Select>
-      </FormControl>
+      <TimePicker
+        label="Segment time"
+        ampm={false}
+        maxTime={dayjs('1977-01-01T12:59:59')}
+        views={['hours', 'minutes', 'seconds']}
+        value={dayjs({
+          hour: stage.duration.hours,
+          minute: stage.duration.minutes,
+          second: stage.duration.seconds,
+        })}
+        selectedSections={'empty'}
+        slotProps={{ textField: { fullWidth: true } }}
+        onChange={(e) => {
+          setStage(
+            (prev) =>
+              ({
+                ...prev,
+                duration: Timespan.fromHours(Number(e?.hour()))
+                  .add(Timespan.fromMinutes(Number(e?.minute())))
+                  .add(Timespan.fromSeconds(Number(e?.second()))),
+              } satisfies Stage)
+          );
+        }}
+      />
+
+      <ToggleButtonGroup
+        exclusive
+        aria-label="Based on"
+        value={stage.speedType}
+        onChange={(_event, value: 'bmp' | 'tempo' | null) => {
+          if (value) onBasedOnChanged(value);
+        }}
+        sx={segmentedSx}
+      >
+        <ToggleButton value="bmp" sx={selectedSx(tokens.heart)}>
+          Heart rate
+        </ToggleButton>
+        <ToggleButton value="tempo" sx={selectedSx(tokens.cyan)}>
+          Tempo
+        </ToggleButton>
+      </ToggleButtonGroup>
 
       {stage.speedType === 'bmp' && (
         <TextField
           label="BPM"
           type="number"
+          slotProps={{ htmlInput: { inputMode: 'numeric' } }}
           value={stage.speedType === 'bmp' ? stage.bmp : ''}
           onChange={(e) =>
             setStage(
@@ -119,86 +175,94 @@ function StageEdit(props: Readonly<{ stage: Stage; onStageChanged?: (stage: Stag
       )}
 
       {stage.speedType === 'tempo' && (
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <TimePicker
-            label="Tempo min/km"
-            ampm={false}
-            maxTime={dayjs('1977-01-01T00:15:00')}
-            minTime={dayjs('1977-01-01T00:01:00')}
-            views={['minutes', 'seconds']}
-            value={dayjs({
-              minute: stage.speedType === 'tempo' ? stage.tempo.minutes : 0,
-              second: stage.speedType === 'tempo' ? stage.tempo.seconds : 0,
-            })}
-            selectedSections={'empty'}
-            onChange={(e) => {
-              setStage((prev) => ({
-                ...prev,
-                tempo: Timespan.fromMinutes(Number(e?.minute())).add(
-                  Timespan.fromSeconds(Number(e?.second()))
-                ),
-              }));
-            }}
-          />
-        </Box>
+        <TimePicker
+          label="Tempo min/km"
+          ampm={false}
+          maxTime={dayjs('1977-01-01T00:15:00')}
+          minTime={dayjs('1977-01-01T00:01:00')}
+          views={['minutes', 'seconds']}
+          value={dayjs({
+            minute: stage.speedType === 'tempo' ? stage.tempo.minutes : 0,
+            second: stage.speedType === 'tempo' ? stage.tempo.seconds : 0,
+          })}
+          selectedSections={'empty'}
+          slotProps={{ textField: { fullWidth: true } }}
+          onChange={(e) => {
+            setStage((prev) => ({
+              ...prev,
+              tempo: Timespan.fromMinutes(Number(e?.minute())).add(
+                Timespan.fromSeconds(Number(e?.second()))
+              ),
+            }));
+          }}
+        />
       )}
-    </Box>
+    </Paper>
   );
 }
 
 function MultiplyStageEdit() {
   const [stage, setStage] = useAtom(editingSectionAtom);
 
+  if (!stage) return null;
+
   return (
-    <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}>
-      {stage && (
-        <>
-          <FormControl fullWidth>
-            <InputLabel>Times</InputLabel>
-            <Input
-              type="number"
-              value={stage.times}
-              onChange={(e) => setStage(() => ({ ...stage, times: Number(e.target.value) }))}
-            />
-            {stage.stages.map((x, index) => (
-              <StageEdit
-                key={index}
-                stage={x}
-                onStageChanged={(edit) => {
-                  setStage(() => ({
-                    ...stage,
-                    times: stage.times,
-                    stages: stage.stages.map((s, i) => (i === index ? edit : s)),
-                  }));
-                }}
-              />
-            ))}
-          </FormControl>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              color="secondary"
-              sx={{ mt: 2 }}
-              onClick={() =>
-                setStage(() => ({
-                  ...stage,
-                  stages: [
-                    ...stage.stages,
-                    {
-                      type: 'simple',
-                      duration: Timespan.fromMinutes(1),
-                      speedType: 'bmp',
-                      bmp: 142,
-                    } satisfies Stage,
-                  ],
-                }))
-              }
-            >
-              Add Stage
-            </Button>
-          </Stack>
-        </>
-      )}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <Paper
+        variant="outlined"
+        sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, ...enter(0) }}
+      >
+        <Box>
+          <Typography sx={{ fontWeight: 600 }}>Repeat</Typography>
+          <Typography variant="caption" color="text.secondary">
+            How many times this block runs
+          </Typography>
+        </Box>
+        <TextField
+          type="number"
+          size="small"
+          value={stage.times}
+          onChange={(e) => setStage(() => ({ ...stage, times: Number(e.target.value) }))}
+          slotProps={{ htmlInput: { inputMode: 'numeric', 'aria-label': 'Repeat count' } }}
+          sx={{ width: 96, '& input': { fontFamily: displayFont, fontWeight: 700, fontSize: '1.2rem', textAlign: 'center' } }}
+        />
+      </Paper>
+
+      {stage.stages.map((x, index) => (
+        <StageEdit
+          key={index}
+          index={index}
+          stage={x}
+          onStageChanged={(edit) => {
+            setStage(() => ({
+              ...stage,
+              times: stage.times,
+              stages: stage.stages.map((s, i) => (i === index ? edit : s)),
+            }));
+          }}
+        />
+      ))}
+
+      <Button
+        variant="glass"
+        startIcon={<AddRoundedIcon />}
+        onClick={() =>
+          setStage(() => ({
+            ...stage,
+            stages: [
+              ...stage.stages,
+              {
+                type: 'simple',
+                duration: Timespan.fromMinutes(1),
+                speedType: 'bmp',
+                bmp: 142,
+              } satisfies Stage,
+            ],
+          }))
+        }
+      >
+        Add step
+      </Button>
     </Box>
   );
 }
@@ -219,44 +283,34 @@ export default function EditStage() {
     }
   };
 
-  return (
-    <>
-      {editingStage && (
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}
-        >
-          <MultiplyStageEdit />
+  if (!editingStage) return null;
 
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              color="secondary"
-              sx={{ mt: 2 }}
-              onClick={() => setEditingStage(undefined)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="contained" color="secondary" sx={{ mt: 2 }}>
-              {editingStage.id ? 'Update' : 'Add to program'}
-            </Button>
-            <Box sx={{ flexGrow: 1 }}></Box>
-            <Button
-              variant="contained"
-              color="warning"
+  return (
+    <Page eyebrow="Program builder" title={editingStage.id ? 'Edit block' : 'New block'}>
+      <Box component="form" onSubmit={handleSubmit}>
+        <MultiplyStageEdit />
+
+        <ActionBar>
+          {editingStage.id && (
+            <IconButton
+              aria-label="Delete block"
               onClick={() => {
-                if (editingStage.id) {
-                  setProgram((prev) => prev.filter((stage) => stage.id !== editingStage.id));
-                }
+                setProgram((prev) => prev.filter((stage) => stage.id !== editingStage.id));
                 setEditingStage(undefined);
               }}
+              sx={{ ...glass, color: tokens.heart, width: 56, height: 56, flexShrink: 0 }}
             >
-              Delete
-            </Button>
-          </Stack>
-        </Box>
-      )}
-    </>
+              <DeleteOutlineRoundedIcon />
+            </IconButton>
+          )}
+          <Button size="large" variant="glass" onClick={() => setEditingStage(undefined)}>
+            Cancel
+          </Button>
+          <Button type="submit" size="large" variant="contained" sx={{ flex: 1 }}>
+            {editingStage.id ? 'Update' : 'Add to program'}
+          </Button>
+        </ActionBar>
+      </Box>
+    </Page>
   );
 }
