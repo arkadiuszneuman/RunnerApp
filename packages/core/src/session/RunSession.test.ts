@@ -6,6 +6,7 @@ import { FakeTreadmill } from '../ble/fakeTreadmill';
 import { Timespan } from '../services/Timespan';
 import type { MultiplyStage, Stage } from '../services/stagesCalculator';
 import {
+  activeProgramIdAtom,
   heartRateAtom,
   isManualSpeedActiveAtom,
   programAtom,
@@ -33,6 +34,7 @@ interface Harness {
   session: RunSession;
   nowRef: { current: number };
   createRunCalls: string[];
+  createRunMetas: Parameters<RunApi['createRun']>[1][];
   patchRunCalls: { id: string; payload: { telemetry: unknown[]; finishedAt?: string; durationMs?: number } }[];
   loggerMessages: string[];
 }
@@ -43,11 +45,13 @@ function makeHarness(flushIntervalMs = 30_000, opts: { failPatchRun?: boolean } 
   const treadmill = new TreadmillProtocol({ transport });
   const nowRef = { current: 0 };
   const createRunCalls: string[] = [];
+  const createRunMetas: Harness['createRunMetas'] = [];
   const patchRunCalls: Harness['patchRunCalls'] = [];
   const loggerMessages: string[] = [];
   const api: RunApi = {
-    async createRun(startedAt) {
+    async createRun(startedAt, meta) {
       createRunCalls.push(startedAt);
+      createRunMetas.push(meta);
       return { id: 'run-1' };
     },
     async patchRun(id, payload) {
@@ -63,7 +67,17 @@ function makeHarness(flushIntervalMs = 30_000, opts: { failPatchRun?: boolean } 
     flushIntervalMs,
     logger: (message) => loggerMessages.push(message),
   });
-  return { store, transport, treadmill, session, nowRef, createRunCalls, patchRunCalls, loggerMessages };
+  return {
+    store,
+    transport,
+    treadmill,
+    session,
+    nowRef,
+    createRunCalls,
+    createRunMetas,
+    patchRunCalls,
+    loggerMessages,
+  };
 }
 
 /** Advances the fake clock in 200ms steps (matching the original real-world poll cadence), pumping both the BLE tick and the session on every step. */
@@ -110,6 +124,20 @@ describe('RunSession', () => {
     expect(h.createRunCalls).toHaveLength(1);
     const state = h.store.get(runningStateAtom);
     expect(state.running).toBe(true);
+  });
+
+  it('start() passes the active program id and a snapshot of its data to createRun', async () => {
+    const h = makeHarness();
+    h.store.set(activeProgramIdAtom, 'program-1');
+    h.store.set(programAtom, testProgram());
+    h.store.set(programCooldownAtom, true);
+    await connectAndStart(h);
+
+    expect(h.createRunMetas).toHaveLength(1);
+    expect(h.createRunMetas[0]).toEqual({
+      programId: 'program-1',
+      program: { stages: testProgram(), cooldown: true },
+    });
   });
 
   it('start() refuses to start (and pump() is a no-op) when the program has no stages', async () => {

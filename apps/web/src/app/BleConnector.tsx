@@ -44,6 +44,9 @@ export default function BleConnector() {
           <Button variant="contained" color="secondary" href="/programs" LinkComponent={Link}>
             Programs
           </Button>
+          <Button variant="contained" color="secondary" href="/runs" LinkComponent={Link}>
+            History
+          </Button>
           <Button
             variant="contained"
             href="/running"

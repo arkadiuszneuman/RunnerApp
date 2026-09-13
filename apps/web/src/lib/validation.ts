@@ -72,6 +72,7 @@ const telemetryPointSchema = z.object({
   thr: z.number(),
   phr: z.number(),
   spd: z.number(),
+  aspd: z.number().optional(),
   inc: z.number(),
   si: z.number(),
   err: z.number(),
@@ -80,6 +81,8 @@ const telemetryPointSchema = z.object({
 /** Body of RunApi.createRun (see packages/core/src/session/RunSession.ts) — POST /api/runs. */
 export const createRunSchema = z.object({
   startedAt: z.string().min(1),
+  programId: z.string().min(1).nullable().optional(),
+  program: programDataSchema.optional(),
 });
 
 /** Body of RunApi.patchRun — PATCH /api/runs/:id, sent on every telemetry flush. */
