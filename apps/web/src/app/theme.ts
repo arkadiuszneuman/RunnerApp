@@ -61,6 +61,31 @@ export const pressable = {
   '&:active': { transform: 'scale(0.98)' },
 } as const;
 
+/** Segmented-control look for a ToggleButtonGroup. */
+export const segmentedSx = {
+  width: '100%',
+  p: 0.5,
+  gap: 0.5,
+  borderRadius: '16px',
+  background: 'rgba(255,255,255,0.04)',
+  border: `1px solid ${tokens.border}`,
+  '& .MuiToggleButton-root': {
+    flex: 1,
+    py: 1,
+    border: 0,
+    borderRadius: '12px !important',
+    color: tokens.textMuted,
+    textTransform: 'none',
+    fontWeight: 600,
+    transition: 'background-color 250ms ease, color 250ms ease',
+  },
+} as const;
+
+/** Selected-state tint for one segment of `segmentedSx`. */
+export function segmentSelectedSx(color: string) {
+  return { '&.Mui-selected, &.Mui-selected:hover': { color, backgroundColor: alpha(color, 0.18) } };
+}
+
 /** Staggered entrance animation for list items (keyframes live in globals.css). */
 export function enter(index = 0, stepMs = 55) {
   // `backwards`, not `both`: a retained end keyframe would override :active transforms.

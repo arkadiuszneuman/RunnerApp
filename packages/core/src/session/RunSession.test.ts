@@ -7,11 +7,13 @@ import { Timespan } from '../services/Timespan';
 import type { MultiplyStage, Stage } from '../services/stagesCalculator';
 import {
   activeProgramIdAtom,
+  actualTreadmillSpeedAtom,
   heartRateAtom,
   isManualSpeedActiveAtom,
   programAtom,
   programCooldownAtom,
   runningStateAtom,
+  speedControllerAtom,
 } from '../state/atoms';
 
 function simpleStage(bmp: number, seconds: number, type: Stage['type'] = 'simple'): Stage {
@@ -137,7 +139,24 @@ describe('RunSession', () => {
     expect(h.createRunMetas[0]).toEqual({
       programId: 'program-1',
       program: { stages: testProgram(), cooldown: true },
+      controller: 'legacy',
     });
+  });
+
+  it('start() uses the selected speed controller and records it on the run', async () => {
+    const h = makeHarness();
+    h.store.set(speedControllerAtom, 'adaptive');
+    h.store.set(programAtom, testProgram());
+    h.store.set(heartRateAtom, 100); // well below the 140 target
+    await connectAndStart(h);
+
+    expect(h.createRunMetas[0]?.controller).toBe('adaptive');
+
+    const before = h.store.get(runningStateAtom);
+    const speedBefore = before.running ? before.treadmillOptions.speed : 0;
+    advance(h, 5000);
+    const after = h.store.get(runningStateAtom);
+    expect(after.running && after.treadmillOptions.speed).toBeGreaterThan(speedBefore);
   });
 
   it('start() refuses to start (and pump() is a no-op) when the program has no stages', async () => {
@@ -309,6 +328,30 @@ describe('RunSession', () => {
 
     h.session.resetManualSpeed();
     expect(h.store.get(isManualSpeedActiveAtom)).toBe(false);
+  });
+
+  it('with the adaptive controller, resetting a manual override resumes from the belt speed', async () => {
+    const h = makeHarness();
+    h.store.set(speedControllerAtom, 'adaptive');
+    h.store.set(programAtom, testProgram());
+    h.store.set(heartRateAtom, 100); // far below target — the controller would keep pushing up
+    await connectAndStart(h);
+
+    const commanded = h.store.get(runningStateAtom);
+    const commandedSpeed = commanded.running ? commanded.treadmillOptions.speed : 1;
+    h.transport.manualSpeed(commandedSpeed + 3);
+    advance(h, 1000);
+    expect(h.store.get(isManualSpeedActiveAtom)).toBe(true);
+
+    advance(h, 4000); // still inside the warmup stage
+    const beltSpeed = h.store.get(actualTreadmillSpeedAtom);
+    h.session.resetManualSpeed();
+
+    const state = h.store.get(runningStateAtom);
+    expect(state.running).toBe(true);
+    if (state.running) {
+      expect(Math.abs(state.treadmillOptions.speed - beltSpeed)).toBeLessThanOrEqual(0.5);
+    }
   });
 
   it('flushes telemetry periodically and on stop, and does not duplicate an unchanged point', async () => {

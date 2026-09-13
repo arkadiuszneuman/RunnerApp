@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const parsed = await parseJsonBody(request, createRunSchema);
   if (!parsed.ok) return parsed.response;
-  const { startedAt, programId, program } = parsed.data;
+  const { startedAt, programId, program, controller } = parsed.data;
 
   // Snapshot the program's name at run-start time (scoped to this user) so
   // history still shows it even if the program is later renamed or deleted.
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   // real Timespan instances — this jsonb column is untyped storage either
   // way, and the client re-hydrates them via Timespan.reviver on read (see
   // apps/web/src/app/runs/[id]/page.tsx), so no annotation here.
-  const data = { startedAt, telemetry: [], programId, programName, program };
+  const data = { startedAt, telemetry: [], programId, programName, program, controller };
 
   const result = await db.insert(runHistory).values({ userId, data }).returning({ id: runHistory.id });
 
@@ -64,6 +64,7 @@ export async function GET(request: Request) {
       startedAt: record.startedAt,
       finishedAt: record.finishedAt,
       programName: record.programName,
+      controller: record.controller,
       summary: analyzeRun(record.telemetry ?? [], { endT }),
     };
   });

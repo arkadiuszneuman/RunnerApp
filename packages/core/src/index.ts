@@ -28,6 +28,21 @@ export {
 } from './services/trainingDefaults';
 
 export { default as Training } from './training/Training';
+export { default as AdaptiveTraining, type AdaptiveTrainingOptions } from './training/AdaptiveTraining';
+export {
+  createSpeedController,
+  SPEED_CONTROLLER_KINDS,
+  type SpeedController,
+  type SpeedControllerKind,
+} from './training/SpeedController';
+export {
+  defaultHeartRateModel,
+  simulateRun,
+  summarizeSimulation,
+  type HeartRateModel,
+  type SimulationPoint,
+  type SimulationSummary,
+} from './training/heartRateSimulation';
 
 export {
   runningStateAtom,
@@ -46,6 +61,7 @@ export {
   isManualSpeedActiveAtom,
   actualTreadmillSpeedAtom,
   heartRateAtom,
+  speedControllerAtom,
 } from './state/atoms';
 export type { RunningState, TreadmillOptions } from './state/atoms';
 

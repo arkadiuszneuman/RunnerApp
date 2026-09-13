@@ -16,6 +16,7 @@ import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { isPausedAtom, runningStateAtom, stagesAtom } from '../atoms';
 import ActionBar from '../base/ActionBar';
+import SpeedControllerPicker from '../base/SpeedControllerPicker';
 import { glass, tokens } from '../theme';
 import useRunningLoop from '../useRunningLoop';
 import RunInfo from './RunInfo/RunInfo';
@@ -102,6 +103,12 @@ export default function Run() {
       </Box>
 
       <RunInfo onResetManualSpeed={runningLoop.resetManualSpeed} />
+
+      {!runningState.running && (
+        <Box sx={{ mt: 1.5 }}>
+          <SpeedControllerPicker index={7} />
+        </Box>
+      )}
 
       <ActionBar>
         {!runningState.running ? (

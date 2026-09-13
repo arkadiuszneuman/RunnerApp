@@ -83,6 +83,7 @@ export const createRunSchema = z.object({
   startedAt: z.string().min(1),
   programId: z.string().min(1).nullable().optional(),
   program: programDataSchema.optional(),
+  controller: z.enum(['legacy', 'adaptive']).optional(),
 });
 
 /** Body of RunApi.patchRun — PATCH /api/runs/:id, sent on every telemetry flush. */

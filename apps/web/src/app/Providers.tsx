@@ -9,12 +9,14 @@ import dayjs from 'dayjs';
 import objectSupport from 'dayjs/plugin/objectSupport';
 import { Provider } from 'jotai';
 import { SessionProvider } from 'next-auth/react';
+import { useLoadSpeedControllerPreference } from './speedControllerPreference';
 import { store } from './store';
 import theme from './theme';
 import { useProgramSync } from './useProgramSync';
 
 function ProgramSyncInitializer() {
   useProgramSync();
+  useLoadSpeedControllerPreference();
   return null;
 }
 

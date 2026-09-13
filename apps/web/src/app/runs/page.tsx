@@ -16,13 +16,14 @@ import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
-import { Timespan, type RunSummary } from '@runner/core';
+import { Timespan, type RunSummary, type SpeedControllerKind } from '@runner/core';
 import axios from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import EmptyState from '../base/EmptyState';
 import Page from '../base/Page';
 import ProgressRing from '../base/ProgressRing';
+import { SpeedControllerBadge } from '../base/SpeedControllerPicker';
 import { displayFont, enter, pressable, tokens } from '../theme';
 
 type RunListItem = {
@@ -31,6 +32,7 @@ type RunListItem = {
   startedAt: string;
   finishedAt?: string;
   programName?: string;
+  controller?: SpeedControllerKind;
   summary: RunSummary;
 };
 
@@ -151,9 +153,12 @@ export default function RunsPage() {
             >
               <DateBadge date={date} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600 }} noWrap>
-                  {run.programName ?? date.toLocaleDateString(undefined, { weekday: 'long' })}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 600, minWidth: 0 }} noWrap>
+                    {run.programName ?? date.toLocaleDateString(undefined, { weekday: 'long' })}
+                  </Typography>
+                  {run.controller && <SpeedControllerBadge kind={run.controller} />}
+                </Box>
                 <Typography variant="caption" color="text.secondary" component="p" noWrap>
                   {date.toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}
                 </Typography>

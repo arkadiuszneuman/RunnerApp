@@ -31,6 +31,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import Page from '../../base/Page';
 import ProgressRing from '../../base/ProgressRing';
+import { SpeedControllerBadge } from '../../base/SpeedControllerPicker';
 import { displayFont, enter, glass, stageTypeColor, stageTypeName, tokens } from '../../theme';
 import DeviationChart from './charts/DeviationChart';
 import HeartRateChart from './charts/HeartRateChart';
@@ -231,8 +232,13 @@ export default function RunDetailPage() {
               }}
             />
             <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
-              {record.programName && (
-                <Chip label={record.programName} size="small" sx={{ mb: 1, bgcolor: tokens.surfaceHover }} />
+              {(record.programName || record.controller) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                  {record.programName && (
+                    <Chip label={record.programName} size="small" sx={{ bgcolor: tokens.surfaceHover }} />
+                  )}
+                  {record.controller && <SpeedControllerBadge kind={record.controller} />}
+                </Box>
               )}
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
                 <Typography
