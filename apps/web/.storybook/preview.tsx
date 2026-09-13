@@ -2,15 +2,23 @@ import React from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { withThemeFromJSXProvider } from '@storybook/addon-themes';
 import { Preview, ReactRenderer } from '@storybook/react';
-import { Barlow } from 'next/font/google';
+import { Barlow, Barlow_Condensed } from 'next/font/google';
+import '../src/app/globals.css';
 import theme from '../src/app/theme';
 import './style.scss';
 
-const roboto = Barlow({
-  weight: ['100', '200', '300', '400', '500', '700'],
+const barlow = Barlow({
+  weight: ['300', '400', '500', '600', '700'],
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-barlow',
+});
+
+const barlowCondensed = Barlow_Condensed({
+  weight: ['500', '600', '700', '800'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-display',
 });
 
 const preview: Preview = {
@@ -24,7 +32,10 @@ const preview: Preview = {
   },
   decorators: [
     (Story) => (
-      <div className={roboto.className}>
+      <div
+        className={`${barlow.variable} ${barlowCondensed.variable}`}
+        style={{ fontFamily: 'var(--font-barlow), system-ui, sans-serif' }}
+      >
         <Story />
       </div>
     ),
@@ -32,10 +43,9 @@ const preview: Preview = {
       GlobalStyles: CssBaseline,
       Provider: ThemeProvider,
       themes: {
-        // Provide your custom themes here
-        light: theme,
+        dark: theme,
       },
-      defaultTheme: 'light',
+      defaultTheme: 'dark',
     }),
   ],
 };

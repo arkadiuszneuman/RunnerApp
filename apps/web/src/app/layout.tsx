@@ -1,20 +1,34 @@
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
-import type { Metadata } from 'next';
-import { Barlow } from 'next/font/google';
-import NavBar from './base/NavBar';
+import type { Metadata, Viewport } from 'next';
+import { Barlow, Barlow_Condensed } from 'next/font/google';
+import AppShell from './base/AppShell';
 import Providers from './Providers';
 import './globals.css';
 
-const roboto = Barlow({
-  weight: ['100', '200', '300', '400', '500', '700'],
+const barlow = Barlow({
+  weight: ['300', '400', '500', '600', '700'],
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-barlow',
 });
 
+const barlowCondensed = Barlow_Condensed({
+  weight: ['500', '600', '700', '800'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-display',
+});
+
 export const metadata: Metadata = {
-  title: 'Runner App',
-  description: 'App for the runners',
+  title: 'Runner',
+  description: 'Heart-rate guided treadmill training',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#05070c',
 };
 
 export default function RootLayout({
@@ -24,17 +38,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={roboto.variable}
-        style={{
-          background:
-            'linear-gradient(129deg, rgba(50,206,217,1) 0%, rgba(40,148,173,1) 13%, rgba(35,117,149,1) 21%, rgba(28,75,117,1) 37%, rgba(26,27,77,1) 100%)',
-        }}
-      >
+      <body className={`${barlow.variable} ${barlowCondensed.variable}`}>
+        <div className="aurora" aria-hidden>
+          <span />
+        </div>
         <AppRouterCacheProvider>
           <Providers>
-            <NavBar />
-            {children}
+            <AppShell>{children}</AppShell>
           </Providers>
         </AppRouterCacheProvider>
       </body>

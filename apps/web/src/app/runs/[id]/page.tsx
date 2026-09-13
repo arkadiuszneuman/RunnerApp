@@ -1,6 +1,12 @@
 'use client';
 
-import DeleteIcon from '@mui/icons-material/Delete';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
+import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
+import SsidChartRoundedIcon from '@mui/icons-material/SsidChartRounded';
+import TerrainRoundedIcon from '@mui/icons-material/TerrainRounded';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -9,7 +15,6 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -19,11 +24,14 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
+import { analyzeRun, calculateStages, Timespan, toSeries, type RunRecord } from '@runner/core';
 import axios from 'axios';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ReactNode, useEffect, useMemo, useState } from 'react';
-import { analyzeRun, calculateStages, Timespan, toSeries, type RunRecord } from '@runner/core';
+import Page from '../../base/Page';
+import ProgressRing from '../../base/ProgressRing';
+import { displayFont, enter, glass, stageTypeColor, stageTypeName, tokens } from '../../theme';
 import DeviationChart from './charts/DeviationChart';
 import HeartRateChart from './charts/HeartRateChart';
 import HrBucketsChart from './charts/HrBucketsChart';
@@ -33,36 +41,45 @@ import type { StageBand } from './charts/stageShadingPlugin';
 
 type RunRow = { id: string; createdAt: string; data: RunRecord };
 
-function StatTile({ label, value, sub }: Readonly<{ label: string; value: string; sub?: string }>) {
+const labelSx = {
+  fontSize: '0.68rem',
+  fontWeight: 600,
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  color: tokens.textMuted,
+} as const;
+
+function StatTile(
+  props: Readonly<{ label: string; value: string; sub?: string; icon: ReactNode; accent: string; index: number }>
+) {
   return (
-    <Grid size={{ xs: 6, sm: 3 }}>
-      <Paper variant="outlined" sx={{ p: 1.5, height: '100%' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          {label}
+    <Paper variant="outlined" sx={{ p: 1.5, height: '100%', ...enter(props.index) }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5, color: props.accent, '& svg': { fontSize: 16 } }}>
+        {props.icon}
+        <Typography sx={labelSx}>{props.label}</Typography>
+      </Box>
+      <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.6rem', lineHeight: 1.1 }}>
+        {props.value}
+      </Typography>
+      {props.sub && (
+        <Typography variant="caption" color="text.secondary">
+          {props.sub}
         </Typography>
-        <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
-          {value}
-        </Typography>
-        {sub && (
-          <Typography variant="caption" color="text.secondary">
-            {sub}
-          </Typography>
-        )}
-      </Paper>
-    </Grid>
+      )}
+    </Paper>
   );
 }
 
 function ChartCard({
   title,
   height = 260,
+  wide,
+  index,
   children,
-}: Readonly<{ title: string; height?: number; children: ReactNode }>) {
+}: Readonly<{ title: string; height?: number; wide?: boolean; index: number; children: ReactNode }>) {
   return (
-    <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-        {title}
-      </Typography>
+    <Paper variant="outlined" sx={{ p: 2, gridColumn: wide ? '1 / -1' : undefined, minWidth: 0, ...enter(index) }}>
+      <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', mb: 1 }}>{title}</Typography>
       <Box sx={{ height }}>{children}</Box>
     </Paper>
   );
@@ -130,9 +147,15 @@ export default function RunDetailPage() {
     }
   };
 
+  const backButton = (
+    <IconButton component={Link} href="/runs" aria-label="Back to history" sx={{ ...glass, width: 40, height: 40 }}>
+      <ArrowBackRoundedIcon fontSize="small" />
+    </IconButton>
+  );
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
         <CircularProgress />
       </Box>
     );
@@ -140,104 +163,182 @@ export default function RunDetailPage() {
 
   if (notFound || !row || !analysis) {
     return (
-      <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
-        <Typography color="text.secondary">Run not found.</Typography>
-        <Button href="/runs" LinkComponent={Link} sx={{ mt: 2 }}>
-          Back to history
-        </Button>
-      </Box>
+      <Page maxWidth={900}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1 }}>
+          {backButton}
+          <Typography color="text.secondary">Run not found.</Typography>
+        </Box>
+      </Page>
     );
   }
 
   const { summary, series, stages, telemetryCount } = analysis;
   const record = row.data;
   const noData = telemetryCount === 0;
+  const startedAt = new Date(record.startedAt);
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            {new Date(record.startedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+    <Page maxWidth={900}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1, mb: 2.5 }}>
+        {backButton}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="overline" component="p" sx={{ color: 'primary.main' }}>
+            {startedAt.toLocaleDateString(undefined, { weekday: 'long' })}
           </Typography>
-          {record.programName && <Chip label={record.programName} size="small" sx={{ mt: 0.5 }} />}
+          <Typography variant="h5" component="h1" sx={{ fontSize: '1.7rem' }}>
+            {startedAt.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+          </Typography>
         </Box>
-        <IconButton onClick={() => setDeleteOpen(true)} title="Delete run">
-          <DeleteIcon />
+        <IconButton onClick={() => setDeleteOpen(true)} title="Delete run" sx={{ color: 'text.secondary' }}>
+          <DeleteOutlineRoundedIcon />
         </IconButton>
       </Box>
 
       {noData ? (
-        <Typography color="text.secondary" sx={{ mt: 2 }}>
-          No telemetry was recorded for this run (it may have been stopped immediately, or the app was
-          closed before any data could be saved).
-        </Typography>
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography color="text.secondary">
+            No telemetry was recorded for this run (it may have been stopped immediately, or the app was
+            closed before any data could be saved).
+          </Typography>
+        </Paper>
       ) : (
         <>
-          <Grid container spacing={1.5} sx={{ mb: 2 }}>
-            <StatTile
-              label="Duration"
-              value={Timespan.fromSeconds(summary.durationSeconds).toString(
-                summary.durationSeconds < 3600 ? 'mm:ss' : 'hh:mm:ss'
+          {/* Hero summary */}
+          <Paper
+            variant="outlined"
+            sx={{
+              p: { xs: 2.5, sm: 3 },
+              mb: 1.5,
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              ...enter(0),
+            }}
+          >
+            <Box
+              aria-hidden
+              sx={{
+                position: 'absolute',
+                top: '-80%',
+                left: '-20%',
+                width: '90%',
+                aspectRatio: '1',
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${alpha(tokens.cyan, 0.16)}, transparent 65%)`,
+                pointerEvents: 'none',
+              }}
+            />
+            <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
+              {record.programName && (
+                <Chip label={record.programName} size="small" sx={{ mb: 1, bgcolor: tokens.surfaceHover }} />
               )}
-            />
-            <StatTile label="Distance" value={`${summary.distanceKm.toFixed(2)} km`} />
-            <StatTile
-              label="Avg pace"
-              value={summary.avgPace ? `${summary.avgPace.toString('mm:ss')} /km` : '—'}
-            />
-            <StatTile label="Elevation gain" value={`${Math.round(summary.elevationGainM)} m`} />
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+                <Typography
+                  className="tabular"
+                  sx={{ fontFamily: displayFont, fontWeight: 800, fontSize: 'clamp(3rem, 16vw, 4.5rem)', lineHeight: 0.95 }}
+                >
+                  {summary.distanceKm.toFixed(2)}
+                </Typography>
+                <Typography sx={{ color: tokens.textMuted, fontWeight: 600, fontSize: '1.1rem' }}>km</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 3, mt: 1.5 }}>
+                <Box>
+                  <Typography sx={labelSx}>Duration</Typography>
+                  <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.4rem' }}>
+                    {Timespan.fromSeconds(summary.durationSeconds).toString(
+                      summary.durationSeconds < 3600 ? 'mm:ss' : 'hh:mm:ss'
+                    )}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography sx={labelSx}>Avg pace</Typography>
+                  <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.4rem' }}>
+                    {summary.avgPace ? `${summary.avgPace.toString('mm:ss')} /km` : '—'}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+            {summary.hrTarget && (
+              <Box sx={{ textAlign: 'center', position: 'relative' }}>
+                <ProgressRing value={summary.hrTarget.pctInTarget} size={96} stroke={3.5}>
+                  <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.6rem' }}>
+                    {Math.round(summary.hrTarget.pctInTarget)}%
+                  </Typography>
+                </ProgressRing>
+                <Typography sx={{ ...labelSx, mt: 0.75 }}>In target</Typography>
+              </Box>
+            )}
+          </Paper>
+
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
+              gap: 1.5,
+              mb: 1.5,
+            }}
+          >
             <StatTile
               label="Avg / max HR"
-              value={summary.avgHr > 0 ? `${Math.round(summary.avgHr)} / ${summary.maxHr} bpm` : '—'}
+              value={summary.avgHr > 0 ? `${Math.round(summary.avgHr)} / ${summary.maxHr}` : '—'}
+              sub={summary.avgHr > 0 ? 'bpm' : undefined}
+              icon={<FavoriteRoundedIcon />}
+              accent={tokens.heart}
+              index={1}
             />
-            <StatTile label="Avg speed" value={`${summary.avgSpeed.toFixed(1)} km/h`} />
             <StatTile
-              label="Time in target"
-              value={summary.hrTarget ? `${Math.round(summary.hrTarget.pctInTarget)}%` : '—'}
-              sub={summary.hrTarget ? `±5 bpm of target` : 'No HR-targeted stages'}
+              label="Avg speed"
+              value={`${summary.avgSpeed.toFixed(1)}`}
+              sub="km/h"
+              icon={<DirectionsRunRoundedIcon />}
+              accent={tokens.cyan}
+              index={2}
+            />
+            <StatTile
+              label="Elevation"
+              value={`${Math.round(summary.elevationGainM)} m`}
+              sub="gain"
+              icon={<TerrainRoundedIcon />}
+              accent={tokens.violet}
+              index={3}
             />
             <StatTile
               label="Avg deviation"
-              value={summary.hrTarget ? `${summary.hrTarget.avgDeviationBpm.toFixed(1)} bpm` : '—'}
+              value={summary.hrTarget ? `${summary.hrTarget.avgDeviationBpm.toFixed(1)}` : '—'}
+              sub={summary.hrTarget ? 'bpm from target' : 'No HR-targeted stages'}
+              icon={<SsidChartRoundedIcon />}
+              accent={tokens.amber}
+              index={4}
             />
-          </Grid>
+          </Box>
 
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid size={12}>
-              <ChartCard title="Heart rate vs. target">
-                <HeartRateChart series={series} stageBands={analysis.stageBands} />
-              </ChartCard>
-            </Grid>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mb: 1.5 }}>
+            <ChartCard title="Heart rate vs. target" wide index={5}>
+              <HeartRateChart series={series} stageBands={analysis.stageBands} />
+            </ChartCard>
             {summary.hrTarget && (
-              <Grid size={{ xs: 12, md: 6 }}>
-                <ChartCard title="Deviation from target">
-                  <DeviationChart series={series} stageBands={analysis.stageBands} />
-                </ChartCard>
-              </Grid>
+              <ChartCard title="Deviation from target" index={6}>
+                <DeviationChart series={series} stageBands={analysis.stageBands} />
+              </ChartCard>
             )}
             {summary.hrBuckets.length > 0 && (
-              <Grid size={{ xs: 12, md: summary.hrTarget ? 6 : 12 }}>
-                <ChartCard title="Time per heart rate zone">
-                  <HrBucketsChart buckets={summary.hrBuckets} />
-                </ChartCard>
-              </Grid>
+              <ChartCard title="Time per heart rate zone" wide={!summary.hrTarget} index={7}>
+                <HrBucketsChart buckets={summary.hrBuckets} />
+              </ChartCard>
             )}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <ChartCard title="Speed">
-                <SpeedChart series={series} stageBands={analysis.stageBands} />
-              </ChartCard>
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <ChartCard title="Incline">
-                <InclineChart series={series} />
-              </ChartCard>
-            </Grid>
-          </Grid>
+            <ChartCard title="Speed" index={8}>
+              <SpeedChart series={series} stageBands={analysis.stageBands} />
+            </ChartCard>
+            <ChartCard title="Incline" index={9}>
+              <InclineChart series={series} />
+            </ChartCard>
+          </Box>
 
           {stages && stages.length > 0 && summary.stages.length > 0 && (
-            <Paper variant="outlined" sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ p: 2, pb: 0 }}>
+            <Paper variant="outlined" sx={{ overflow: 'hidden', ...enter(10) }}>
+              <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', p: 2, pb: 1 }}>
                 Stages
               </Typography>
               <TableContainer sx={{ overflowX: 'auto' }}>
@@ -255,11 +356,23 @@ export default function RunDetailPage() {
                       <TableCell align="right">Distance</TableCell>
                     </TableRow>
                   </TableHead>
-                  <TableBody>
+                  <TableBody sx={{ '& td': { whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } }}>
                     {summary.stages.map((stage) => (
                       <TableRow key={stage.stageIndex}>
                         <TableCell>{stage.stageIndex}</TableCell>
-                        <TableCell sx={{ textTransform: 'capitalize' }}>{stage.type ?? '—'}</TableCell>
+                        <TableCell>
+                          {stage.type ? (
+                            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                              <Box
+                                component="span"
+                                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: stageTypeColor[stage.type] }}
+                              />
+                              {stageTypeName[stage.type]}
+                            </Box>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
                         <TableCell>{stageTargetLabel(stage)}</TableCell>
                         <TableCell align="right">
                           {Timespan.fromSeconds(stage.durationSeconds).toString('mm:ss')}
@@ -283,31 +396,20 @@ export default function RunDetailPage() {
         </>
       )}
 
-      <Button
-        variant="contained"
-        href="/runs"
-        LinkComponent={Link}
-        sx={{
-          backgroundColor: 'rgba(255,255,255,0.15)',
-          color: 'white',
-          '&:hover': { backgroundColor: 'rgba(255,255,255,0.25)' },
-        }}
-      >
-        Back to history
-      </Button>
-
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Delete run?</DialogTitle>
         <DialogContent>
-          <Typography>This cannot be undone.</Typography>
+          <Typography color="text.secondary">This cannot be undone.</Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button variant="glass" onClick={() => setDeleteOpen(false)}>
+            Cancel
+          </Button>
           <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}>
             Delete
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Page>
   );
 }

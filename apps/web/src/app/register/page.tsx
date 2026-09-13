@@ -1,15 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
 import axios from 'axios';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import AuthCard from '../base/AuthCard';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -46,13 +46,16 @@ export default function RegisterPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 400, mx: 'auto', mt: 8, p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
-        Create account
-      </Typography>
-
+    <AuthCard
+      title="Create account"
+      footer={
+        <>
+          Already have an account? <Link href="/login">Sign in</Link>
+        </>
+      }
+    >
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, animation: 'fade-up 300ms var(--ease-out)' }}>
           {error}
         </Alert>
       )}
@@ -64,6 +67,7 @@ export default function RegisterPage() {
       >
         <TextField
           label="Name"
+          autoComplete="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -72,6 +76,7 @@ export default function RegisterPage() {
         <TextField
           label="Email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -80,6 +85,7 @@ export default function RegisterPage() {
         <TextField
           label="Password"
           type="password"
+          autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -87,17 +93,10 @@ export default function RegisterPage() {
           slotProps={{ htmlInput: { minLength: 8 } }}
           helperText="At least 8 characters"
         />
-        <Button type="submit" variant="contained" disabled={loading} fullWidth>
+        <Button type="submit" size="large" variant="contained" disabled={loading} fullWidth>
           {loading ? 'Creating account…' : 'Create account'}
         </Button>
       </Box>
-
-      <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
-        Already have an account?{' '}
-        <Link href="/login" style={{ color: 'inherit' }}>
-          Sign in
-        </Link>
-      </Typography>
-    </Box>
+    </AuthCard>
   );
 }

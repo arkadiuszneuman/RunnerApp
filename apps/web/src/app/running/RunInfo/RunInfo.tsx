@@ -1,60 +1,131 @@
+'use client';
+
 import { ReactNode } from 'react';
-import { actualTreadmillSpeedAtom, currentStageAtom, currentStageIndexAtom, heartRateAtom, isManualSpeedActiveAtom, runningStateAtom, stagesAtom } from '@/app/atoms';
-import RunnerTypography, { RunnerTypographyProps } from '@/app/base/RunnerTypography';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import LandscapeIcon from '@mui/icons-material/Landscape';
-import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import { Button, Chip, Grid } from '@mui/material';
+import {
+  actualTreadmillSpeedAtom,
+  currentStageAtom,
+  currentStageIndexAtom,
+  heartRateAtom,
+  isManualSpeedActiveAtom,
+  isPausedAtom,
+  runningStateAtom,
+  stagesAtom,
+} from '@/app/atoms';
+import StageStrip from '@/app/base/StageStrip';
+import { displayFont, enter, stageTypeColor, stageTypeName, tokens } from '@/app/theme';
+import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
+import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
+import LandscapeRoundedIcon from '@mui/icons-material/LandscapeRounded';
+import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
+import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
+import { Stage, Timespan } from '@runner/core';
 import { useAtomValue } from 'jotai';
 import Timer from './Timer/Timer';
 
-function RunInfoCategory(props: RunnerTypographyProps) {
-  return <RunnerTypography {...props} sx={{ fontSize: '0.8rem', ...props.sx }} />;
+const labelSx = {
+  fontSize: '0.68rem',
+  fontWeight: 600,
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  color: tokens.textMuted,
+} as const;
+
+function formatClock(t: Timespan): string {
+  return t.toString(t.totalSeconds >= 3600 ? 'hh:mm:ss' : 'mm:ss');
 }
 
-function RunInfoData(props: RunnerTypographyProps) {
-  return <RunnerTypography {...props} sx={{ fontSize: '1.5rem', fontWeight: 400, ...props.sx }} />;
+function stageTarget(stage: Stage): string {
+  return stage.speedType === 'bmp' ? `${stage.bmp} bpm` : `${stage.tempo.toString('mm:ss')} /km`;
 }
 
-function RunInfoUnit(props: RunnerTypographyProps) {
-  return (
-    <RunnerTypography
-      {...props}
-      sx={{ fontSize: '0.8rem', textTransform: 'lowercase', ...props.sx }}
-    />
-  );
+/** Same ±5 bpm band the run analysis uses for "time in target". */
+function hrZone(hr: number | undefined, target: number | undefined) {
+  if (hr === undefined || target === undefined) return { color: tokens.heart, label: undefined };
+  const diff = hr - target;
+  if (Math.abs(diff) <= 5) return { color: tokens.volt, label: 'In zone' };
+  return diff < 0
+    ? { color: tokens.cyan, label: `${-diff} below` }
+    : { color: tokens.heart, label: `${diff} above` };
 }
 
-function Tile(
+function Metric(
   props: Readonly<{
-    categoryName: string;
-    runInfoData: string | number;
-    runInfoUnit: string;
-    icon?: ReactNode;
+    label: string;
+    icon: ReactNode;
+    value: string | number;
+    unit?: string;
+    accent: string;
+    index: number;
+    /** Re-run a small pop animation whenever the value changes. */
+    popOnChange?: boolean;
+    children?: ReactNode;
   }>
 ) {
   return (
-    <Grid container sx={{ display: 'flex', flexDirection: 'column' }} spacing={0.5} size={4}>
-      <Grid container direction="row" spacing={0.5}>
-        <Grid>
-          <RunInfoCategory textVariant="secondary">{props.icon}</RunInfoCategory>
-        </Grid>
-        <Grid>
-          <RunInfoCategory textVariant="secondary">{props.categoryName}</RunInfoCategory>
-        </Grid>
-      </Grid>
-      <Grid container spacing={0.5} sx={{ alignItems: 'end' }}>
-        <Grid>
-          <RunInfoData>{props.runInfoData}</RunInfoData>
-        </Grid>
-        <Grid>
-          <RunInfoUnit>{props.runInfoUnit}</RunInfoUnit>
-        </Grid>
-      </Grid>
-    </Grid>
+    <Paper
+      variant="outlined"
+      sx={{ p: 1.75, position: 'relative', overflow: 'hidden', ...enter(props.index) }}
+    >
+      <Box
+        aria-hidden
+        sx={{
+          position: 'absolute',
+          right: '-35%',
+          bottom: '-70%',
+          width: '90%',
+          aspectRatio: '1',
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${alpha(props.accent, 0.24)}, transparent 65%)`,
+          transition: 'background 600ms ease',
+          pointerEvents: 'none',
+        }}
+      />
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          mb: 0.5,
+          color: props.accent,
+          transition: 'color 600ms ease',
+          '& svg': { fontSize: 16 },
+        }}
+      >
+        {props.icon}
+        <Typography sx={labelSx}>{props.label}</Typography>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+        <Typography
+          component="span"
+          className="tabular"
+          sx={{
+            fontFamily: displayFont,
+            fontWeight: 700,
+            fontSize: 'clamp(2.1rem, 11vw, 2.9rem)',
+            lineHeight: 1,
+          }}
+        >
+          <Box
+            component="span"
+            key={props.popOnChange ? String(props.value) : undefined}
+            sx={{ display: 'inline-block', animation: props.popOnChange ? 'pop 320ms var(--ease-out)' : 'none' }}
+          >
+            {props.value}
+          </Box>
+        </Typography>
+        {props.unit && (
+          <Typography component="span" sx={{ color: tokens.textMuted, fontWeight: 500 }}>
+            {props.unit}
+          </Typography>
+        )}
+      </Box>
+      {props.children}
+    </Paper>
   );
 }
 
@@ -66,135 +137,216 @@ export default function RunInfo({ onResetManualSpeed }: Readonly<{ onResetManual
   const stages = useAtomValue(stagesAtom);
   const isManualSpeedActive = useAtomValue(isManualSpeedActiveAtom);
   const actualTreadmillSpeed = useAtomValue(actualTreadmillSpeedAtom);
+  const isPaused = useAtomValue(isPausedAtom);
 
-  const displaySpeed = runningState.running ? runningState.treadmillOptions.speed : 0;
+  const running = runningState.running;
+  const runningTime = running ? runningState.runningTime : new Timespan();
+  const displaySpeed = running ? runningState.treadmillOptions.speed : 0;
+  const incline = running ? runningState.treadmillOptions.incline : 0;
+
+  const timeLeft = running && currentStage ? currentStage.to.subtract(runningTime) : undefined;
+  const progress =
+    running && currentStage && timeLeft
+      ? (currentStage.duration.subtract(timeLeft).totalMilliseconds * 100) /
+        currentStage.duration.totalMilliseconds
+      : 0;
+
+  const stageColor = currentStage ? stageTypeColor[currentStage.type] : tokens.volt;
+  const targetBpm = currentStage?.speedType === 'bmp' ? currentStage.bmp : undefined;
+  const zone = hrZone(heartRate, targetBpm);
+  const inCooldown = running && !currentStage && stages.length > 0;
+
+  const nextStage = running
+    ? currentStageIndex !== undefined
+      ? stages[currentStageIndex]
+      : undefined
+    : stages[0];
+  const programTotal = stages.at(-1)?.to;
+
+  // Marker position on a ±25 bpm gauge; the in-zone (±5) band spans 40%–60%.
+  const gaugePos =
+    targetBpm !== undefined && heartRate !== undefined
+      ? Math.min(100, Math.max(0, ((heartRate - (targetBpm - 25)) / 50) * 100))
+      : 50;
 
   return (
-    <Grid container rowSpacing={2} sx={{ justifyContent: 'center' }}>
-      <Grid size="auto">
-        {runningState.running ? (
-          <Timer
-            primaryText={currentStage?.to.subtract(runningState.runningTime).toString('mm:ss')}
-            primaryTextInfo="Time left"
-            secondaryText={
-              currentStage ? `${currentStageIndex ?? 0}/${stages.length}` : ''
-            }
-            secondaryTextInfo="Stage"
-            progress={
-              currentStage
-                ? (currentStage.duration.subtract(
-                    currentStage.to.subtract(runningState.runningTime)
-                  ).totalMilliseconds *
-                    100) /
-                  currentStage.duration.totalMilliseconds
-                : 0
-            }
-          />
-        ) : (
-          <Timer
-            primaryText="00:00"
-            primaryTextInfo="Time left"
-            secondaryText={
-              currentStage ? `${currentStageIndex ?? 0}/${stages.length}` : '0/0'
-            }
-            secondaryTextInfo="Stage"
-            progress={0}
-          />
-        )}
-      </Grid>
-      <Grid container rowSpacing={4}>
-        <Grid size={2}></Grid>
-        {isManualSpeedActive ? (
-          <Grid container sx={{ display: 'flex', flexDirection: 'column' }} spacing={0.5} size={4}>
-            <Grid container direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-              <Grid>
-                <RunInfoCategory textVariant="secondary">
-                  <DirectionsRunIcon sx={{ fontSize: '0.8rem' }} />
-                </RunInfoCategory>
-              </Grid>
-              <Grid>
-                <RunInfoCategory textVariant="secondary">Speed</RunInfoCategory>
-              </Grid>
-              <Grid>
-                <Chip label="MANUAL" size="small" color="warning" sx={{ fontSize: '0.6rem', height: '16px' }} />
-              </Grid>
-            </Grid>
-            <Grid container spacing={0.5} sx={{ alignItems: 'end' }}>
-              <Grid>
-                <RunInfoData>{actualTreadmillSpeed}</RunInfoData>
-              </Grid>
-              <Grid>
-                <RunInfoUnit>km/h</RunInfoUnit>
-              </Grid>
-            </Grid>
-            <Grid>
-              <RunnerTypography sx={{ fontSize: '0.75rem' }} textVariant="secondary">
-                Program: {displaySpeed} km/h
-              </RunnerTypography>
-            </Grid>
-            {onResetManualSpeed && (
-              <Grid>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <Box sx={enter(0)}>
+        <Timer
+          primaryText={timeLeft ? timeLeft.toString('mm:ss') : inCooldown ? formatClock(runningTime) : '00:00'}
+          primaryTextInfo={isPaused ? 'Paused' : inCooldown ? 'Cooldown' : 'Time left'}
+          secondaryText={currentStage ? `${currentStageIndex ?? 0}/${stages.length}` : `0/${stages.length}`}
+          secondaryTextInfo="Stage"
+          progress={progress}
+          colors={[stageColor, tokens.volt]}
+          dimmed={isPaused}
+        >
+          {currentStage && (
+            <Box
+              key={currentStageIndex}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '1.6cqi',
+                px: '3.5cqi',
+                py: '1.2cqi',
+                borderRadius: 999,
+                fontSize: '4.4cqi',
+                fontWeight: 600,
+                color: stageColor,
+                background: alpha(stageColor, 0.14),
+                border: `1px solid ${alpha(stageColor, 0.35)}`,
+                animation: 'scale-in 450ms var(--ease-spring) backwards',
+              }}
+            >
+              {stageTypeName[currentStage.type]} · {stageTarget(currentStage)}
+            </Box>
+          )}
+        </Timer>
+      </Box>
+
+      <Box sx={{ px: 0.5, ...enter(1) }}>
+        <StageStrip stages={stages} height={34} elapsedMs={runningTime.totalMilliseconds} />
+        <Box
+          className="tabular"
+          sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.75, ...labelSx, letterSpacing: '0.08em' }}
+        >
+          <span>{formatClock(runningTime)}</span>
+          <span>{programTotal ? formatClock(programTotal) : '00:00'}</span>
+        </Box>
+      </Box>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+        <Metric
+          label="Heart rate"
+          icon={
+            <FavoriteRoundedIcon
+              sx={{ animation: heartRate ? `heartbeat ${60 / heartRate}s ease-in-out infinite` : 'none' }}
+            />
+          }
+          value={heartRate ?? '--'}
+          unit="bpm"
+          accent={zone.color}
+          index={2}
+        >
+          {targetBpm !== undefined ? (
+            <Box sx={{ mt: 1.25, position: 'relative' }}>
+              <Box
+                sx={{
+                  position: 'relative',
+                  height: 6,
+                  borderRadius: 3,
+                  background: `linear-gradient(90deg, ${alpha(tokens.cyan, 0.4)} 0%, ${alpha(tokens.volt, 0.55)} 40%, ${alpha(tokens.volt, 0.55)} 60%, ${alpha(tokens.heart, 0.5)} 100%)`,
+                }}
+              >
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: `${gaugePos}%`,
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    bgcolor: '#fff',
+                    transform: 'translate(-50%, -50%)',
+                    boxShadow: `0 0 0 3px ${alpha(zone.color, 0.45)}, 0 0 12px ${zone.color}`,
+                    transition: 'left 800ms var(--ease-out), box-shadow 600ms ease',
+                  }}
+                />
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+                Target {targetBpm}
+                {zone.label && (
+                  <Box component="span" sx={{ color: zone.color, fontWeight: 600 }}>
+                    {' · '}
+                    {zone.label}
+                  </Box>
+                )}
+              </Typography>
+            </Box>
+          ) : (
+            currentStage?.speedType === 'tempo' && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                Target tempo {currentStage.tempo.toString('mm:ss')} /km
+              </Typography>
+            )
+          )}
+        </Metric>
+
+        <Metric
+          label="Speed"
+          icon={<DirectionsRunRoundedIcon />}
+          value={isManualSpeedActive ? actualTreadmillSpeed : displaySpeed}
+          unit="km/h"
+          accent={isManualSpeedActive ? tokens.amber : tokens.cyan}
+          index={3}
+          popOnChange
+        >
+          {isManualSpeedActive && (
+            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.75 }}>
+              <Typography variant="caption" sx={{ color: tokens.amber, fontWeight: 600 }}>
+                Manual · program {displaySpeed}
+              </Typography>
+              {onResetManualSpeed && (
                 <Button
                   size="small"
-                  variant="outlined"
-                  color="warning"
-                  startIcon={<RestartAltIcon />}
+                  variant="glass"
+                  startIcon={<RestartAltRoundedIcon />}
                   onClick={onResetManualSpeed}
-                  sx={{ fontSize: '0.7rem', py: 0.25 }}
                 >
                   Reset
                 </Button>
-              </Grid>
-            )}
-          </Grid>
-        ) : (
-          <Tile
-            categoryName="Speed"
-            runInfoData={displaySpeed}
-            runInfoUnit="km/h"
-            icon={<DirectionsRunIcon sx={{ fontSize: '0.8rem' }} />}
-          />
-        )}
-        <Tile
-          categoryName="Incline"
-          runInfoData={runningState.running ? runningState.treadmillOptions.incline : 0}
-          runInfoUnit="%"
-          icon={<LandscapeIcon sx={{ fontSize: '0.8rem' }} />}
+              )}
+            </Box>
+          )}
+        </Metric>
+
+        <Metric
+          label="Incline"
+          icon={<LandscapeRoundedIcon />}
+          value={incline}
+          unit="%"
+          accent={tokens.violet}
+          index={4}
+          popOnChange
         />
-        <Grid size={2}></Grid>
-        <Grid size={2}></Grid>
-        <Tile
-          categoryName="Heart rate"
-          runInfoData={heartRate ?? 0}
-          runInfoUnit="bmp"
-          icon={<MonitorHeartIcon sx={{ fontSize: '0.8rem' }} />}
+
+        <Metric
+          label="Duration"
+          icon={<TimerOutlinedIcon />}
+          value={formatClock(runningTime)}
+          accent={tokens.volt}
+          index={5}
         />
-        {currentStage?.speedType === 'bmp' && (
-          <Tile
-            categoryName="Target HR"
-            runInfoData={currentStage.bmp}
-            runInfoUnit="bmp"
-            icon={<FavoriteIcon sx={{ fontSize: '0.8rem' }} />}
+      </Box>
+
+      {nextStage && (
+        <Paper
+          variant="outlined"
+          key={currentStageIndex}
+          sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, ...enter(6) }}
+        >
+          <Box
+            sx={{
+              width: 4,
+              alignSelf: 'stretch',
+              borderRadius: 2,
+              bgcolor: stageTypeColor[nextStage.type],
+              boxShadow: `0 0 12px ${stageTypeColor[nextStage.type]}`,
+            }}
           />
-        )}
-        {currentStage?.speedType === 'tempo' && (
-          <Tile
-            categoryName="Target tempo"
-            runInfoData={currentStage.tempo.toString('mm:ss')}
-            runInfoUnit="min/km"
-            icon={<FavoriteIcon sx={{ fontSize: '0.8rem' }} />}
-          />
-        )}
-        <Grid size={2}></Grid>
-        <Grid size={4}></Grid>
-        <Tile
-          categoryName="Duration"
-          runInfoData={runningState.running ? runningState.runningTime.toString('mm:ss') : '00:00'}
-          runInfoUnit="min"
-          icon={<AccessTimeIcon sx={{ fontSize: '0.8rem' }} />}
-        />
-        <Grid size={4}></Grid>
-      </Grid>
-    </Grid>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={labelSx}>{running ? 'Up next' : 'First up'}</Typography>
+            <Typography sx={{ fontWeight: 600 }}>
+              {stageTypeName[nextStage.type]} ·{' '}
+              <span className="tabular">{nextStage.duration.toString('mm:ss')}</span>
+            </Typography>
+          </Box>
+          <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.25rem' }}>
+            {stageTarget(nextStage)}
+          </Typography>
+        </Paper>
+      )}
+    </Box>
   );
 }
