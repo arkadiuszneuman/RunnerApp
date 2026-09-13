@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import objectSupport from 'dayjs/plugin/objectSupport';
 import { Provider } from 'jotai';
 import { SessionProvider } from 'next-auth/react';
+import ThemeColorSync from './base/ThemeColorSync';
 import { useLoadSpeedControllerPreference } from './speedControllerPreference';
 import { store } from './store';
 import theme from './theme';
@@ -34,6 +35,7 @@ export default function Providers(props: Readonly<{ children?: ReactNode }>) {
           <CssBaseline enableColorScheme />
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <ProgramSyncInitializer />
+            <ThemeColorSync />
             {props.children}
           </LocalizationProvider>
         </ThemeProvider>
