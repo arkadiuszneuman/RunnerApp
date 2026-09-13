@@ -3,7 +3,7 @@
 import type { ChartData, ChartOptions } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { RunSeriesPoint } from '@runner/core';
-import { axisTitleColor, chartColors } from './chartSetup';
+import { axisTitleColor, chartColors, tooltipTitleAsClock } from './chartSetup';
 
 export default function InclineChart({ series }: Readonly<{ series: RunSeriesPoint[] }>) {
   const data: ChartData<'line'> = {
@@ -37,7 +37,10 @@ export default function InclineChart({ series }: Readonly<{ series: RunSeriesPoi
         min: 0,
       },
     },
-    plugins: { legend: { display: false } }, // single series — the chart title already names it
+    plugins: {
+      legend: { display: false }, // single series — the chart title already names it
+      tooltip: { callbacks: { title: tooltipTitleAsClock } },
+    },
   };
 
   return <Line data={data} options={options} />;

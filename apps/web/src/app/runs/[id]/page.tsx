@@ -100,6 +100,10 @@ export default function RunDetailPage() {
   const analysis = useMemo(() => {
     if (!row) return null;
     const record = row.data;
+    // Defensive: runs created before telemetry flushing/history existed (or
+    // one that never survived its first flush) can have `telemetry` missing
+    // entirely rather than `[]` — this JSONB column has no schema to enforce it.
+    const telemetry = record.telemetry ?? [];
     const endT =
       record.durationMs !== undefined
         ? record.durationMs / 1000
@@ -107,13 +111,13 @@ export default function RunDetailPage() {
           ? (new Date(record.finishedAt).getTime() - new Date(record.startedAt).getTime()) / 1000
           : undefined;
     const stages = record.program ? calculateStages(record.program.stages) : undefined;
-    const summary = analyzeRun(record.telemetry, { endT, stages });
-    const series = toSeries(record.telemetry, endT);
+    const summary = analyzeRun(telemetry, { endT, stages });
+    const series = toSeries(telemetry, endT);
     const stageBands: StageBand[] | undefined = stages?.map((s) => ({
       fromMin: s.from.totalMinutes,
       toMin: s.to.totalMinutes,
     }));
-    return { summary, series, stages, stageBands };
+    return { summary, series, stages, stageBands, telemetryCount: telemetry.length };
   }, [row]);
 
   const handleDelete = async () => {
@@ -145,9 +149,9 @@ export default function RunDetailPage() {
     );
   }
 
-  const { summary, series, stages } = analysis;
+  const { summary, series, stages, telemetryCount } = analysis;
   const record = row.data;
-  const noData = record.telemetry.length === 0;
+  const noData = telemetryCount === 0;
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
@@ -225,7 +229,7 @@ export default function RunDetailPage() {
               </ChartCard>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <ChartCard title="Incline" height={200}>
+              <ChartCard title="Incline">
                 <InclineChart series={series} />
               </ChartCard>
             </Grid>
