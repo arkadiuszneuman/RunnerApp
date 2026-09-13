@@ -7,6 +7,17 @@ export { calculateSpeedByHeartRate, calculateSpeedByTempo } from './services/spe
 
 export { parseProgram } from './services/programTextParser';
 
+export { analyzeRun, toSeries } from './services/runAnalysis';
+export type {
+  RunRecord,
+  RunProgramSnapshot,
+  RunSummary,
+  StageSummary,
+  HrTargetStats,
+  HrBucket,
+  RunSeriesPoint,
+} from './services/runAnalysis';
+
 export {
   WARMUP_BPM,
   COOLDOWN_BPM,

@@ -1,15 +1,18 @@
 import type { TreadmillEvent } from '../ble/events';
 import {
+  activeProgramIdAtom,
   actualTreadmillSpeedAtom,
   currentStageAtom,
   currentStageIndexAtom,
   heartRateAtom,
   programCooldownAtom,
+  programInternalAtom,
   runningStateAtom,
   stagesAtom,
   type TreadmillOptions,
 } from '../state/atoms';
 import { Timespan } from '../services/Timespan';
+import type { MultiplyStage } from '../services/stagesCalculator';
 import Training from '../training/Training';
 import type { TelemetryPoint } from '../types/telemetry';
 import type { JotaiStore } from './store';
@@ -30,7 +33,10 @@ export interface TreadmillControl {
 }
 
 export interface RunApi {
-  createRun(startedAt: string): Promise<{ id: string }>;
+  createRun(
+    startedAt: string,
+    meta?: { programId: string | null; program: { stages: MultiplyStage[]; cooldown: boolean } }
+  ): Promise<{ id: string }>;
   patchRun(
     id: string,
     payload: { startedAt?: string; telemetry: TelemetryPoint[]; finishedAt?: string; durationMs?: number }
@@ -145,9 +151,11 @@ export class RunSession {
 
       const startDate = new Date(this.now() + 3000); // belt spin-up buffer
       const startedAt = startDate.toISOString();
+      const programId = this.store.get(activeProgramIdAtom);
+      const program = this.store.get(programInternalAtom);
 
       this.api
-        .createRun(startedAt)
+        .createRun(startedAt, { programId, program })
         .then(({ id }) => {
           this.runId = id;
           this.startFlushInterval();
@@ -290,6 +298,7 @@ export class RunSession {
       thr,
       phr,
       spd: newSpeed,
+      aspd: this.store.get(actualTreadmillSpeedAtom),
       inc: treadmillOptions.incline,
       si: currentStageIndex ?? 0,
       err,
@@ -301,6 +310,7 @@ export class RunSession {
       last.thr !== point.thr ||
       last.phr !== point.phr ||
       last.spd !== point.spd ||
+      last.aspd !== point.aspd ||
       last.inc !== point.inc ||
       last.si !== point.si
     ) {

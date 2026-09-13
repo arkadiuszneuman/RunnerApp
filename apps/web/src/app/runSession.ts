@@ -4,8 +4,8 @@ import BleManager from './BleManager';
 import { store } from './store';
 
 const api: RunApi = {
-  async createRun(startedAt) {
-    const { data } = await axios.post('/api/runs', { startedAt });
+  async createRun(startedAt, meta) {
+    const { data } = await axios.post('/api/runs', { startedAt, ...meta });
     return { id: data.id };
   },
   async patchRun(id, payload) {
