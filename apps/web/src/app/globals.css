@@ -11,6 +11,12 @@ body {
   max-width: 100vw;
   overflow-x: hidden;
   min-height: 100%;
+  /* Without this, the browser's scroll-anchoring silently nudges scrollTop
+     by a few px whenever content above/at the viewport resizes shortly after
+     load — on Home that's the active-program card swapping its loading
+     skeleton for the real (taller) content, which otherwise lands the page a
+     little below 0 right after a refresh instead of pinned to the top. */
+  overflow-anchor: none;
 }
 
 body {
