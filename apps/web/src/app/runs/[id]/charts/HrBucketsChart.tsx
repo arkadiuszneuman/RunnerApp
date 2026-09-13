@@ -3,7 +3,7 @@
 import type { ChartData, ChartOptions } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import type { HrBucket } from '@runner/core';
-import { axisTitleColor, chartColors } from './chartSetup';
+import { axisTitleColor, chartColors, formatMinutesAsClock } from './chartSetup';
 
 export default function HrBucketsChart({ buckets }: Readonly<{ buckets: HrBucket[] }>) {
   const data: ChartData<'bar'> = {
@@ -34,7 +34,14 @@ export default function HrBucketsChart({ buckets }: Readonly<{ buckets: HrBucket
         min: 0,
       },
     },
-    plugins: { legend: { display: false } }, // single series — the chart title already names it
+    plugins: {
+      legend: { display: false }, // single series — the chart title already names it
+      tooltip: {
+        callbacks: {
+          label: (item) => `Time in zone: ${formatMinutesAsClock(item.parsed.y ?? 0)}`,
+        },
+      },
+    },
   };
 
   return <Bar data={data} options={options} />;
