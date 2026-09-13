@@ -80,10 +80,15 @@ RunSession ──► /api/runs/:id (telemetry flush) ─────────
   `/api/runs/:id` every 30s and on stop/disconnect). Reads/writes the same Jotai atoms the UI observes.
   Takes an injectable clock for tests. One instance is created per app (`apps/web/src/app/runSession.ts`)
   and driven by `useRunningLoop`'s 200ms `pump()` timer.
-- **`Training`** (`packages/core/src/training/Training.ts`) — PID controller class that adjusts treadmill
-  speed to hit a target heart rate BPM (tempo stages instead use a fixed pace via `speedCalculator.ts`).
-  Stateful per run (integral/derivative carry over between calls, reset on stage change). Instantiated
-  fresh on each run start by `RunSession`.
+- **Speed controllers** (`packages/core/src/training/`) — adjust treadmill speed to hit a target heart
+  rate (tempo stages instead use a fixed pace via `speedCalculator.ts`). Both implement `SpeedController`
+  (`update(hr, stage, deltaTimeMs)`, called at 1 Hz with `1000`). `RunSession` creates one per run via
+  `createSpeedController(kind)`, where `kind` comes from `speedControllerAtom` (toggle on the home/run
+  screens, persisted per device in localStorage and recorded on each run as `controller`):
+  - `legacy` → `Training.ts`, the original PID, kept unchanged.
+  - `adaptive` → `AdaptiveTraining.ts`: filtered HR with a least-squares trend prediction, IMC-tuned
+    velocity-form PI, feedforward on target steps, slew limit, quantization only on the output.
+  `heartRateSimulation.ts` is a seeded closed-loop runner model used by the tests and `/pid-simulator`.
 - **Jotai atoms** (`packages/core/src/state/atoms.ts`, re-exported via `apps/web/src/app/atoms.ts`) — all
   runtime state. `runningStateAtom` is the single source of truth (discriminated union:
   `{running: false} | {running: true, ...}`), with derived read-only atoms (`isRunningAtom`,
@@ -156,7 +161,7 @@ durations live in `packages/core/src/services/trainingDefaults.ts`.
 | `/running` | Active run dashboard |
 | `/programs` | List/select saved programs |
 | `/add-program` | Program builder |
-| `/pid-simulator` | Dev tool to tune PID constants |
+| `/pid-simulator` | Dev tool comparing the speed controllers on a simulated runner |
 | `/login`, `/register` | Auth pages (public, excluded from the proxy gate) |
 
 API routes under `apps/web/src/app/api/` (`programs`, `programs/[id]`, `runs`, `runs/[id]`,

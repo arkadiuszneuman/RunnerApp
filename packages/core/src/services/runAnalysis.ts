@@ -1,3 +1,4 @@
+import type { SpeedControllerKind } from '../training/SpeedController';
 import type { TelemetryPoint } from '../types/telemetry';
 import type { MultiplyStage, StageResult } from './stagesCalculator';
 import { Timespan } from './Timespan';
@@ -17,6 +18,8 @@ export interface RunRecord {
   programId?: string | null;
   programName?: string;
   program?: RunProgramSnapshot;
+  /** Speed controller that drove the run — absent on runs recorded before the toggle existed. */
+  controller?: SpeedControllerKind;
 }
 
 export interface HrTargetStats {

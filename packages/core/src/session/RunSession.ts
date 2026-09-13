@@ -8,12 +8,17 @@ import {
   programCooldownAtom,
   programInternalAtom,
   runningStateAtom,
+  speedControllerAtom,
   stagesAtom,
   type TreadmillOptions,
 } from '../state/atoms';
 import { Timespan } from '../services/Timespan';
 import type { MultiplyStage } from '../services/stagesCalculator';
-import Training from '../training/Training';
+import {
+  createSpeedController,
+  type SpeedController,
+  type SpeedControllerKind,
+} from '../training/SpeedController';
 import type { TelemetryPoint } from '../types/telemetry';
 import type { JotaiStore } from './store';
 
@@ -35,7 +40,11 @@ export interface TreadmillControl {
 export interface RunApi {
   createRun(
     startedAt: string,
-    meta?: { programId: string | null; program: { stages: MultiplyStage[]; cooldown: boolean } }
+    meta?: {
+      programId: string | null;
+      program: { stages: MultiplyStage[]; cooldown: boolean };
+      controller?: SpeedControllerKind;
+    }
   ): Promise<{ id: string }>;
   patchRun(
     id: string,
@@ -76,7 +85,7 @@ export class RunSession {
   private readonly flushIntervalMs: number;
   private readonly logger: (message: string) => void;
 
-  private training = new Training(1);
+  private training: SpeedController = createSpeedController('legacy', 1);
   private cooldownInitialized = false;
   private lastStageIndex: number | undefined;
   private lastPidUpdate = 0;
@@ -139,7 +148,8 @@ export class RunSession {
       this.treadmill.sendIncAndSpeed(2, 4);
 
       this.cooldownInitialized = false;
-      this.training = new Training(4);
+      const controller = this.store.get(speedControllerAtom);
+      this.training = createSpeedController(controller, 4);
       this.lastStageIndex = undefined;
       this.lastPidUpdate = 0;
       this.lastCommandedSpeed = 0;
@@ -155,7 +165,7 @@ export class RunSession {
       const program = this.store.get(programInternalAtom);
 
       this.api
-        .createRun(startedAt, { programId, program })
+        .createRun(startedAt, { programId, program, controller })
         .then(({ id }) => {
           this.runId = id;
           this.startFlushInterval();
@@ -285,6 +295,13 @@ export class RunSession {
     const heartRate = this.store.get(heartRateAtom);
     const isTempoStage = currentStage.speedType === 'tempo';
     if (!isTempoStage && heartRate === undefined) return;
+
+    // While the user holds a manual speed, keep the controller glued to the
+    // belt so "Reset" resumes from where they actually are rather than from
+    // wherever the controller drifted meanwhile (no-op for the legacy one).
+    if (treadmillOptions.isManualSpeedActive) {
+      this.training.trackManualSpeed(this.store.get(actualTreadmillSpeedAtom));
+    }
 
     const newSpeed = this.training.update(heartRate ?? 0, currentStage, 1000);
     this.updateTreadmillOptions((opts) => ({ ...opts, speed: newSpeed }));

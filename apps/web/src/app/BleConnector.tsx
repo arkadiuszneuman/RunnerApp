@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { activeProgramIdAtom, heartRateAtom, stagesAtom } from './atoms';
 import Page from './base/Page';
 import PulseDot from './base/PulseDot';
+import SpeedControllerPicker from './base/SpeedControllerPicker';
 import StageStrip from './base/StageStrip';
 import { displayFont, enter, pressable, tokens } from './theme';
 import useRunningLoop from './useRunningLoop';
@@ -267,6 +268,10 @@ export default function BleConnector() {
           </Button>
         )}
       </Paper>
+
+      <Box sx={{ mt: 1.5 }}>
+        <SpeedControllerPicker index={3} />
+      </Box>
 
       {/* Primary CTA */}
       <Box sx={{ mt: 3, ...enter(3) }}>
