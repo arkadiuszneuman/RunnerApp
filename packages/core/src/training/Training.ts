@@ -1,7 +1,12 @@
 import { calculateSpeedByTempo } from '../services/speedCalculator';
 import { Stage } from '../services/stagesCalculator';
+import type { SpeedController } from './SpeedController';
 
-export default class Training {
+/**
+ * The original PID controller, kept unchanged as the `legacy` option behind
+ * the speed-controller toggle (see SpeedController.ts / AdaptiveTraining.ts).
+ */
+export default class Training implements SpeedController {
   private treadmillSpeed: number;
   private readonly minSpeed: number = 1; // km/h
   private readonly maxSpeed: number = 18; // km/h
@@ -27,6 +32,9 @@ export default class Training {
     this.treadmillSpeed = speed;
     this.integral = 0;
   }
+
+  /** Deliberately a no-op: the legacy controller keeps its original manual-override behavior. */
+  public trackManualSpeed(): void {}
 
   // Update the training logic
   public update(currentHeartRate: number, currentSection: Stage, deltaTime: number): number {

@@ -15,4 +15,5 @@ export {
   isManualSpeedActiveAtom,
   actualTreadmillSpeedAtom,
   heartRateAtom,
+  speedControllerAtom,
 } from '@runner/core';

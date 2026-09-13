@@ -11,7 +11,6 @@ import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
-import { alpha } from '@mui/material/styles';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { Stage, StageType, Timespan } from '@runner/core';
 import dayjs from 'dayjs';
@@ -20,34 +19,20 @@ import _ from 'lodash';
 import { programAtom } from '../atoms';
 import ActionBar from '../base/ActionBar';
 import Page from '../base/Page';
-import { displayFont, enter, glass, stageTypeColor, stageTypeName, tokens } from '../theme';
+import {
+  displayFont,
+  enter,
+  glass,
+  segmentedSx,
+  segmentSelectedSx,
+  stageTypeColor,
+  stageTypeName,
+  tokens,
+} from '../theme';
 import { editingSectionAtom } from './atoms';
 
 const STAGE_TYPES: StageType[] = ['simple', 'sprint', 'regeneration'];
-
-/** Segmented-control look for a ToggleButtonGroup. */
-const segmentedSx = {
-  width: '100%',
-  p: 0.5,
-  gap: 0.5,
-  borderRadius: '16px',
-  background: 'rgba(255,255,255,0.04)',
-  border: `1px solid ${tokens.border}`,
-  '& .MuiToggleButton-root': {
-    flex: 1,
-    py: 1,
-    border: 0,
-    borderRadius: '12px !important',
-    color: tokens.textMuted,
-    textTransform: 'none',
-    fontWeight: 600,
-    transition: 'background-color 250ms ease, color 250ms ease',
-  },
-} as const;
-
-const selectedSx = (color: string) => ({
-  '&.Mui-selected, &.Mui-selected:hover': { color, backgroundColor: alpha(color, 0.18) },
-});
+const selectedSx = segmentSelectedSx;
 
 function StageEdit(props: Readonly<{ stage: Stage; index: number; onStageChanged?: (stage: Stage) => void }>) {
   const [stage, setStage] = useState(props.stage);

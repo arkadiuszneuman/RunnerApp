@@ -1,6 +1,7 @@
 import { Timespan } from '../services/Timespan';
 import calculateStages, { MultiplyStage, StageResult } from '../services/stagesCalculator';
 import { atom } from 'jotai';
+import type { SpeedControllerKind } from '../training/SpeedController';
 
 export interface TreadmillOptions {
   speed: number;
@@ -121,6 +122,9 @@ export const isManualSpeedActiveAtom = atom((get) => {
   const runningState = get(runningStateAtom);
   return runningState.running ? runningState.treadmillOptions.isManualSpeedActive : false;
 });
+
+/** Which heart-rate speed controller the next run uses — read once, at RunSession.start(). */
+export const speedControllerAtom = atom<SpeedControllerKind>('legacy');
 
 /** Live treadmill speed reported by the device — updated from every btRunning event. */
 export const actualTreadmillSpeedAtom = atom<number>(0);
