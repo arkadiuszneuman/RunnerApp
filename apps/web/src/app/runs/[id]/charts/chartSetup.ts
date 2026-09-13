@@ -8,7 +8,9 @@ import {
   LineElement,
   PointElement,
   Tooltip,
+  type TooltipItem,
 } from 'chart.js';
+import { Timespan } from '@runner/core';
 
 // Side-effect import shared by every chart in this folder — registers the
 // chart.js building blocks once, and applies the look shared by all of them
@@ -39,3 +41,17 @@ export const chartColors = {
 } as const;
 
 export const axisTitleColor = 'rgba(255, 255, 255, 0.55)';
+
+/**
+ * All line charts here use a linear x axis in fractional minutes (so
+ * telemetry's `t`-in-seconds lines up across charts and with stage
+ * boundaries). Minutes-with-decimals reads fine on the axis ticks, but is
+ * useless in a hover tooltip — this renders the hovered x as run-clock
+ * mm:ss instead, reusing the same Timespan formatting the rest of the app
+ * uses for durations.
+ */
+export function tooltipTitleAsClock(items: TooltipItem<'line'>[]): string {
+  const x = items[0]?.parsed.x;
+  if (x === undefined || x === null) return '';
+  return Timespan.fromMinutes(x).toString('mm:ss');
+}

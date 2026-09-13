@@ -3,7 +3,7 @@
 import type { ChartData, ChartOptions } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { RunSeriesPoint } from '@runner/core';
-import { axisTitleColor, chartColors } from './chartSetup';
+import { axisTitleColor, chartColors, tooltipTitleAsClock } from './chartSetup';
 import { makeStageShadingPlugin, type StageBand } from './stageShadingPlugin';
 
 export default function DeviationChart({
@@ -42,7 +42,10 @@ export default function DeviationChart({
         },
       },
     },
-    plugins: { legend: { display: false } },
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { title: tooltipTitleAsClock } },
+    },
   };
 
   return (
