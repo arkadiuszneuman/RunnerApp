@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode } from 'react';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import BluetoothRoundedIcon from '@mui/icons-material/BluetoothRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
@@ -11,18 +11,19 @@ import ViewAgendaRoundedIcon from '@mui/icons-material/ViewAgendaRounded';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
+import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
-import axios from 'axios';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
-import { activeProgramIdAtom, heartRateAtom, stagesAtom } from './atoms';
+import { heartRateAtom, stagesAtom } from './atoms';
 import Page from './base/Page';
 import PulseDot from './base/PulseDot';
 import SpeedControllerPicker from './base/SpeedControllerPicker';
 import StageStrip from './base/StageStrip';
 import { displayFont, enter, pressable, tokens } from './theme';
 import useRunningLoop from './useRunningLoop';
+import { activeProgramNameAtom } from './userData';
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -92,23 +93,13 @@ function QuickLink(
 
 export default function BleConnector() {
   const stages = useAtomValue(stagesAtom);
-  const activeProgramId = useAtomValue(activeProgramIdAtom);
+  // undefined = still loading (settings and/or the programs list); null = no
+  // active program — see userData.ts. Avoids flashing "No program selected"
+  // before either has come back.
+  const programName = useAtomValue(activeProgramNameAtom);
   const heartRate = useAtomValue(heartRateAtom);
-  const [programName, setProgramName] = useState<string | null>(null);
 
   const runningLoop = useRunningLoop();
-
-  useEffect(() => {
-    // Clearing programName synchronously (rather than only from the fetch
-    // below) is intentional: when there's no active program, there is no
-    // fetch to await it from.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!activeProgramId) { setProgramName(null); return; }
-    axios
-      .get(`/api/programs/${activeProgramId}`)
-      .then(({ data }) => setProgramName(data?.name ?? null))
-      .catch(() => {});
-  }, [activeProgramId]);
 
   async function connectHeartRate() {
     await runningLoop.connectHeartRateMonitor();
@@ -155,7 +146,12 @@ export default function BleConnector() {
           )}
         </Box>
 
-        {programName ? (
+        {programName === undefined ? (
+          <Box sx={{ py: 0.5 }}>
+            <Skeleton variant="text" width="60%" height={38} />
+            <Skeleton variant="text" width="40%" />
+          </Box>
+        ) : programName ? (
           <>
             <Typography variant="h5" component="h2" sx={{ fontSize: '1.9rem', mb: 1 }}>
               {programName}

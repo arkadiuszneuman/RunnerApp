@@ -18,6 +18,7 @@ import { activeProgramIdAtom } from '../atoms';
 import ActionBar from '../base/ActionBar';
 import Page from '../base/Page';
 import { displayFont, glass, tokens } from '../theme';
+import { activeProgramNameAtom, upsertProgram } from '../userData';
 import EditStage from './EditStage';
 import ImportProgramDialog from './ImportProgramDialog';
 import Program from './Program';
@@ -27,21 +28,29 @@ const titleSx = { fontFamily: displayFont, fontWeight: 700, fontSize: '2rem', li
 
 function ProgramNameEditor() {
   const activeProgramId = useAtomValue(activeProgramIdAtom);
+  // Sourced from the same programs-list cache as /programs, rather than its
+  // own fetch, so a program created moments ago (or renamed elsewhere) shows
+  // up here without a round trip.
+  const cachedName = useAtomValue(activeProgramNameAtom);
   const [name, setName] = useState('');
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!activeProgramId) return;
-    axios
-      .get(`/api/programs/${activeProgramId}`)
-      .then(({ data }) => { if (data?.name) setName(data.name); })
-      .catch(() => {});
-  }, [activeProgramId]);
+    // Syncing from the cache (an external source, populated asynchronously)
+    // rather than deriving during render: the whole point is to pick up a
+    // cachedName that arrives *after* this component has already mounted.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (cachedName) setName(cachedName);
+  }, [cachedName]);
 
   const save = () => {
     if (!activeProgramId || !name.trim()) return;
-    axios.put(`/api/programs/${activeProgramId}`, { name: name.trim() }).catch(() => {});
+    const trimmed = name.trim();
+    axios
+      .put(`/api/programs/${activeProgramId}`, { name: trimmed })
+      .then(() => upsertProgram({ id: activeProgramId, name: trimmed, updatedAt: new Date().toISOString() }))
+      .catch(() => {});
     setEditing(false);
   };
 

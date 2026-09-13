@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useState } from 'react';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
@@ -16,8 +16,9 @@ import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
-import { Timespan, type RunSummary, type SpeedControllerKind } from '@runner/core';
+import { Timespan } from '@runner/core';
 import axios from 'axios';
+import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import EmptyState from '../base/EmptyState';
@@ -25,16 +26,7 @@ import Page from '../base/Page';
 import ProgressRing from '../base/ProgressRing';
 import { SpeedControllerBadge } from '../base/SpeedControllerPicker';
 import { displayFont, enter, pressable, tokens } from '../theme';
-
-type RunListItem = {
-  id: string;
-  createdAt: string;
-  startedAt: string;
-  finishedAt?: string;
-  programName?: string;
-  controller?: SpeedControllerKind;
-  summary: RunSummary;
-};
+import { removeRunFromCache, runsAtom, type RunListItem } from '../userData';
 
 function Stat({ icon, children, color }: Readonly<{ icon: ReactNode; children: ReactNode; color?: string }>) {
   return (
@@ -84,24 +76,18 @@ function DateBadge({ date }: Readonly<{ date: Date }>) {
 
 export default function RunsPage() {
   const router = useRouter();
-  const [runs, setRuns] = useState<RunListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const runsData = useAtomValue(runsAtom);
+  const loading = runsData === undefined;
+  const runs = runsData ?? [];
   const [deleteTarget, setDeleteTarget] = useState<RunListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    axios
-      .get('/api/runs', { transformResponse: [(data) => data] })
-      .then(({ data }) => setRuns(JSON.parse(data, Timespan.reviver) ?? []))
-      .finally(() => setLoading(false));
-  }, []);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
       await axios.delete(`/api/runs/${deleteTarget.id}`);
-      setRuns((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      removeRunFromCache(deleteTarget.id);
     } finally {
       setDeleting(false);
       setDeleteTarget(null);

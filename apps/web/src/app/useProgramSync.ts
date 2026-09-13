@@ -1,16 +1,18 @@
 'use client';
 
-import { useAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Timespan } from '@runner/core';
 import { activeProgramIdAtom, programInternalAtom } from './atoms';
+import { userSettingsLoadedAtom } from './userData';
 
 export function useProgramSync() {
   const [programState, setProgramState] = useAtom(programInternalAtom);
   const [activeProgramId, setActiveProgramId] = useAtom(activeProgramIdAtom);
+  const setUserSettingsLoaded = useSetAtom(userSettingsLoadedAtom);
   const activeProgramIdRef = useRef<string | null>(null);
   const loadedRef = useRef(false);
   // Set (synchronously, before setProgramState) whenever the *load* effect is
@@ -56,6 +58,7 @@ export function useProgramSync() {
       })
       .finally(() => {
         loadedRef.current = true;
+        setUserSettingsLoaded(true);
       });
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 

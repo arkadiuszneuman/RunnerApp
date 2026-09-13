@@ -68,7 +68,6 @@ function TopBar() {
         px: 2,
         pt: 'env(safe-area-inset-top)',
         background: 'linear-gradient(to bottom, rgba(5,7,12,0.9) 30%, rgba(5,7,12,0))',
-        animation: 'fade-in 400ms ease both',
       }}
     >
       <Box
@@ -161,7 +160,6 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
         p: 1,
         display: 'grid',
         gridTemplateColumns: `repeat(${NAV_ITEMS.length}, 1fr)`,
-        animation: 'nav-in 600ms var(--ease-spring) backwards',
       }}
     >
       {/* Sliding active pill */}
@@ -222,10 +220,15 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
 
 export default function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
-  const { data: session } = useSession();
 
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
-  const showChrome = !!session && !isPublic;
+  // Deliberately not gated on useSession()'s status: that starts as 'loading'
+  // on every mount (including after a hard refresh) until /api/auth/session
+  // resolves, which delayed the header/nav by a beat. The route alone is
+  // enough — proxy.ts already redirects unauthenticated requests away from
+  // every non-public route before this component ever renders. TopBar's own
+  // account menu fills in once the session arrives; see BrandMark/Avatar there.
+  const showChrome = !isPublic;
   const showBottomNav = showChrome && !IMMERSIVE_ROUTES.some((r) => pathname.startsWith(r));
   // The run dashboard is fully immersive: every pixel goes to the live metrics.
   const showTopBar = showChrome && !pathname.startsWith('/running');
