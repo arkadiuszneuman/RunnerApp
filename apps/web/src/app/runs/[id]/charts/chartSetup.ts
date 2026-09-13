@@ -25,8 +25,9 @@ ChartJS.defaults.borderColor = 'rgba(255,255,255,0.12)'; // hairline gridlines, 
 ChartJS.defaults.font.family = 'var(--font-barlow), sans-serif';
 
 /** Categorical dark-mode slots from the validated reference palette (see the
- * dataviz skill's references/palette.md), re-validated against this app's
- * teal Paper surface (#0d5f6e) — kept as named roles rather than raw hex
+ * dataviz skill's references/palette.md), originally validated against the old
+ * teal surface (#0d5f6e); the current near-black glass cards (~#0f131b) only
+ * raise their contrast — kept as named roles rather than raw hex
  * inline in every chart so the mapping stays in one place. */
 export const chartColors = {
   hr: '#e66767', // slot 8 (red)

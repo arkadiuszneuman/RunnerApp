@@ -1,112 +1,138 @@
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import Box from '@mui/material/Box';
-import { MultiplyStage, Stage, StageType } from '@runner/core';
-import RunnerTypography from '../base/RunnerTypography';
-import { useState } from 'react';
-import { editingSectionAtom } from './atoms';
-import { programAtom, programCooldownAtom } from '../atoms';
+import Divider from '@mui/material/Divider';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Paper from '@mui/material/Paper';
+import Switch from '@mui/material/Switch';
+import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
+import { Stage } from '@runner/core';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { Checkbox, FormControlLabel } from '@mui/material';
+import { programAtom, programCooldownAtom, stagesAtom } from '../atoms';
+import StageStrip from '../base/StageStrip';
+import { displayFont, enter, pressable, stageTypeColor, stageTypeName, tokens } from '../theme';
+import { editingSectionAtom } from './atoms';
 
-function Section(props: Readonly<{ section: Stage; hovered: boolean; manyTimes: boolean }>) {
-  const getStageTypeName = (type: StageType) => {
-    const typeNames: Record<StageType, string> = {
-      simple: 'Run',
-      sprint: 'Sprint',
-      regeneration: 'Regeneration',
-    };
+const labelSx = {
+  fontSize: '0.68rem',
+  fontWeight: 600,
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  color: tokens.textMuted,
+} as const;
 
-    return typeNames[type];
-  };
-
+function StageRow({ stage }: Readonly<{ stage: Stage }>) {
+  const color = stageTypeColor[stage.type];
   return (
     <Box
       sx={{
-        background: props.hovered
-          ? 'linear-gradient(90deg,rgba(155, 42, 42, 1) 0%, rgba(237, 221, 83, 0) 100%)'
-          : 'linear-gradient(90deg,rgba(36, 92, 114, 1) 0%, rgba(237, 221, 83, 0) 100%)',
-        padding: 1,
-        transform: 'skew(-15deg)',
-        borderRadius: 1,
-        marginLeft: props.manyTimes ? 4 : 0,
-
-        ':hover': {
-          cursor: 'pointer',
-        },
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.25,
+        py: 1,
+        px: 1.25,
+        borderRadius: '12px',
+        borderLeft: `3px solid ${color}`,
+        background: `linear-gradient(90deg, ${alpha(color, 0.16)}, transparent 85%)`,
       }}
     >
-      <Box sx={{ transform: 'skew(15deg)', paddingLeft: 1 }}>
-        <RunnerTypography sx={{ marginBottom: 0.5 }}>
-          {getStageTypeName(props.section.type)} {props.section.duration.toString('mm:ss')}
-        </RunnerTypography>
-        <RunnerTypography>
-          {props.section.speedType === 'bmp' && <>{props.section.bmp}bmp</>}
-        </RunnerTypography>
-        <RunnerTypography>
-          {props.section.speedType === 'tempo' && (
-            <>{props.section.tempo.toString('mm:ss')} min/km</>
-          )}
-        </RunnerTypography>
-      </Box>
+      <Typography sx={{ fontWeight: 600, flex: 1 }}>{stageTypeName[stage.type]}</Typography>
+      <Typography className="tabular" sx={{ color: tokens.textMuted }}>
+        {stage.duration.toString('mm:ss')}
+      </Typography>
+      <Typography
+        className="tabular"
+        sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.1rem', minWidth: 76, textAlign: 'right' }}
+      >
+        {stage.speedType === 'bmp' ? `${stage.bmp} bpm` : `${stage.tempo.toString('mm:ss')} /km`}
+      </Typography>
     </Box>
   );
 }
 
 export default function Program() {
-  const [hoveredStage, setHoveredStage] = useState<Stage | MultiplyStage | undefined>();
   const [programCooldown, setProgramCooldown] = useAtom(programCooldownAtom);
   const setEditingStage = useSetAtom(editingSectionAtom);
   const program = useAtomValue(programAtom);
+  const stages = useAtomValue(stagesAtom);
+  const total = stages.at(-1)?.to;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: 'fit-content' }}>
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={programCooldown}
-            onChange={(e) => setProgramCooldown(e.target.checked)}
-          />
-        }
-        label="Cooldown (4km/h, 0%)"
-      />
-      {program.map((section, programIndices) => (
-        <Box
-          key={programIndices}
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1,
-            flexWrap: 'nowrap',
-          }}
-          onMouseOver={() => setHoveredStage(section)}
-          onMouseOut={() => setHoveredStage(undefined)}
-          onTouchStart={() => setHoveredStage(section)}
-          onTouchEnd={() => setHoveredStage(undefined)}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <Paper variant="outlined" sx={{ p: 2, ...enter(0) }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+          <Box>
+            <Typography sx={labelSx}>Total</Typography>
+            <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '2rem', lineHeight: 1.1 }}>
+              {total ? total.toString(total.totalSeconds >= 3600 ? 'hh:mm:ss' : 'mm:ss') : '00:00'}
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography sx={labelSx}>Stages</Typography>
+            <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '2rem', lineHeight: 1.1 }}>
+              {stages.length}
+            </Typography>
+          </Box>
+        </Box>
+        {stages.length > 0 ? (
+          <StageStrip stages={stages} height={64} />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            No stages yet — add a block, or import a program from text.
+          </Typography>
+        )}
+        <Divider sx={{ my: 1.5 }} />
+        <FormControlLabel
+          labelPlacement="start"
+          sx={{ m: 0, width: '100%', justifyContent: 'space-between' }}
+          control={
+            <Switch checked={programCooldown} onChange={(e) => setProgramCooldown(e.target.checked)} />
+          }
+          label={
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                Cooldown
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                4 km/h, 0% after the last stage
+              </Typography>
+            </Box>
+          }
+        />
+      </Paper>
+
+      {program.map((section, programIndex) => (
+        <Paper
+          key={programIndex}
+          variant="outlined"
           onClick={() => 'times' in section && setEditingStage(section)}
+          sx={{ p: 1.5, ...pressable, ...enter(programIndex + 1) }}
         >
-          <>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, px: 0.5 }}>
+            <Typography sx={{ ...labelSx, flex: 1 }}>Block {programIndex + 1}</Typography>
             {section.times > 1 && (
-              <RunnerTypography
+              <Box
                 sx={{
-                  fontSize: 12,
-                  position: 'absolute',
-                  zIndex: 1,
-                  marginLeft: 10,
-                  marginTop: -0.6,
+                  px: 1.25,
+                  borderRadius: 999,
+                  fontFamily: displayFont,
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  color: tokens.volt,
+                  background: alpha(tokens.volt, 0.14),
                 }}
               >
-                Times {section.times}x
-              </RunnerTypography>
+                × {section.times}
+              </Box>
             )}
+            <ChevronRightRoundedIcon sx={{ color: tokens.textFaint }} />
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
             {section.stages.map((stage, stageIndex) => (
-              <Section
-                section={stage}
-                key={stageIndex}
-                hovered={hoveredStage === section}
-                manyTimes={section.times > 1}
-              />
+              <StageRow stage={stage} key={stageIndex} />
             ))}
-          </>
-        </Box>
+          </Box>
+        </Paper>
       ))}
     </Box>
   );
