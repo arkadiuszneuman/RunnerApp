@@ -21,7 +21,11 @@ const barlowCondensed = Barlow_Condensed({
 
 export const metadata: Metadata = {
   title: 'Runner',
+  applicationName: 'Runner',
   description: 'Heart-rate guided treadmill training',
+  // The web app manifest itself is app/manifest.ts; these cover iOS home-screen installs.
+  appleWebApp: { capable: true, title: 'Runner', statusBarStyle: 'black-translucent' },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

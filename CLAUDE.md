@@ -55,9 +55,35 @@ multi-user auth, program storage, and run history backed by Postgres.
 WebBluetoothTransport ──► TreadmillProtocol ──► BleManager ──► RunSession ──► Jotai atoms ──► UI
                                                                      │
 useRunningLoop (wake lock, heart rate, 200ms pump) ─────────────────┘
-useProgramSync ──► /api/programs, /api/user-settings ──► Drizzle ──► Postgres
-RunSession ──► /api/runs/:id (telemetry flush) ─────────► Drizzle ──► Postgres
+useProgramSync ──► GET /api/programs, /api/user-settings ──► Drizzle ──► Postgres
+useProgramSync / pages / RunSession ──► offline Outbox (IndexedDB) ──► POST/PUT/PATCH/DELETE /api/*
+public/sw.js (service worker) ── caches pages, build assets and GET /api reads for offline use
 ```
+
+### PWA & offline
+
+The app is an installable PWA that must keep working with no network during a run (BLE doesn't need it).
+
+- **Manifest/icons** — `apps/web/src/app/manifest.ts`, `app/apple-icon.png`, `public/icons/` (PNGs rendered
+  from the `icon*.svg` sources there). `proxy.ts`'s matcher must keep `sw.js`, `manifest.webmanifest`,
+  `offline.html`, `icons/` and `apple-icon` public.
+- **Service worker** — `apps/web/public/sw.js`, a plain hand-written script (no bundler). Registered in
+  production only (`app/offline/serviceWorker.ts`; `next dev` unregisters it), so test offline behaviour with
+  `pnpm build && pnpm start`. Cache-first for `/_next/static`, network-first (4s timeout → cache) for
+  navigations, RSC payloads and the GET API reads + `/api/auth/session`, `/offline.html` fallback. After
+  sign-in the app posts a `WARM` message so every main route + its assets and each program's data are cached
+  up front. User-specific caches are prefixed `runner-user-` and wiped on sign-out/account switch. It also
+  posts `NETWORK` messages so the UI knows it's offline even when `navigator.onLine` lies. Bump `VERSION`
+  when changing caching strategy.
+- **Writes** — never call mutating endpoints directly from the web app. Build a request with `writes.*`
+  (`app/offline/requests.ts`) and `enqueueWrite()` it (`app/offline/sync.ts`): the `Outbox`
+  (`packages/core/src/sync/Outbox.ts`) persists it per user in IndexedDB, coalesces by key, and replays in
+  order when reachable. Replays must be idempotent — creates carry client-generated UUIDs (`POST /api/runs`
+  and `POST /api/programs` accept an optional `id` and return 200 for a replay). `app/offline/overlay.ts`
+  layers still-queued writes over (possibly SW-cached) reads — see `refreshPrograms`/`loadProgramData` in
+  `userData.ts`.
+- **Bluetooth** — Web Bluetooth exists only in Chromium browsers (not iOS, not Firefox) and only in a secure
+  context. `ble/bluetoothAvailability.ts` + `base/BluetoothNotice.tsx` explain/disable accordingly.
 
 - **`BleTransport`** (`packages/core/src/ble/transport.ts`) — platform-agnostic interface over one GATT
   connection: connect/disconnect, raw byte write, notify/disconnect subscriptions. `WebBluetoothTransport`

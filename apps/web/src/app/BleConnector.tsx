@@ -17,10 +17,12 @@ import { alpha } from '@mui/material/styles';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { heartRateAtom, stagesAtom } from './atoms';
+import BluetoothNotice, { isBluetoothBlocked } from './base/BluetoothNotice';
 import Page from './base/Page';
 import PulseDot from './base/PulseDot';
 import SpeedControllerPicker from './base/SpeedControllerPicker';
 import StageStrip from './base/StageStrip';
+import { isChooserCancelled, useBluetoothAvailability } from './ble/bluetoothAvailability';
 import { displayFont, enter, pressable, tokens } from './theme';
 import useRunningLoop from './useRunningLoop';
 import { activeProgramNameAtom } from './userData';
@@ -100,19 +102,26 @@ export default function BleConnector() {
   const heartRate = useAtomValue(heartRateAtom);
 
   const runningLoop = useRunningLoop();
+  const bluetooth = useBluetoothAvailability();
+  const bluetoothBlocked = isBluetoothBlocked(bluetooth);
 
   async function connectHeartRate() {
-    await runningLoop.connectHeartRateMonitor();
+    try {
+      await runningLoop.connectHeartRateMonitor();
+    } catch (error) {
+      if (!isChooserCancelled(error)) console.warn('Heart-rate monitor connection failed', error);
+    }
   }
 
   const hrConnected = runningLoop.heartRateConnected();
   const hasHrStages = stages.some((x) => x.speedType === 'bmp');
-  const canStart = stages.length > 0 && (!hasHrStages || hrConnected);
+  const canStart = !bluetoothBlocked && stages.length > 0 && (!hasHrStages || hrConnected);
   const total = stages.at(-1)?.to;
   const beat = heartRate ? 60 / heartRate : 1;
 
-  const startHint =
-    stages.length === 0
+  const startHint = bluetoothBlocked
+    ? "The treadmill can't be reached from this browser"
+    : stages.length === 0
       ? 'Choose a program with at least one stage'
       : !canStart
         ? 'Connect your heart-rate monitor to start'
@@ -185,6 +194,8 @@ export default function BleConnector() {
           </Box>
         )}
       </Paper>
+
+      <BluetoothNotice availability={bluetooth} sx={{ mb: 1.5, ...enter(2) }} />
 
       {/* Heart-rate monitor */}
       <Paper variant="outlined" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, ...enter(2) }}>
@@ -259,6 +270,7 @@ export default function BleConnector() {
             size="small"
             startIcon={<BluetoothRoundedIcon />}
             onClick={connectHeartRate}
+            disabled={bluetoothBlocked}
           >
             Connect
           </Button>
