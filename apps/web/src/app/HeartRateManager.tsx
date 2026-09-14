@@ -1,4 +1,5 @@
 import { HeartRateMonitor } from '@runner/core';
+import { connectWithRetry } from './ble/retry';
 import { WebHeartRateTransport } from './ble/webHeartRateTransport';
 
 export type HeartRateData = {
@@ -39,11 +40,15 @@ const HeartRateManager = {
     notifyConnection(true);
   },
 
-  /** Silent reconnect for the remembered sensor only — never opens the picker. */
+  /**
+   * Silent reconnect for the remembered sensor only — never opens the picker. Retries once
+   * after a short delay: a device that isn't reachable the instant the page loads often is
+   * moments later (see connectWithRetry).
+   */
   async connectRemembered(): Promise<void> {
     if (monitor.isConnected() || !transport.hasRemembered()) return;
     await monitor.attach();
-    await transport.connect({ silent: true });
+    await connectWithRetry(() => transport.connect({ silent: true }));
     notifyConnection(true);
   },
 
