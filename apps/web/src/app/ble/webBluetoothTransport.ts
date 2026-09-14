@@ -19,6 +19,14 @@ export interface WebBluetoothTransportOptions {
 export interface WebBluetoothConnectOptions {
   /** Force the device picker even if a device is already remembered — used by "Change device". */
   pick?: boolean;
+  /**
+   * Only try the remembered device — never falls back to the picker. Used for the silent
+   * auto-reconnect on mount, which has no user gesture to spend on a picker anyway: without
+   * this, a remembered device that findRememberedDevice() can't locate (no `getDevices()`
+   * support, or the browser has forgotten the permission) would silently try to open the
+   * picker, which the browser then rejects for lack of a gesture.
+   */
+  silent?: boolean;
 }
 
 /**
@@ -70,6 +78,9 @@ export class WebBluetoothTransport implements BleTransport {
 
     let device = options?.pick ? undefined : await findRememberedDevice(this.opts.storageKey);
     if (!device) {
+      if (options?.silent) {
+        throw new Error('WebBluetoothTransport: no remembered device to silently reconnect to');
+      }
       device = await pickDevice(this.opts.storageKey, { filters: this.opts.filters });
     }
     this.device = device;

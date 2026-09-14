@@ -96,6 +96,24 @@ describe('WebBluetoothTransport.connect', () => {
     expect(localStorage.getItem(opts.storageKey)).toBe('d4');
   });
 
+  it('rejects without opening the picker when silent and getDevices finds nothing', async () => {
+    const opts = makeOpts('wbt-test-6');
+    localStorage.setItem(opts.storageKey, 'd7');
+    localStorage.setItem(`${opts.storageKey}Name`, 'FS-7');
+    const requestDevice = vi.fn();
+    // getDevices() not finding the remembered id — e.g. permission revoked, or the browser
+    // doesn't support it at all — is exactly the case that used to fall through to the picker
+    // and fail with an un-actionable SecurityError since there's no user gesture on mount.
+    stubBluetooth({ getDevices: vi.fn().mockResolvedValue([]), requestDevice });
+
+    const transport = new WebBluetoothTransport(opts);
+    await expect(transport.connect({ silent: true })).rejects.toThrow(
+      'no remembered device to silently reconnect to'
+    );
+
+    expect(requestDevice).not.toHaveBeenCalled();
+  });
+
   it('keeps the remembered device id after a failed connect attempt', async () => {
     const opts = makeOpts('wbt-test-4');
     const device = makeWorkingDevice('d5', 'FS-5');
