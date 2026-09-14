@@ -3,15 +3,14 @@
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
 import { SPEED_CONTROLLER_KINDS, type SpeedControllerKind } from '@runner/core';
 import { useAtom, useAtomValue } from 'jotai';
 import { isRunningAtom, speedControllerAtom } from '../atoms';
 import { saveSpeedControllerPreference } from '../speedControllerPreference';
-import { enter, segmentedSx, segmentSelectedSx, tokens } from '../theme';
+import { enter, tokens } from '../theme';
+import SegmentedControl from './SegmentedControl';
 
 export const speedControllerLabel: Record<SpeedControllerKind, string> = {
   legacy: 'Classic',
@@ -71,24 +70,20 @@ export default function SpeedControllerPicker({ index = 0 }: Readonly<{ index?: 
           </Typography>
         )}
       </Box>
-      <ToggleButtonGroup
-        exclusive
+      <SegmentedControl
         aria-label="Speed controller"
         value={controller}
         disabled={running}
-        onChange={(_event, value: SpeedControllerKind | null) => {
-          if (!value) return;
+        onChange={(value) => {
           setController(value);
           saveSpeedControllerPreference(value);
         }}
-        sx={segmentedSx}
-      >
-        {SPEED_CONTROLLER_KINDS.map((kind) => (
-          <ToggleButton key={kind} value={kind} sx={segmentSelectedSx(speedControllerColor[kind])}>
-            {speedControllerLabel[kind]}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
+        options={SPEED_CONTROLLER_KINDS.map((kind) => ({
+          value: kind,
+          label: speedControllerLabel[kind],
+          color: speedControllerColor[kind],
+        }))}
+      />
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
         {description[controller]}
       </Typography>

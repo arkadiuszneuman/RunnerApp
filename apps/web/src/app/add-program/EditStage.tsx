@@ -8,10 +8,7 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
-import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { Stage, StageType, Timespan } from '@runner/core';
 import dayjs from 'dayjs';
 import { useAtom, useSetAtom } from 'jotai';
@@ -19,20 +16,12 @@ import _ from 'lodash';
 import { programAtom } from '../atoms';
 import ActionBar from '../base/ActionBar';
 import Page from '../base/Page';
-import {
-  displayFont,
-  enter,
-  glass,
-  segmentedSx,
-  segmentSelectedSx,
-  stageTypeColor,
-  stageTypeName,
-  tokens,
-} from '../theme';
+import SegmentedControl from '../base/SegmentedControl';
+import { displayFont, enter, glass, stageTypeColor, stageTypeName, tokens } from '../theme';
 import { editingSectionAtom } from './atoms';
+import LiveTimePicker from './LiveTimePicker';
 
 const STAGE_TYPES: StageType[] = ['simple', 'sprint', 'regeneration'];
-const selectedSx = segmentSelectedSx;
 
 function StageEdit(props: Readonly<{ stage: Stage; index: number; onStageChanged?: (stage: Stage) => void }>) {
   const [stage, setStage] = useState(props.stage);
@@ -81,23 +70,18 @@ function StageEdit(props: Readonly<{ stage: Stage; index: number; onStageChanged
         Step {props.index + 1}
       </Typography>
 
-      <ToggleButtonGroup
-        exclusive
+      <SegmentedControl
         aria-label="Stage type"
         value={props.stage.type}
-        onChange={(_event, value: StageType | null) => {
-          if (value) setStage((prev) => ({ ...prev, type: value }));
-        }}
-        sx={segmentedSx}
-      >
-        {STAGE_TYPES.map((type) => (
-          <ToggleButton key={type} value={type} sx={selectedSx(stageTypeColor[type])}>
-            {stageTypeName[type]}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
+        onChange={(value) => setStage((prev) => ({ ...prev, type: value }))}
+        options={STAGE_TYPES.map((type) => ({
+          value: type,
+          label: stageTypeName[type],
+          color: stageTypeColor[type],
+        }))}
+      />
 
-      <TimePicker
+      <LiveTimePicker
         label="Segment time"
         ampm={false}
         maxTime={dayjs('1977-01-01T12:59:59')}
@@ -122,22 +106,15 @@ function StageEdit(props: Readonly<{ stage: Stage; index: number; onStageChanged
         }}
       />
 
-      <ToggleButtonGroup
-        exclusive
+      <SegmentedControl
         aria-label="Based on"
         value={stage.speedType}
-        onChange={(_event, value: 'bmp' | 'tempo' | null) => {
-          if (value) onBasedOnChanged(value);
-        }}
-        sx={segmentedSx}
-      >
-        <ToggleButton value="bmp" sx={selectedSx(tokens.heart)}>
-          Heart rate
-        </ToggleButton>
-        <ToggleButton value="tempo" sx={selectedSx(tokens.cyan)}>
-          Tempo
-        </ToggleButton>
-      </ToggleButtonGroup>
+        onChange={onBasedOnChanged}
+        options={[
+          { value: 'bmp', label: 'Heart rate', color: tokens.heart },
+          { value: 'tempo', label: 'Tempo', color: tokens.cyan },
+        ]}
+      />
 
       {stage.speedType === 'bmp' && (
         <TextField
@@ -160,7 +137,7 @@ function StageEdit(props: Readonly<{ stage: Stage; index: number; onStageChanged
       )}
 
       {stage.speedType === 'tempo' && (
-        <TimePicker
+        <LiveTimePicker
           label="Tempo min/km"
           ampm={false}
           maxTime={dayjs('1977-01-01T00:15:00')}

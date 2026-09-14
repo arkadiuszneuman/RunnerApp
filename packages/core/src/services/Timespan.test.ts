@@ -85,4 +85,38 @@ describe('Timespan', () => {
     });
   });
 
+  describe('reviveDeep', () => {
+    it('revives a Timespan-shaped object', () => {
+      const revived = Timespan.reviveDeep({ totalMilliseconds: 61000 });
+      expect(revived).toBeInstanceOf(Timespan);
+      expect((revived as Timespan).totalMilliseconds).toBe(61000);
+    });
+
+    it('revives Timespans nested inside plain objects and arrays', () => {
+      const input = {
+        stages: [
+          { type: 'simple', duration: { totalMilliseconds: 30000 } },
+          { type: 'sprint', duration: { totalMilliseconds: 15000 }, tempo: { totalMilliseconds: 300000 } },
+        ],
+      };
+      const revived = Timespan.reviveDeep(input) as typeof input;
+      expect(revived.stages[0].duration).toBeInstanceOf(Timespan);
+      expect((revived.stages[0].duration as unknown as Timespan).totalMilliseconds).toBe(30000);
+      expect(revived.stages[1].tempo).toBeInstanceOf(Timespan);
+    });
+
+    it('leaves plain values (numbers, strings, multi-key objects) untouched', () => {
+      const input = { t: 12, hr: 140, si: 0, meta: { a: 1, b: 2 } };
+      expect(Timespan.reviveDeep(input)).toEqual(input);
+    });
+
+    it('matches JSON.parse(text, Timespan.reviver) on the same structure', () => {
+      const original = { duration: new Timespan(45000), label: 'stage' };
+      const json = JSON.stringify(original);
+      const viaReviver = JSON.parse(json, Timespan.reviver);
+      const viaDeep = Timespan.reviveDeep(JSON.parse(json));
+      expect(viaDeep).toEqual(viaReviver);
+    });
+  });
+
 });
