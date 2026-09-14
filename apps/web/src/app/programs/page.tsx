@@ -29,6 +29,8 @@ import { writes } from '../offline/requests';
 import { enqueueWrite } from '../offline/sync';
 import { displayFont, ENTER_DURATION_MS, enter, enterDelayMs, pressable, tokens } from '../theme';
 import {
+  cacheProgramData,
+  getCachedProgramData,
   loadProgramData,
   programsAtom,
   removeProgramFromCache,
@@ -61,9 +63,18 @@ export default function ProgramsPage() {
    * (offline, never cached) the editor must not end up showing the previous
    * program's stages under the new id, where the next edit would save them
    * over it. Writes go through the offline queue.
+   *
+   * `getCachedProgramData` (warmed for every program once /programs loads —
+   * see refreshPrograms in userData.ts) lets this skip the await entirely
+   * for a program that's already been fetched this session: still the exact
+   * same data loadProgramData would resolve to, just already in hand, so the
+   * guarantee above still holds — there's no window where the previous
+   * program's stages could show under the new id.
    */
   const setActive = async (id: string, knownData?: ProgramData) => {
-    const data = knownData ?? (await loadProgramData(id));
+    const cached = knownData ?? getCachedProgramData(id);
+    const data = cached ?? (await loadProgramData(id));
+    if (knownData) cacheProgramData(id, knownData);
     void enqueueWrite(writes.setActiveProgram(id));
     setActiveProgramId(id);
     if (data) setProgramFromServer(data);

@@ -43,6 +43,7 @@ import HrBucketsChart from './charts/HrBucketsChart';
 import InclineChart from './charts/InclineChart';
 import SpeedChart from './charts/SpeedChart';
 import type { StageBand } from './charts/stageShadingPlugin';
+import { useDeferredMount } from './charts/useDeferredMount';
 
 const labelSx = {
   fontSize: '0.68rem',
@@ -78,12 +79,22 @@ function ChartCard({
   height = 260,
   wide,
   index,
+  deferIndex = 0,
   children,
-}: Readonly<{ title: string; height?: number; wide?: boolean; index: number; children: ReactNode }>) {
+}: Readonly<{
+  title: string;
+  height?: number;
+  wide?: boolean;
+  index: number;
+  /** Charts mount `deferIndex` animation frames after this card first renders — see useDeferredMount. */
+  deferIndex?: number;
+  children: ReactNode;
+}>) {
+  const ready = useDeferredMount(deferIndex);
   return (
     <Paper variant="outlined" sx={{ p: 2, gridColumn: wide ? '1 / -1' : undefined, minWidth: 0, ...enter(index) }}>
       <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', mb: 1 }}>{title}</Typography>
-      <Box sx={{ height }}>{children}</Box>
+      <Box sx={{ height }}>{ready ? children : null}</Box>
     </Paper>
   );
 }
@@ -129,7 +140,14 @@ export default function RunDetailPage() {
       .get(`/api/runs/${params.id}`, { transformResponse: [(data) => data] })
       .then(({ data }) => {
         if (cancelled) return;
-        cacheRunDetail(JSON.parse(data, Timespan.reviver));
+        // Parse without Timespan.reviver's per-key callback, then revive
+        // only `data.program` (the sole subtree with Timespan fields) —
+        // running the reviver over the whole document means calling it once
+        // per telemetry field too, thousands of times for a long run's worth
+        // of points, none of which are ever Timespan-shaped.
+        const row = JSON.parse(data);
+        if (row?.data?.program) row.data.program = Timespan.reviveDeep(row.data.program);
+        cacheRunDetail(row);
       })
       .catch((err) => {
         if (!cancelled && axios.isAxiosError(err) && err.response?.status === 404) setNotFound(true);
@@ -350,23 +368,23 @@ export default function RunDetailPage() {
           </Box>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mb: 1.5 }}>
-            <ChartCard title="Heart rate vs. target" wide index={5}>
+            <ChartCard title="Heart rate vs. target" wide index={5} deferIndex={0}>
               <HeartRateChart series={series} stageBands={analysis.stageBands} />
             </ChartCard>
             {summary.hrTarget && (
-              <ChartCard title="Deviation from target" index={6}>
+              <ChartCard title="Deviation from target" index={6} deferIndex={1}>
                 <DeviationChart series={series} stageBands={analysis.stageBands} />
               </ChartCard>
             )}
             {summary.hrBuckets.length > 0 && (
-              <ChartCard title="Time per heart rate zone" wide={!summary.hrTarget} index={7}>
+              <ChartCard title="Time per heart rate zone" wide={!summary.hrTarget} index={7} deferIndex={2}>
                 <HrBucketsChart buckets={summary.hrBuckets} />
               </ChartCard>
             )}
-            <ChartCard title="Speed" index={8}>
+            <ChartCard title="Speed" index={8} deferIndex={3}>
               <SpeedChart series={series} stageBands={analysis.stageBands} />
             </ChartCard>
-            <ChartCard title="Incline" index={9}>
+            <ChartCard title="Incline" index={9} deferIndex={4}>
               <InclineChart series={series} />
             </ChartCard>
           </Box>

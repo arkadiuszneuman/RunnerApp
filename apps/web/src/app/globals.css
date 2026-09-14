@@ -107,16 +107,21 @@ a {
 
 /* ---------- Motion vocabulary (referenced from sx via animation names) ---------- */
 
+/* opacity + transform only (no filter: blur) — every card using this animates
+   over the aurora background's own blur/backdrop-filter layers, and a filter
+   keyframe forces the browser to repaint (not just composite) each of these
+   frames instead of running on the compositor; with several cards animating
+   at once (their staggered enter() delays) that repaint cost was a visible
+   source of jank on navigations with many entrance-animated cards (program
+   list, run history, run detail). */
 @keyframes fade-up {
   from {
     opacity: 0;
     transform: translateY(14px);
-    filter: blur(4px);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: none;
   }
 }
 
