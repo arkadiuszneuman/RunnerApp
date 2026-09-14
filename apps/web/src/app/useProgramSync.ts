@@ -9,7 +9,13 @@ import { activeProgramIdAtom, programInternalAtom } from './atoms';
 import { overlayActiveProgramId } from './offline/overlay';
 import { writes } from './offline/requests';
 import { enqueueWrite, getPendingWrites } from './offline/sync';
-import { claimProgramSave, loadProgramData, setProgramFromServer, userSettingsLoadedAtom } from './userData';
+import {
+  cacheProgramData,
+  claimProgramSave,
+  loadProgramData,
+  setProgramFromServer,
+  userSettingsLoadedAtom,
+} from './userData';
 
 export function useProgramSync() {
   const [programState] = useAtom(programInternalAtom);
@@ -58,6 +64,11 @@ export function useProgramSync() {
     if (!loadedRef.current || !activeProgramIdRef.current) return;
 
     const id = activeProgramIdRef.current;
+    // Keeps programDataCache (see programs/page.tsx's setActive) reflecting
+    // the program as it's actually being edited, not undone the moment a
+    // save is claimed — not debounced, since it's just an in-memory mirror
+    // for instant switching, no network involved.
+    cacheProgramData(id, programState);
     const timer = setTimeout(() => {
       if (claimProgramSave(programState)) {
         void enqueueWrite(writes.updateProgram(id, { data: programState }));

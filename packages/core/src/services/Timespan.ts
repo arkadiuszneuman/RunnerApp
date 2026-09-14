@@ -41,6 +41,29 @@ export class Timespan {
     return value;
   }
 
+  /**
+   * Same Timespan-shape detection as `reviver`, but as a plain recursive
+   * walk over an already-`JSON.parse`d value instead of a reviver invoked
+   * during parsing. Useful to revive one subtree of a larger response
+   * without paying JSON.parse's reviver callback on every key of a much
+   * bigger sibling that's known to hold no Timespans (e.g. a run's
+   * telemetry array — see apps/web/src/app/runs/[id]/page.tsx).
+   */
+  static reviveDeep(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map((v) => Timespan.reviveDeep(v));
+    if (value && typeof value === 'object') {
+      const obj = value as Record<string, unknown>;
+      const keys = Object.keys(obj);
+      if (keys.length === 1 && typeof obj.totalMilliseconds === 'number') {
+        return Timespan.fromJSON(obj as { totalMilliseconds: number });
+      }
+      const result: Record<string, unknown> = {};
+      for (const key of keys) result[key] = Timespan.reviveDeep(obj[key]);
+      return result;
+    }
+    return value;
+  }
+
   static parse(text: string): Timespan {
     const splitted = text.split(':');
 

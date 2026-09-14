@@ -71,6 +71,7 @@ export function upsertProgram(program: ProgramSummary): void {
 
 export function removeProgramFromCache(id: string): void {
   store.set(programsAtom, (prev) => prev?.filter((p) => p.id !== id));
+  programDataCache.delete(id);
 }
 
 export function setRuns(runs: RunListItem[]): void {
@@ -95,7 +96,16 @@ export function cacheRunDetail(row: RunRow): void {
 export async function refreshPrograms(): Promise<void> {
   try {
     const [{ data }, pending] = await Promise.all([axios.get('/api/programs'), getPendingWrites()]);
-    setPrograms(overlayPrograms(data ?? [], pending));
+    const programs = overlayPrograms(data ?? [], pending);
+    setPrograms(programs);
+    // Warms programDataCache for every program up front, so tapping any one
+    // of them on /programs (see setActive there) can switch instantly
+    // instead of waiting on a fetch that started only once tapped. These are
+    // small JSONB blobs (a program's stages, not telemetry), so prefetching
+    // all of a user's programs is cheap. Best-effort, same as the list fetch
+    // above — a program whose prefetch fails just falls back to the old
+    // await-on-tap path in loadProgramData.
+    void prefetchProgramData(programs.map((p) => p.id));
   } catch {
     // Best-effort background refresh — a failure just leaves the previous cache in place.
   }
@@ -115,6 +125,28 @@ export async function refreshRuns(): Promise<void> {
 }
 
 /**
+ * In-memory mirror of the last known-good data for each program this session
+ * has loaded (via loadProgramData) or is actively editing (see
+ * cacheProgramData / useProgramSync.ts). Lets programs/page.tsx's setActive
+ * switch to an already-seen program synchronously instead of waiting on
+ * IndexedDB + a network round trip on every tap — see getCachedProgramData.
+ * Not itself a source of truth: loadProgramData's pending-write overlay and
+ * network fetch still run underneath it, this just short-circuits the wait
+ * when a fresh-enough answer is already in hand.
+ */
+const programDataCache = new Map<string, ProgramData>();
+
+/** Synchronous read of programDataCache — undefined means "not loaded yet, must await loadProgramData". */
+export function getCachedProgramData(id: string): ProgramData | undefined {
+  return programDataCache.get(id);
+}
+
+/** Puts data into programDataCache directly, e.g. for a program just created locally (see programs/page.tsx). */
+export function cacheProgramData(id: string, data: ProgramData): void {
+  programDataCache.set(id, data);
+}
+
+/**
  * Loads one program's stages, preferring any edits still queued offline.
  * Resolves null for a program with no data (or one deleted offline); rejects
  * when it's neither reachable nor known locally — e.g. offline, never opened.
@@ -125,12 +157,21 @@ export async function loadProgramData(id: string): Promise<ProgramData | null> {
   try {
     const { data } = await axios.get(`/api/programs/${id}`, { transformResponse: [(raw) => raw] });
     const program = JSON.parse(data, Timespan.reviver);
-    return pending?.data ?? program?.data ?? null;
+    const result = pending?.data ?? program?.data ?? null;
+    if (result) programDataCache.set(id, result);
+    return result;
   } catch (error) {
     if (pending?.data) return pending.data;
     if (pending?.created) return { stages: [], cooldown: false };
     throw error;
   }
+}
+
+/** Loads (and caches) every id not already in programDataCache, in parallel, best-effort. */
+export async function prefetchProgramData(ids: string[]): Promise<void> {
+  await Promise.all(
+    ids.filter((id) => !programDataCache.has(id)).map((id) => loadProgramData(id).catch(() => undefined))
+  );
 }
 
 /**
