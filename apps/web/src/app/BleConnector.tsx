@@ -1,8 +1,8 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
-import BluetoothRoundedIcon from '@mui/icons-material/BluetoothRounded';
+import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import LayersRoundedIcon from '@mui/icons-material/LayersRounded';
@@ -16,15 +16,22 @@ import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
-import { heartRateAtom, stagesAtom } from './atoms';
+import { heartRateAtom, isRunningAtom, stagesAtom } from './atoms';
 import BluetoothNotice, { isBluetoothBlocked } from './base/BluetoothNotice';
+import DeviceCard from './base/DeviceCard';
 import Page from './base/Page';
-import PulseDot from './base/PulseDot';
 import SpeedControllerPicker from './base/SpeedControllerPicker';
 import StageStrip from './base/StageStrip';
+import BleManager from './BleManager';
 import { isChooserCancelled, useBluetoothAvailability } from './ble/bluetoothAvailability';
+import {
+  useHeartRateConnected,
+  useHeartRateRemembered,
+  useTreadmillConnected,
+  useTreadmillRemembered,
+} from './ble/useDeviceConnection';
+import HeartRateManager from './HeartRateManager';
 import { displayFont, enter, pressable, tokens } from './theme';
-import useRunningLoop from './useRunningLoop';
 import { activeProgramNameAtom } from './userData';
 
 function greeting(): string {
@@ -68,7 +75,14 @@ function QuickLink(
       variant="outlined"
       component={Link}
       href={props.href}
-      sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, ...pressable, ...enter(props.index) }}
+      sx={{
+        p: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.5,
+        ...pressable,
+        ...enter(props.index),
+      }}
     >
       <Box
         sx={{
@@ -100,20 +114,100 @@ export default function BleConnector() {
   // before either has come back.
   const programName = useAtomValue(activeProgramNameAtom);
   const heartRate = useAtomValue(heartRateAtom);
+  const running = useAtomValue(isRunningAtom);
 
-  const runningLoop = useRunningLoop();
   const bluetooth = useBluetoothAvailability();
   const bluetoothBlocked = isBluetoothBlocked(bluetooth);
 
+  const hrConnected = useHeartRateConnected();
+  const hrRemembered = useHeartRateRemembered();
+  const treadmillConnected = useTreadmillConnected();
+  const treadmillRemembered = useTreadmillRemembered();
+
+  const [hrConnecting, setHrConnecting] = useState(false);
+  const [treadmillConnecting, setTreadmillConnecting] = useState(false);
+
+  // Reconnect both remembered devices as soon as the home screen mounts, so the app is
+  // ready to run without the user re-picking a device every time. Silent — no picker,
+  // no-op if nothing is remembered. `getDevices()` needs no user gesture.
+  useEffect(() => {
+    if (bluetooth !== 'available') return;
+    if (HeartRateManager.hasRemembered() && !hrConnected) {
+      setHrConnecting(true);
+      HeartRateManager.connectRemembered()
+        .catch((error) => console.warn('Heart-rate monitor reconnect failed', error))
+        .finally(() => setHrConnecting(false));
+    }
+    if (BleManager.hasRemembered() && !treadmillConnected) {
+      setTreadmillConnecting(true);
+      BleManager.connectRemembered()
+        .catch((error) => console.warn('Treadmill reconnect failed', error))
+        .finally(() => setTreadmillConnecting(false));
+    }
+    // Only ever run once, on mount — this is a startup reconnect, not a reactive effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bluetooth]);
+
   async function connectHeartRate() {
+    setHrConnecting(true);
     try {
-      await runningLoop.connectHeartRateMonitor();
+      await HeartRateManager.connect();
     } catch (error) {
       if (!isChooserCancelled(error)) console.warn('Heart-rate monitor connection failed', error);
+    } finally {
+      setHrConnecting(false);
     }
   }
 
-  const hrConnected = runningLoop.heartRateConnected();
+  async function changeHeartRate() {
+    setHrConnecting(true);
+    try {
+      await HeartRateManager.changeDevice();
+    } catch (error) {
+      if (!isChooserCancelled(error)) console.warn('Heart-rate monitor connection failed', error);
+    } finally {
+      setHrConnecting(false);
+    }
+  }
+
+  async function forgetHeartRate() {
+    try {
+      await HeartRateManager.forgetDevice();
+    } catch (error) {
+      console.warn('Forgetting the heart-rate monitor failed', error);
+    }
+  }
+
+  async function connectTreadmill() {
+    setTreadmillConnecting(true);
+    try {
+      await BleManager.connect();
+    } catch (error) {
+      if (!isChooserCancelled(error)) console.warn('Treadmill connection failed', error);
+    } finally {
+      setTreadmillConnecting(false);
+    }
+  }
+
+  async function changeTreadmill() {
+    setTreadmillConnecting(true);
+    try {
+      await BleManager.changeDevice();
+    } catch (error) {
+      if (!isChooserCancelled(error)) console.warn('Treadmill connection failed', error);
+    } finally {
+      setTreadmillConnecting(false);
+    }
+  }
+
+  async function forgetTreadmill() {
+    try {
+      await BleManager.forgetDevice();
+    } catch (error) {
+      console.warn('Forgetting the treadmill failed', error);
+    }
+  }
+
   const hasHrStages = stages.some((x) => x.speedType === 'bmp');
   const canStart = !bluetoothBlocked && stages.length > 0 && (!hasHrStages || hrConnected);
   const total = stages.at(-1)?.to;
@@ -125,12 +219,46 @@ export default function BleConnector() {
       ? 'Choose a program with at least one stage'
       : !canStart
         ? 'Connect your heart-rate monitor to start'
-        : 'The treadmill pairs on the next screen';
+        : treadmillConnected
+          ? 'Ready to go'
+          : 'The treadmill pairs on the next screen';
+
+  const hrStatus = hrConnected ? (
+    heartRate ? (
+      <>
+        <Box component="span" className="tabular" sx={{ color: 'text.primary', fontWeight: 700 }}>
+          {heartRate}
+        </Box>{' '}
+        bpm
+      </>
+    ) : (
+      'Connected'
+    )
+  ) : hrConnecting ? (
+    'Connecting…'
+  ) : hrRemembered ? (
+    `${hrRemembered.name || 'Remembered sensor'} — not connected`
+  ) : hasHrStages ? (
+    'Required to start'
+  ) : (
+    'Optional for tempo'
+  );
+
+  const treadmillStatus = treadmillConnected
+    ? 'Connected'
+    : treadmillConnecting
+      ? 'Connecting…'
+      : treadmillRemembered
+        ? `${treadmillRemembered.name || 'Remembered treadmill'} — not connected`
+        : 'Pairs when you connect';
 
   return (
     <Page eyebrow={<span suppressHydrationWarning>{greeting()}</span>} title="Ready to run?">
       {/* Active program */}
-      <Paper variant="outlined" sx={{ p: 2.5, mb: 1.5, position: 'relative', overflow: 'hidden', ...enter(1) }}>
+      <Paper
+        variant="outlined"
+        sx={{ p: 2.5, mb: 1.5, position: 'relative', overflow: 'hidden', ...enter(1) }}
+      >
         <Box
           aria-hidden
           sx={{
@@ -167,7 +295,9 @@ export default function BleConnector() {
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
               <ProgramStat icon={<TimerOutlinedIcon />}>
-                {total ? total.toString(total.totalSeconds >= 3600 ? 'hh:mm:ss' : 'mm:ss') : '00:00'}
+                {total
+                  ? total.toString(total.totalSeconds >= 3600 ? 'hh:mm:ss' : 'mm:ss')
+                  : '00:00'}
               </ProgramStat>
               <ProgramStat icon={<LayersRoundedIcon />}>
                 {stages.length} {stages.length === 1 ? 'stage' : 'stages'}
@@ -197,85 +327,57 @@ export default function BleConnector() {
 
       <BluetoothNotice availability={bluetooth} sx={{ mb: 1.5, ...enter(2) }} />
 
-      {/* Heart-rate monitor */}
-      <Paper variant="outlined" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, ...enter(2) }}>
-        <Box
-          sx={{
-            position: 'relative',
-            width: 48,
-            height: 48,
-            flexShrink: 0,
-            borderRadius: '50%',
-            display: 'grid',
-            placeItems: 'center',
-            color: hrConnected ? tokens.heart : tokens.textFaint,
-            background: hrConnected ? alpha(tokens.heart, 0.14) : 'rgba(255,255,255,0.05)',
-            transition: 'background-color 400ms ease, color 400ms ease',
-          }}
-        >
-          {hrConnected && (
-            <Box
-              aria-hidden
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                borderRadius: '50%',
-                border: `2px solid ${alpha(tokens.heart, 0.5)}`,
-                animation: `ping ${beat * 2}s var(--ease-out) infinite`,
-              }}
-            />
-          )}
-          <FavoriteRoundedIcon
-            sx={{ animation: hrConnected ? `heartbeat ${beat}s ease-in-out infinite` : 'none' }}
-          />
-        </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 600 }}>Heart-rate monitor</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {hrConnected ? (
-              heartRate ? (
-                <>
-                  <Box component="span" className="tabular" sx={{ color: 'text.primary', fontWeight: 700 }}>
-                    {heartRate}
-                  </Box>{' '}
-                  bpm
-                </>
-              ) : (
-                'Connected'
-              )
-            ) : hasHrStages ? (
-              'Required to start'
-            ) : (
-              'Optional for tempo'
-            )}
-          </Typography>
-        </Box>
-        {hrConnected ? (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.75,
-              color: tokens.volt,
-              fontSize: '0.8rem',
-              fontWeight: 600,
-            }}
-          >
-            <PulseDot />
-            Live
-          </Box>
-        ) : (
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<BluetoothRoundedIcon />}
-            onClick={connectHeartRate}
-            disabled={bluetoothBlocked}
-          >
-            Connect
-          </Button>
-        )}
-      </Paper>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <DeviceCard
+          icon={
+            <>
+              {hrConnected && (
+                <Box
+                  aria-hidden
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '50%',
+                    border: `2px solid ${alpha(tokens.heart, 0.5)}`,
+                    animation: `ping ${beat * 2}s var(--ease-out) infinite`,
+                  }}
+                />
+              )}
+              <FavoriteRoundedIcon
+                sx={{ animation: hrConnected ? `heartbeat ${beat}s ease-in-out infinite` : 'none' }}
+              />
+            </>
+          }
+          color={tokens.heart}
+          title="Heart-rate monitor"
+          status={hrStatus}
+          connected={hrConnected}
+          connecting={hrConnecting}
+          remembered={!!hrRemembered}
+          disabled={bluetoothBlocked}
+          menuDisabled={running}
+          index={2}
+          onConnect={connectHeartRate}
+          onChange={changeHeartRate}
+          onForget={forgetHeartRate}
+        />
+
+        <DeviceCard
+          icon={<DirectionsRunRoundedIcon />}
+          color={tokens.cyan}
+          title="Treadmill"
+          status={treadmillStatus}
+          connected={treadmillConnected}
+          connecting={treadmillConnecting}
+          remembered={!!treadmillRemembered}
+          disabled={bluetoothBlocked}
+          menuDisabled={running}
+          index={2}
+          onConnect={connectTreadmill}
+          onChange={changeTreadmill}
+          onForget={forgetTreadmill}
+        />
+      </Box>
 
       <Box sx={{ mt: 1.5 }}>
         <SpeedControllerPicker index={3} />

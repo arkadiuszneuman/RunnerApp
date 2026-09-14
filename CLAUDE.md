@@ -88,7 +88,15 @@ The app is an installable PWA that must keep working with no network during a ru
 - **`BleTransport`** (`packages/core/src/ble/transport.ts`) — platform-agnostic interface over one GATT
   connection: connect/disconnect, raw byte write, notify/disconnect subscriptions. `WebBluetoothTransport`
   (`apps/web/src/app/ble/webBluetoothTransport.ts`) is the Web Bluetooth implementation; owns device
-  discovery/picker, GATT connect/teardown, and localStorage-remembered device id.
+  discovery/picker, GATT connect/teardown, and a localStorage-remembered device id (both it and
+  `webHeartRateTransport.ts` share this remembering logic via `ble/rememberedDevice.ts`). Auto-reconnect
+  looks the remembered id up via `navigator.bluetooth.getDevices()` (no user gesture needed) and, if the
+  device supports it, waits briefly on `watchAdvertisements()` before `gatt.connect()` — Chrome otherwise
+  often rejects `connect()` on a device it hasn't seen advertise since the page loaded. A failed connect no
+  longer forgets the device (a treadmill that's just off/out of range shouldn't need re-pairing); `connect({
+  pick: true })` forces the picker regardless, and `forget()` revokes the permission and clears the
+  remembered id — both wired to the "Change device"/"Forget" menu on each `base/DeviceCard.tsx` on the home
+  screen, which also auto-connects both remembered devices on mount (see `BleConnector.tsx`).
 - **`TreadmillProtocol`** (`packages/core/src/ble/treadmillProtocol.ts`) — the wire protocol on top of a
   `BleTransport`: framing (checksum + `[3]` terminator), the message queue/retry pump, and the
   status/running state machine. Owns no timer itself — `tick()` must be driven by the host every ~200ms.

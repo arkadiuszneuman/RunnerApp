@@ -11,15 +11,15 @@ export default function useHeartRate() {
       setHeartRate(heartRateData.heartRate)
     );
     return () => {
-      setHeartRate(undefined)
+      setHeartRate(undefined);
       removeHeartRateEvent();
     };
   }, [setHeartRate]);
 
   return {
     connectHeartRate: async () => {
-      await HeartRateManager.requestDevice();
+      await HeartRateManager.connect();
     },
     heartRateConnected: () => HeartRateManager.isConnected(),
-  }
+  };
 }

@@ -1,19 +1,30 @@
 /// <reference types="@types/web-bluetooth" />
 import type { BleTransport } from '@runner/core';
+import {
+  findRememberedDevice,
+  forget as forgetRemembered,
+  hasRemembered as hasRememberedDevice,
+  pickDevice,
+} from './rememberedDevice';
 
 export interface WebHeartRateTransportOptions {
   /** localStorage key used to remember the picked device across sessions. */
   storageKey: string;
 }
 
+export interface WebHeartRateConnectOptions {
+  /** Force the device picker even if a device is already remembered/connected — "Change device". */
+  pick?: boolean;
+}
+
 /**
  * Web Bluetooth implementation of the standard BLE Heart Rate Profile.
  *
  * `connect()` only runs the device-picker/cache lookup the first time (when no
- * device has been selected yet); a later call — e.g. the automatic reconnect
- * `HeartRateMonitor` triggers on a dropped link — reuses the already-known
- * device and just re-establishes GATT + re-arms notifications. This is what
- * keeps readings flowing after a reconnect instead of silently stopping.
+ * device has been selected yet, or `pick` forces a fresh one); a later call — e.g.
+ * the automatic reconnect `HeartRateMonitor` triggers on a dropped link — reuses
+ * the already-known device and just re-establishes GATT + re-arms notifications.
+ * This is what keeps readings flowing after a reconnect instead of silently stopping.
  */
 export class WebHeartRateTransport implements BleTransport {
   private device: BluetoothDevice | undefined;
@@ -35,27 +46,28 @@ export class WebHeartRateTransport implements BleTransport {
 
   constructor(private readonly opts: WebHeartRateTransportOptions) {}
 
-  connect(): Promise<void> {
+  connect(options?: WebHeartRateConnectOptions): Promise<void> {
     if (this.connectPromise) return this.connectPromise;
-    this.connectPromise = this._connect().finally(() => {
+    this.connectPromise = this._connect(options).finally(() => {
       this.connectPromise = undefined;
     });
     return this.connectPromise;
   }
 
-  private async _connect(): Promise<void> {
+  private async _connect(options?: WebHeartRateConnectOptions): Promise<void> {
+    if (options?.pick) {
+      // Switching devices mid-session — tear down the old link and forget it first.
+      await this.disconnect();
+    }
+
     if (!this.device) {
-      const savedDeviceId = localStorage.getItem(this.opts.storageKey);
-      if (savedDeviceId && navigator.bluetooth.getDevices) {
-        const devices = await navigator.bluetooth.getDevices();
-        this.device = devices.find((d) => d.id === savedDeviceId);
-      }
-      if (!this.device) {
-        this.device = await navigator.bluetooth.requestDevice({
+      let device = options?.pick ? undefined : await findRememberedDevice(this.opts.storageKey);
+      if (!device) {
+        device = await pickDevice(this.opts.storageKey, {
           filters: [{ services: ['heart_rate'] }],
         });
-        localStorage.setItem(this.opts.storageKey, this.device.id);
       }
+      this.device = device;
       this.device.addEventListener('gattserverdisconnected', this.gattDisconnectedHandler);
     }
 
@@ -88,6 +100,22 @@ export class WebHeartRateTransport implements BleTransport {
       }
     }
     this.device = undefined;
+  }
+
+  /** Disconnects, revokes the browser permission for the device, and forgets it. */
+  async forget(): Promise<void> {
+    const device = this.device;
+    await this.disconnect();
+    try {
+      await device?.forget();
+    } catch {
+      // Not supported everywhere — the remembered id below is what actually matters to us.
+    }
+    forgetRemembered(this.opts.storageKey);
+  }
+
+  hasRemembered(): boolean {
+    return hasRememberedDevice(this.opts.storageKey);
   }
 
   isConnected(): boolean {

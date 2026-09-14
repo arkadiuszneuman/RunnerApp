@@ -1,5 +1,11 @@
 /// <reference types="@types/web-bluetooth" />
 import type { BleTransport } from '@runner/core';
+import {
+  findRememberedDevice,
+  forget as forgetRemembered,
+  hasRemembered as hasRememberedDevice,
+  pickDevice,
+} from './rememberedDevice';
 
 export interface WebBluetoothTransportOptions {
   serviceUuid: string;
@@ -8,6 +14,11 @@ export interface WebBluetoothTransportOptions {
   filters: BluetoothLEScanFilter[];
   /** localStorage key used to remember the picked device across sessions. */
   storageKey: string;
+}
+
+export interface WebBluetoothConnectOptions {
+  /** Force the device picker even if a device is already remembered — used by "Change device". */
+  pick?: boolean;
 }
 
 /**
@@ -36,16 +47,16 @@ export class WebBluetoothTransport implements BleTransport {
 
   constructor(private readonly opts: WebBluetoothTransportOptions) {}
 
-  connect(): Promise<void> {
+  connect(options?: WebBluetoothConnectOptions): Promise<void> {
     // Deduplicate concurrent calls — return the in-flight promise if one exists.
     if (this.connectPromise) return this.connectPromise;
-    this.connectPromise = this._connect().finally(() => {
+    this.connectPromise = this._connect(options).finally(() => {
       this.connectPromise = undefined;
     });
     return this.connectPromise;
   }
 
-  private async _connect(): Promise<void> {
+  private async _connect(options?: WebBluetoothConnectOptions): Promise<void> {
     // Tear down any existing session before reconnecting. On Windows, the browser
     // reuses the same GATT/characteristic objects when reconnecting to the same
     // device, so we must explicitly disconnect first to avoid accumulating
@@ -57,15 +68,9 @@ export class WebBluetoothTransport implements BleTransport {
       await this.waitForGattDisconnect();
     }
 
-    let device: BluetoothDevice | undefined;
-    const deviceId = localStorage.getItem(this.opts.storageKey);
-    if (deviceId && navigator.bluetooth.getDevices) {
-      const devices = await navigator.bluetooth.getDevices();
-      device = devices.find((d) => d.id === deviceId);
-    }
+    let device = options?.pick ? undefined : await findRememberedDevice(this.opts.storageKey);
     if (!device) {
-      device = await navigator.bluetooth.requestDevice({ filters: this.opts.filters });
-      localStorage.setItem(this.opts.storageKey, device.id);
+      device = await pickDevice(this.opts.storageKey, { filters: this.opts.filters });
     }
     this.device = device;
 
@@ -83,8 +88,9 @@ export class WebBluetoothTransport implements BleTransport {
 
       device.addEventListener('gattserverdisconnected', this.gattDisconnectedHandler);
     } catch (error) {
-      // Clear the saved device so the next attempt opens the picker instead of silently failing again.
-      localStorage.removeItem(this.opts.storageKey);
+      // Keep the remembered device — a treadmill that's simply off or out of range
+      // shouldn't need re-pairing, just a working connection attempt later. Only
+      // drop our own in-memory reference so the next attempt starts clean.
       this.device = undefined;
       throw error;
     }
@@ -97,6 +103,23 @@ export class WebBluetoothTransport implements BleTransport {
       device.gatt.disconnect();
       await this.waitForGattDisconnect();
     }
+  }
+
+  /** Disconnects, revokes the browser permission for the device, and forgets it. */
+  async forget(): Promise<void> {
+    const device = this.device;
+    await this.disconnect();
+    try {
+      await device?.forget();
+    } catch {
+      // Not supported everywhere — the remembered id below is what actually matters to us.
+    }
+    forgetRemembered(this.opts.storageKey);
+    this.device = undefined;
+  }
+
+  hasRemembered(): boolean {
+    return hasRememberedDevice(this.opts.storageKey);
   }
 
   isConnected(): boolean {
