@@ -44,7 +44,7 @@ export default function useRunningLoop() {
 
   const start = useCallback(async () => {
     try {
-      await BleManager.initBTConnection();
+      await BleManager.connect();
     } catch (error) {
       if (!isChooserCancelled(error)) console.warn('Treadmill connection failed', error);
       return;
