@@ -1,5 +1,6 @@
 import { TreadmillProtocol } from '@runner/core';
 import type { TreadmillEvent } from '@runner/core';
+import { connectWithRetry } from './ble/retry';
 import { WebBluetoothTransport } from './ble/webBluetoothTransport';
 
 export type { TreadmillEvent };
@@ -44,10 +45,14 @@ const BleManager = {
     await attachAndTick();
   },
 
-  /** Silent reconnect for the remembered treadmill only — never opens the picker. */
+  /**
+   * Silent reconnect for the remembered treadmill only — never opens the picker. Retries
+   * once after a short delay: a device that isn't reachable the instant the page loads
+   * often is moments later (see connectWithRetry).
+   */
   async connectRemembered(): Promise<void> {
     if (protocol.isConnected() || !transport.hasRemembered()) return;
-    await transport.connect({ silent: true });
+    await connectWithRetry(() => transport.connect({ silent: true }));
     await attachAndTick();
   },
 
