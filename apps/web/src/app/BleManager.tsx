@@ -47,7 +47,7 @@ const BleManager = {
   /** Silent reconnect for the remembered treadmill only — never opens the picker. */
   async connectRemembered(): Promise<void> {
     if (protocol.isConnected() || !transport.hasRemembered()) return;
-    await transport.connect();
+    await transport.connect({ silent: true });
     await attachAndTick();
   },
 

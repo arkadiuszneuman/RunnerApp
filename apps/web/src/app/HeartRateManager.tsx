@@ -43,7 +43,7 @@ const HeartRateManager = {
   async connectRemembered(): Promise<void> {
     if (monitor.isConnected() || !transport.hasRemembered()) return;
     await monitor.attach();
-    await transport.connect();
+    await transport.connect({ silent: true });
     notifyConnection(true);
   },
 
