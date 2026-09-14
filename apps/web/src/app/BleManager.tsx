@@ -4,6 +4,8 @@ import { WebBluetoothTransport } from './ble/webBluetoothTransport';
 
 export type { TreadmillEvent };
 
+export const TREADMILL_STORAGE_KEY = 'treadmilId';
+
 const S_SERIAL_PORT = '0000fff0-0000-1000-8000-00805f9b34fb';
 const C_SERIAL_PORT_READ = '0000fff1-0000-1000-8000-00805f9b34fb';
 const C_SERIAL_PORT_WRITE = '0000fff2-0000-1000-8000-00805f9b34fb';
@@ -13,7 +15,7 @@ const transport = new WebBluetoothTransport({
   readCharUuid: C_SERIAL_PORT_READ,
   writeCharUuid: C_SERIAL_PORT_WRITE,
   filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
-  storageKey: 'treadmilId',
+  storageKey: TREADMILL_STORAGE_KEY,
 });
 
 const protocol = new TreadmillProtocol({
@@ -26,14 +28,41 @@ const protocol = new TreadmillProtocol({
 
 let intervalId: ReturnType<typeof setInterval> | undefined;
 
+async function attachAndTick(): Promise<void> {
+  await protocol.attach();
+  if (intervalId !== undefined) {
+    clearInterval(intervalId);
+  }
+  intervalId = setInterval(() => protocol.tick(), 200);
+}
+
 const BleManager = {
-  async initBTConnection(): Promise<void> {
+  /** Connects using the remembered treadmill if one exists, otherwise opens the device picker. */
+  async connect(): Promise<void> {
+    if (protocol.isConnected()) return;
     await transport.connect();
-    await protocol.attach();
-    if (intervalId !== undefined) {
-      clearInterval(intervalId);
-    }
-    intervalId = setInterval(() => protocol.tick(), 200);
+    await attachAndTick();
+  },
+
+  /** Silent reconnect for the remembered treadmill only — never opens the picker. */
+  async connectRemembered(): Promise<void> {
+    if (protocol.isConnected() || !transport.hasRemembered()) return;
+    await transport.connect();
+    await attachAndTick();
+  },
+
+  /** Forces the device picker even if a treadmill is already remembered or connected. */
+  async changeDevice(): Promise<void> {
+    await transport.connect({ pick: true });
+    await attachAndTick();
+  },
+
+  forgetDevice(): Promise<void> {
+    return transport.forget();
+  },
+
+  hasRemembered(): boolean {
+    return transport.hasRemembered();
   },
 
   isConnected(): boolean {
