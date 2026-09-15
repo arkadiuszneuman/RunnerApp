@@ -3,6 +3,7 @@ import { useWakeLock } from 'react-screen-wake-lock';
 import { useInterval } from '@runner/core';
 import BleManager from './BleManager';
 import { isChooserCancelled } from './ble/bluetoothAvailability';
+import { startRunBackground, stopRunBackground } from './nativeRunBackground';
 import useHeartRate from './useHeartRate';
 import { runSession } from './runSession';
 
@@ -50,12 +51,14 @@ export default function useRunningLoop() {
       return;
     }
     if (!BleManager.isConnected()) return;
+    await startRunBackground();
     await runSession.start();
   }, []);
 
   const stop = useCallback(async () => {
     await runSession.stop();
     await releaseWakeLock();
+    await stopRunBackground();
   }, [releaseWakeLock]);
 
   const pause = useCallback(() => runSession.pause(), []);

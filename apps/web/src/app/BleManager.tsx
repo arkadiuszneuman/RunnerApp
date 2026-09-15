@@ -1,6 +1,9 @@
 import { TreadmillProtocol } from '@runner/core';
 import type { TreadmillEvent } from '@runner/core';
 import { connectWithRetry } from './ble/retry';
+import { NativeBleTransport } from './ble/nativeBleTransport';
+import { isNativeApp } from './ble/platform';
+import type { RememberedBleTransport } from './ble/rememberedDevice';
 import { WebBluetoothTransport } from './ble/webBluetoothTransport';
 
 export type { TreadmillEvent };
@@ -11,13 +14,23 @@ const S_SERIAL_PORT = '0000fff0-0000-1000-8000-00805f9b34fb';
 const C_SERIAL_PORT_READ = '0000fff1-0000-1000-8000-00805f9b34fb';
 const C_SERIAL_PORT_WRITE = '0000fff2-0000-1000-8000-00805f9b34fb';
 
-const transport = new WebBluetoothTransport({
-  serviceUuid: S_SERIAL_PORT,
-  readCharUuid: C_SERIAL_PORT_READ,
-  writeCharUuid: C_SERIAL_PORT_WRITE,
-  filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
-  storageKey: TREADMILL_STORAGE_KEY,
-});
+// Native (apps/android) gets the Capacitor BLE transport — no Web Bluetooth limitations on
+// silent reconnect there; everywhere else (browser tab, PWA) it's Web Bluetooth as before.
+const transport: RememberedBleTransport = isNativeApp()
+  ? new NativeBleTransport({
+      serviceUuid: S_SERIAL_PORT,
+      readCharUuid: C_SERIAL_PORT_READ,
+      writeCharUuid: C_SERIAL_PORT_WRITE,
+      namePrefix: 'FS-',
+      storageKey: TREADMILL_STORAGE_KEY,
+    })
+  : new WebBluetoothTransport({
+      serviceUuid: S_SERIAL_PORT,
+      readCharUuid: C_SERIAL_PORT_READ,
+      writeCharUuid: C_SERIAL_PORT_WRITE,
+      filters: [{ namePrefix: 'FS-' }, { services: [S_SERIAL_PORT] }],
+      storageKey: TREADMILL_STORAGE_KEY,
+    });
 
 const protocol = new TreadmillProtocol({
   transport,

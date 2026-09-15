@@ -1,9 +1,32 @@
 /// <reference types="@types/web-bluetooth" />
 import { useSyncExternalStore } from 'react';
+import type { BleTransport } from '@runner/core';
 
 export interface RememberedDevice {
   id: string;
   name: string;
+}
+
+export interface BleConnectOptions {
+  /** Force the device picker even if a device is already remembered — used by "Change device". */
+  pick?: boolean;
+  /**
+   * Only try the remembered device — never falls back to the picker. Used for the silent
+   * auto-reconnect on mount, which has no user gesture to spend on a picker anyway.
+   */
+  silent?: boolean;
+}
+
+/**
+ * The common surface BleManager/HeartRateManager actually need, beyond plain BleTransport:
+ * every concrete transport (Web*Transport, Native*Transport) supports remembering/forgetting a
+ * device, whichever platform-specific mechanism it uses underneath, and connect() takes the same
+ * pick/silent options on every one of them.
+ */
+export interface RememberedBleTransport extends BleTransport {
+  connect(options?: BleConnectOptions): Promise<void>;
+  forget(): Promise<void>;
+  hasRemembered(): boolean;
 }
 
 // Module-level cache + listener set, same pattern as bluetoothAvailability.ts: keeps the
@@ -47,7 +70,13 @@ export function hasRemembered(key: string): boolean {
   return getRemembered(key) !== null;
 }
 
-function remember(key: string, device: Pick<BluetoothDevice, 'id' | 'name'>): void {
+/**
+ * Remembers `device` under `key` for silent reconnect later. Exported (not just used via
+ * `pickDevice` below) so the native transports (nativeBleTransport.ts,
+ * nativeHeartRateTransport.ts) — which pick a device through Capacitor's `BleClient.requestDevice`
+ * rather than `navigator.bluetooth.requestDevice` — can remember it the same way.
+ */
+export function remember(key: string, device: { id: string; name?: string }): void {
   const value: RememberedDevice = { id: device.id, name: device.name ?? '' };
   try {
     localStorage.setItem(key, value.id);

@@ -18,6 +18,11 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
+    "@capacitor-community/bluetooth-le": "^8.3.0",
+    "@capacitor-community/keep-awake": "^8.0.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/core": "^8.5.2",
+    "@capawesome-team/capacitor-android-foreground-service": "^8.1.0",
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

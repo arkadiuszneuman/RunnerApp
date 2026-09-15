@@ -4,17 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Monorepo layout
 
-pnpm workspace with two packages:
+pnpm workspace with three packages:
 
 - **`packages/core`** — framework-agnostic domain logic shared by every client: the BLE serial protocol
   (`src/ble/`), `RunSession` (run orchestration), the `Training` PID controller, Jotai atoms, `Timespan`,
   program parsing/calculation, and `FakeTreadmill` (used for tests and e2e without real hardware). Pure
   TypeScript — no DOM, no React Native. New domain logic goes here, not into `apps/web`.
 - **`apps/web`** — the Next.js 16 app: UI, auth, and the API routes that back it.
+- **`apps/android`** — a Capacitor shell around `apps/web`: `capacitor.config.ts` points `server.url` at a
+  deployed (or LAN dev) instance of the Next.js app, so the WebView renders the *same* UI/CSS/animations —
+  no separate UI codebase. Only the BLE/HR transports differ: `apps/web/src/app/ble/nativeBleTransport.ts` /
+  `nativeHeartRateTransport.ts` implement `BleTransport` on `@capacitor-community/bluetooth-le`'s
+  `BleClient`, selected over `Web*Transport` at runtime by `ble/platform.ts`'s `isNativeApp()` (checked in
+  `BleManager.tsx`/`HeartRateManager.tsx`). Unlike Web Bluetooth, `BleClient.connect(deviceId)` dials the
+  remembered device's Android MAC address directly — no `getDevices()`/`watchAdvertisements()` dance, no
+  picker, no user gesture needed for silent auto-reconnect. `nativeRunBackground.ts` keeps a run alive via
+  `@capacitor-community/keep-awake` + a `connectedDevice`-type foreground service
+  (`@capawesome-team/capacitor-android-foreground-service`; the manifest `<service>`/`<receiver>` and the
+  `FOREGROUND_SERVICE*`/`WAKE_LOCK` permissions are hand-added in `apps/android/android/app/src/main/
+  AndroidManifest.xml` — that plugin doesn't declare them itself). Google OAuth is hidden on native (Google
+  rejects OAuth from an embedded WebView) — see `login/page.tsx`. `isNativeApp()` reads
+  `window.androidBridge`, which doesn't exist during SSR, so any render-body use of it must gate on a
+  client-mount flag (`useEffect(() => setMounted(true), [])`) or the SSR/first-client-render HTML mismatches
+  and the SSR branch sticks — see the `mounted` guard in `login/page.tsx` and `running/page.tsx`.
+  `pnpm -F @runner/android sync` runs `cap sync android` (regenerates `android/app/src/main/assets/
+  capacitor.config.json` + copies plugin native code into the Gradle project); building `android/` needs
+  JDK 21 (Gradle: `cd apps/android/android && ./gradlew assembleDebug`).
 
 A React Native/Expo mobile client (`apps/mobile`) was scaffolded and is parked on the `archive/mobile`
-branch — not present on `main`. Don't resurrect it without being asked. Its backend surface still lives in
-`apps/web` (see Auth below) since it's independent, migration-backed infrastructure.
+branch — not present on `main`. Don't resurrect it without being asked; `apps/android` (above) is the live
+native-Android path. Its backend surface still lives in `apps/web` (see Auth below) since it's independent,
+migration-backed infrastructure.
 
 ## Commands
 
