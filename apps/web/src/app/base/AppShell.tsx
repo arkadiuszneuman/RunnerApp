@@ -21,6 +21,7 @@ import { usePathname } from 'next/navigation';
 import { forgetCachedUserData, installPromptAtom, promptInstall } from '../offline/serviceWorker';
 import SyncIndicator from '../offline/SyncIndicator';
 import { displayFont, glass, tokens } from '../theme';
+import NativeDevicePickerDialog from './NativeDevicePickerDialog';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home', icon: HomeRoundedIcon, match: (p: string) => p === '/' },
@@ -30,7 +31,12 @@ const NAV_ITEMS = [
     icon: ViewAgendaRoundedIcon,
     match: (p: string) => p.startsWith('/programs') || p.startsWith('/add-program'),
   },
-  { href: '/runs', label: 'History', icon: HistoryRoundedIcon, match: (p: string) => p.startsWith('/runs') },
+  {
+    href: '/runs',
+    label: 'History',
+    icon: HistoryRoundedIcon,
+    match: (p: string) => p.startsWith('/runs'),
+  },
 ];
 
 /** Routes with their own full-screen action bar — the floating nav would compete with it. */
@@ -114,7 +120,11 @@ function TopBar() {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <SyncIndicator />
-          <IconButton onClick={(e) => setAnchor(e.currentTarget)} aria-label="Account" sx={{ p: 0.5 }}>
+          <IconButton
+            onClick={(e) => setAnchor(e.currentTarget)}
+            aria-label="Account"
+            sx={{ p: 0.5 }}
+          >
             <Avatar
               src={session?.user?.image ?? undefined}
               sx={{
@@ -278,6 +288,7 @@ export default function AppShell({ children }: Readonly<{ children: ReactNode }>
         {children}
       </Box>
       {showBottomNav && <BottomNav pathname={pathname} />}
+      <NativeDevicePickerDialog />
     </>
   );
 }
