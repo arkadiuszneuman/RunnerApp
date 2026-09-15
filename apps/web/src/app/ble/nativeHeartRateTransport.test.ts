@@ -3,11 +3,13 @@ import {
   NativeHeartRateTransport,
   type NativeHeartRateTransportOptions,
 } from './nativeHeartRateTransport';
+import { cancelNativeDevicePicker, selectNativeDevice } from './nativeDevicePicker';
 
 const { BleClient } = vi.hoisted(() => ({
   BleClient: {
     initialize: vi.fn().mockResolvedValue(undefined),
-    requestDevice: vi.fn(),
+    requestLEScan: vi.fn().mockResolvedValue(undefined),
+    stopLEScan: vi.fn().mockResolvedValue(undefined),
     connect: vi.fn(),
     disconnect: vi.fn().mockResolvedValue(undefined),
     startNotifications: vi.fn().mockResolvedValue(undefined),
@@ -29,9 +31,22 @@ function makeOpts(storageKey: string): NativeHeartRateTransportOptions {
   return { storageKey };
 }
 
+/**
+ * NativeDevicePickerDialog is what actually calls selectNativeDevice() in the app — a real
+ * button tap. Here we simulate that: requestLEScan's mock delivers its scan result synchronously
+ * (making the device show up in the dialog's list), then a setTimeout macrotask reliably drains
+ * the pickNativeDevice()/ensureNativeBleInitialized() microtask chain before we call
+ * selectNativeDevice() ourselves, same as the dialog would on a tap.
+ */
+async function pickFoundDevice(device: { deviceId: string; name: string }): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  selectNativeDevice(device);
+}
+
 afterEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  cancelNativeDevicePicker(); // no-op if the test already resolved/rejected its own picker
 });
 
 describe('NativeHeartRateTransport.connect', () => {
@@ -44,20 +59,28 @@ describe('NativeHeartRateTransport.connect', () => {
     const transport = new NativeHeartRateTransport(opts);
     await transport.connect();
 
-    expect(BleClient.requestDevice).not.toHaveBeenCalled();
+    expect(BleClient.requestLEScan).not.toHaveBeenCalled();
     expect(BleClient.connect).toHaveBeenCalledWith('AA:BB:CC:00:01:01', expect.any(Function));
     expect(transport.isConnected()).toBe(true);
   });
 
-  it('opens the picker unfiltered when nothing is remembered (many devices only expose the heart_rate service after connecting, not in their advertisement)', async () => {
+  it('opens the picker filtered to the heart_rate service when nothing is remembered', async () => {
     const opts = makeOpts('nhrt-test-2');
-    BleClient.requestDevice.mockResolvedValue({ deviceId: 'AA:BB:CC:00:01:02', name: 'HR-2' });
+    BleClient.requestLEScan.mockImplementation((_options, callback) => {
+      callback({ device: { deviceId: 'AA:BB:CC:00:01:02', name: 'HR-2' } });
+      return Promise.resolve();
+    });
     BleClient.connect.mockResolvedValue(undefined);
 
     const transport = new NativeHeartRateTransport(opts);
-    await transport.connect();
+    const connecting = transport.connect();
+    await pickFoundDevice({ deviceId: 'AA:BB:CC:00:01:02', name: 'HR-2' });
+    await connecting;
 
-    expect(BleClient.requestDevice).toHaveBeenCalledWith({});
+    expect(BleClient.requestLEScan).toHaveBeenCalledWith(
+      { services: ['0000180d-0000-1000-8000-00805f9b34fb'] },
+      expect.any(Function)
+    );
     expect(localStorage.getItem(opts.storageKey)).toBe('AA:BB:CC:00:01:02');
   });
 
@@ -69,19 +92,24 @@ describe('NativeHeartRateTransport.connect', () => {
       'no remembered device to silently reconnect to'
     );
 
-    expect(BleClient.requestDevice).not.toHaveBeenCalled();
+    expect(BleClient.requestLEScan).not.toHaveBeenCalled();
   });
 
   it('reuses the already-known device id on a later reconnect instead of re-picking', async () => {
     const opts = makeOpts('nhrt-test-4');
-    BleClient.requestDevice.mockResolvedValue({ deviceId: 'AA:BB:CC:00:01:04', name: 'HR-4' });
+    BleClient.requestLEScan.mockImplementation((_options, callback) => {
+      callback({ device: { deviceId: 'AA:BB:CC:00:01:04', name: 'HR-4' } });
+      return Promise.resolve();
+    });
     BleClient.connect.mockResolvedValue(undefined);
 
     const transport = new NativeHeartRateTransport(opts);
-    await transport.connect();
+    const connecting = transport.connect();
+    await pickFoundDevice({ deviceId: 'AA:BB:CC:00:01:04', name: 'HR-4' });
+    await connecting;
     await transport.connect();
 
-    expect(BleClient.requestDevice).toHaveBeenCalledTimes(1);
+    expect(BleClient.requestLEScan).toHaveBeenCalledTimes(1);
     expect(BleClient.connect).toHaveBeenCalledTimes(2);
   });
 });
