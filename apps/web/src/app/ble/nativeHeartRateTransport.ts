@@ -1,5 +1,6 @@
 import type { BleTransport } from '@runner/core';
 import { BleClient, numberToUUID } from '@capacitor-community/bluetooth-le';
+import { pickNativeDevice } from './nativeDevicePicker';
 import { ensureNativeBleInitialized } from './platform';
 import {
   forget as forgetRemembered,
@@ -65,16 +66,9 @@ export class NativeHeartRateTransport implements BleTransport {
             'NativeHeartRateTransport: no remembered device to silently reconnect to'
           );
         }
-        // No `services` filter: plenty of heart-rate straps/watches only expose the standard
-        // Heart Rate service after a GATT connection, not in the advertisement packet a filtered
-        // scan matches against — Web Bluetooth's chooser found this device fine (Chrome scans
-        // more leniently), but Android's own BLE scan API found nothing with the filter on.
-        // Showing every nearby device and letting the user pick by name is the only filter that
-        // works across devices here (mirrors having no `namePrefix` either, unlike the treadmill's
-        // "FS-" — heart-rate devices have no such shared naming convention to filter on).
-        const device = await BleClient.requestDevice({});
+        const device = await pickNativeDevice({ services: [S_HEART_RATE] });
         deviceId = device.deviceId;
-        remember(this.opts.storageKey, { id: device.deviceId, name: device.name ?? '' });
+        remember(this.opts.storageKey, { id: device.deviceId, name: device.name });
       }
     }
 

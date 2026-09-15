@@ -1,5 +1,6 @@
 import type { BleTransport } from '@runner/core';
 import { BleClient } from '@capacitor-community/bluetooth-le';
+import { pickNativeDevice } from './nativeDevicePicker';
 import { ensureNativeBleInitialized } from './platform';
 import {
   forget as forgetRemembered,
@@ -65,12 +66,12 @@ export class NativeBleTransport implements BleTransport {
       if (options?.silent) {
         throw new Error('NativeBleTransport: no remembered device to silently reconnect to');
       }
-      const device = await BleClient.requestDevice({
+      const device = await pickNativeDevice({
         services: [this.opts.serviceUuid],
         namePrefix: this.opts.namePrefix,
       });
       deviceId = device.deviceId;
-      remember(this.opts.storageKey, { id: device.deviceId, name: device.name ?? '' });
+      remember(this.opts.storageKey, { id: device.deviceId, name: device.name });
     }
 
     try {

@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NativeBleTransport, type NativeBleTransportOptions } from './nativeBleTransport';
+import { cancelNativeDevicePicker, selectNativeDevice } from './nativeDevicePicker';
 
 const { BleClient } = vi.hoisted(() => ({
   BleClient: {
     initialize: vi.fn().mockResolvedValue(undefined),
-    requestDevice: vi.fn(),
+    requestLEScan: vi.fn().mockResolvedValue(undefined),
+    stopLEScan: vi.fn().mockResolvedValue(undefined),
     connect: vi.fn(),
     disconnect: vi.fn().mockResolvedValue(undefined),
     startNotifications: vi.fn().mockResolvedValue(undefined),
@@ -28,9 +30,22 @@ function makeOpts(storageKey: string): NativeBleTransportOptions {
   };
 }
 
+/**
+ * NativeDevicePickerDialog is what actually calls selectNativeDevice() in the app — a real
+ * button tap. Here we simulate that: let requestLEScan's mock deliver its scan result (making
+ * the device show up in the dialog's list) and flush the microtasks pickNativeDevice() and
+ * ensureNativeBleInitialized() chain through — a setTimeout macrotask reliably drains all of
+ * those first — then call selectNativeDevice() ourselves, same as the dialog would on a tap.
+ */
+async function pickFoundDevice(device: { deviceId: string; name: string }): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  selectNativeDevice(device);
+}
+
 afterEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  cancelNativeDevicePicker(); // no-op if the test already resolved/rejected its own picker
 });
 
 describe('NativeBleTransport.connect', () => {
@@ -43,7 +58,7 @@ describe('NativeBleTransport.connect', () => {
     const transport = new NativeBleTransport(opts);
     await transport.connect();
 
-    expect(BleClient.requestDevice).not.toHaveBeenCalled();
+    expect(BleClient.requestLEScan).not.toHaveBeenCalled();
     expect(BleClient.connect).toHaveBeenCalledWith('AA:BB:CC:00:00:01', expect.any(Function));
     expect(BleClient.startNotifications).toHaveBeenCalledWith(
       'AA:BB:CC:00:00:01',
@@ -56,16 +71,21 @@ describe('NativeBleTransport.connect', () => {
 
   it('opens the picker and remembers the picked device when nothing is remembered', async () => {
     const opts = makeOpts('nbt-test-2');
-    BleClient.requestDevice.mockResolvedValue({ deviceId: 'AA:BB:CC:00:00:02', name: 'FS-2' });
+    BleClient.requestLEScan.mockImplementation((_options, callback) => {
+      callback({ device: { deviceId: 'AA:BB:CC:00:00:02', name: 'FS-2' } });
+      return Promise.resolve();
+    });
     BleClient.connect.mockResolvedValue(undefined);
 
     const transport = new NativeBleTransport(opts);
-    await transport.connect();
+    const connecting = transport.connect();
+    await pickFoundDevice({ deviceId: 'AA:BB:CC:00:00:02', name: 'FS-2' });
+    await connecting;
 
-    expect(BleClient.requestDevice).toHaveBeenCalledWith({
-      services: [opts.serviceUuid],
-      namePrefix: opts.namePrefix,
-    });
+    expect(BleClient.requestLEScan).toHaveBeenCalledWith(
+      { services: [opts.serviceUuid], namePrefix: opts.namePrefix },
+      expect.any(Function)
+    );
     expect(localStorage.getItem(opts.storageKey)).toBe('AA:BB:CC:00:00:02');
     expect(transport.isConnected()).toBe(true);
   });
@@ -74,13 +94,18 @@ describe('NativeBleTransport.connect', () => {
     const opts = makeOpts('nbt-test-3');
     localStorage.setItem(opts.storageKey, 'AA:BB:CC:00:00:03');
     localStorage.setItem(`${opts.storageKey}Name`, 'FS-3');
-    BleClient.requestDevice.mockResolvedValue({ deviceId: 'AA:BB:CC:00:00:04', name: 'FS-4' });
+    BleClient.requestLEScan.mockImplementation((_options, callback) => {
+      callback({ device: { deviceId: 'AA:BB:CC:00:00:04', name: 'FS-4' } });
+      return Promise.resolve();
+    });
     BleClient.connect.mockResolvedValue(undefined);
 
     const transport = new NativeBleTransport(opts);
-    await transport.connect({ pick: true });
+    const connecting = transport.connect({ pick: true });
+    await pickFoundDevice({ deviceId: 'AA:BB:CC:00:00:04', name: 'FS-4' });
+    await connecting;
 
-    expect(BleClient.requestDevice).toHaveBeenCalled();
+    expect(BleClient.requestLEScan).toHaveBeenCalled();
     expect(localStorage.getItem(opts.storageKey)).toBe('AA:BB:CC:00:00:04');
   });
 
@@ -92,7 +117,7 @@ describe('NativeBleTransport.connect', () => {
       'no remembered device to silently reconnect to'
     );
 
-    expect(BleClient.requestDevice).not.toHaveBeenCalled();
+    expect(BleClient.requestLEScan).not.toHaveBeenCalled();
   });
 
   it('keeps the remembered device id after a failed connect attempt', async () => {
