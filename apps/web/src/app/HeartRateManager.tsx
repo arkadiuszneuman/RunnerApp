@@ -1,4 +1,7 @@
 import { HeartRateMonitor } from '@runner/core';
+import { NativeHeartRateTransport } from './ble/nativeHeartRateTransport';
+import { isNativeApp } from './ble/platform';
+import type { RememberedBleTransport } from './ble/rememberedDevice';
 import { connectWithRetry } from './ble/retry';
 import { WebHeartRateTransport } from './ble/webHeartRateTransport';
 
@@ -8,7 +11,10 @@ export type HeartRateData = {
 
 export const HEART_RATE_STORAGE_KEY = 'heartRateDeviceId';
 
-const transport = new WebHeartRateTransport({ storageKey: HEART_RATE_STORAGE_KEY });
+// Native (apps/android) gets the Capacitor BLE transport — see BleManager.tsx for why.
+const transport: RememberedBleTransport = isNativeApp()
+  ? new NativeHeartRateTransport({ storageKey: HEART_RATE_STORAGE_KEY })
+  : new WebHeartRateTransport({ storageKey: HEART_RATE_STORAGE_KEY });
 const monitor = new HeartRateMonitor({ transport });
 
 const connectionListeners = new Set<(connected: boolean) => void>();
