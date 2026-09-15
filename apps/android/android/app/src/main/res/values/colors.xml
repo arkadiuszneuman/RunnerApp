@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mirrors apps/web/src/app/theme.ts's `tokens` (bg/volt) — same palette as manifest.ts's
+     background_color/theme_color, so the native chrome (status bar) matches the web app. -->
+<resources>
+    <color name="colorPrimary">#05070c</color>
+    <color name="colorPrimaryDark">#05070c</color>
+    <color name="colorAccent">#c6ff3d</color>
+</resources>
