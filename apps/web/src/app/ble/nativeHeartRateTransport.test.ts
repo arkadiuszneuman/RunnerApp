@@ -49,7 +49,7 @@ describe('NativeHeartRateTransport.connect', () => {
     expect(transport.isConnected()).toBe(true);
   });
 
-  it('opens the picker filtered to the heart_rate service when nothing is remembered', async () => {
+  it('opens the picker unfiltered when nothing is remembered (many devices only expose the heart_rate service after connecting, not in their advertisement)', async () => {
     const opts = makeOpts('nhrt-test-2');
     BleClient.requestDevice.mockResolvedValue({ deviceId: 'AA:BB:CC:00:01:02', name: 'HR-2' });
     BleClient.connect.mockResolvedValue(undefined);
@@ -57,9 +57,7 @@ describe('NativeHeartRateTransport.connect', () => {
     const transport = new NativeHeartRateTransport(opts);
     await transport.connect();
 
-    expect(BleClient.requestDevice).toHaveBeenCalledWith({
-      services: ['0000180d-0000-1000-8000-00805f9b34fb'],
-    });
+    expect(BleClient.requestDevice).toHaveBeenCalledWith({});
     expect(localStorage.getItem(opts.storageKey)).toBe('AA:BB:CC:00:01:02');
   });
 
