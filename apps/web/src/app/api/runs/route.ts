@@ -11,7 +11,7 @@ import { getUserId } from '@/lib/session';
 import { createRunSchema, parseJsonBody } from '@/lib/validation';
 
 export async function POST(request: Request) {
-  const userId = await getUserId(request);
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const parsed = await parseJsonBody(request, createRunSchema);
@@ -58,8 +58,8 @@ export async function POST(request: Request) {
   return NextResponse.json({ id: result[0].id }, { status: 201 });
 }
 
-export async function GET(request: Request) {
-  const userId = await getUserId(request);
+export async function GET() {
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const result = await db

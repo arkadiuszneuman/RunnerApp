@@ -7,11 +7,11 @@ import { getUserId } from '@/lib/session';
 import { parseJsonBody } from '@/lib/validation';
 
 const userSettingsSchema = z.object({
-  activeProgramId: z.string().nullable(),
+  activeProgramId: z.uuid().nullable(),
 });
 
-export async function GET(request: Request) {
-  const userId = await getUserId(request);
+export async function GET() {
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const result = await db.select().from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const userId = await getUserId(request);
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const parsed = await parseJsonBody(request, userSettingsSchema);

@@ -16,7 +16,6 @@ jobs:
       # here executes a real query.
       DATABASE_URL: postgresql://runner:runner@localhost:5432/runnerapp
       AUTH_SECRET: ci-placeholder-secret-not-for-production-use
-      MOBILE_JWT_SECRET: ci-placeholder-secret-not-for-production-use
     steps:
       - uses: actions/checkout@v4
 

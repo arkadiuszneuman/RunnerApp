@@ -13,8 +13,8 @@ const createProgramSchema = z.object({
   data: programDataSchema.optional(),
 });
 
-export async function GET(request: Request) {
-  const userId = await getUserId(request);
+export async function GET() {
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const result = await db
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const userId = await getUserId(request);
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const parsed = await parseJsonBody(request, createProgramSchema);

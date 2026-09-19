@@ -73,4 +73,28 @@ describe('isRateLimited', () => {
     expect(isRateLimited(keyA, opts)).toBe(true);
     expect(isRateLimited(keyB, opts)).toBe(false);
   });
+
+  it('sweeps out expired buckets without changing behavior for live ones', () => {
+    // A bucket that's already expired by the time the periodic sweep runs.
+    const staleKey = `stale-${Math.random()}`;
+    expect(isRateLimited(staleKey, { windowMs: 10, max: 1 })).toBe(false);
+    vi.advanceTimersByTime(11);
+
+    // A key created just before the sweep, still within its window, must
+    // survive the sweep and keep counting normally.
+    const liveKey = `live-${Math.random()}`;
+    const liveOpts = { windowMs: 100_000, max: 2 };
+    expect(isRateLimited(liveKey, liveOpts)).toBe(false); // 1
+
+    // Drive enough distinct-key calls to cross the internal sweep interval.
+    for (let i = 0; i < 1000; i++) {
+      isRateLimited(`filler-${i}`, { windowMs: 10, max: 1 });
+    }
+
+    expect(isRateLimited(liveKey, liveOpts)).toBe(false); // 2, still within max
+    expect(isRateLimited(liveKey, liveOpts)).toBe(true); // 3, over max
+
+    // The stale key was swept and expired, so it starts a fresh window.
+    expect(isRateLimited(staleKey, { windowMs: 10, max: 1 })).toBe(false);
+  });
 });
