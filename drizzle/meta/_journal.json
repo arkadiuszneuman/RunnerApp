@@ -22,6 +22,13 @@
       "when": 1785846117343,
       "tag": "0002_complex_darwin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789836127593,
+      "tag": "0003_ambiguous_maginty",
+      "breakpoints": true
     }
   ]
 }

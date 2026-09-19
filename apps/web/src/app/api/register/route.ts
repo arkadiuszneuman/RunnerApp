@@ -5,30 +5,17 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { normalizeEmail } from '@/lib/normalizeEmail';
 import { isRateLimited, rateLimitKey } from '@/lib/rateLimit';
+import { parseJsonBody, registerSchema } from '@/lib/validation';
 
 export async function POST(request: Request) {
   if (isRateLimited(rateLimitKey(request, 'register'), { windowMs: 10 * 60_000, max: 10 })) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 });
   }
 
-  const body = await request.json();
-  const { name, email: rawEmail, password } = body as {
-    name?: string;
-    email?: string;
-    password?: string;
-  };
-  const email = rawEmail ? normalizeEmail(rawEmail) : rawEmail;
-
-  if (!name || !email || !password) {
-    return NextResponse.json({ error: 'Name, email and password are required' }, { status: 400 });
-  }
-
-  if (password.length < 8) {
-    return NextResponse.json(
-      { error: 'Password must be at least 8 characters' },
-      { status: 400 }
-    );
-  }
+  const parsed = await parseJsonBody(request, registerSchema);
+  if (!parsed.ok) return parsed.response;
+  const { name, password } = parsed.data;
+  const email = normalizeEmail(parsed.data.email);
 
   const existing = await db
     .select({ id: users.id })

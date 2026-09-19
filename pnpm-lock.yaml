@@ -128,9 +128,6 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
-      jose:
-        specifier: ^6.0.0
-        version: 6.2.3
       jotai:
         specifier: ^2.19.1
         version: 2.19.1(@babel/core@8.0.5)(@babel/template@8.0.0)(@types/react@19.2.14)(react@19.2.5)

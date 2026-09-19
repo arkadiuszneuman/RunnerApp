@@ -33,8 +33,8 @@ pnpm workspace with three packages:
 
 A React Native/Expo mobile client (`apps/mobile`) was scaffolded and is parked on the `archive/mobile`
 branch — not present on `main`. Don't resurrect it without being asked; `apps/android` (above) is the live
-native-Android path. Its backend surface still lives in `apps/web` (see Auth below) since it's independent,
-migration-backed infrastructure.
+native-Android path. Its dedicated JWT bearer auth backend (`/api/mobile/auth/*`) was removed along with
+it — the web app's Auth.js session cookie is the only auth path now (see Auth below).
 
 ## Commands
 
@@ -158,21 +158,13 @@ Auth.js v5 (`apps/web/src/lib/auth.ts`) with the Drizzle adapter, JWT sessions, 
 email/password (`bcryptjs`) credentials. `apps/web/src/proxy.ts` is the Next.js middleware — it gates
 every route except `/api`, `/login`, `/register`, and static assets behind a session check, redirecting to
 `/login`. **API routes are not covered by the proxy matcher** — each one resolves the user itself via
-`getUserId(request)` (`apps/web/src/lib/session.ts`), which checks a `Bearer` token first (via
-`verifyAccessToken` in `lib/mobileTokens.ts`) and falls back to the Auth.js session cookie; an invalid
-Bearer header returns unauthenticated rather than falling back.
-
-The `/api/mobile/auth/*` routes and `lib/mobileAuth.ts`/`lib/mobileTokens.ts` implement a separate JWT
-bearer auth flow (short-lived `MOBILE_JWT_SECRET`-signed access tokens + rotated, hashed refresh tokens
-stored in `mobile_refresh_tokens`) originally built for the mobile app. That app is currently archived
-(see Monorepo layout above), but this backend surface is still live and still worth treating as an active
-part of the attack surface when touching auth code.
+`getUserId()` (`apps/web/src/lib/session.ts`), a thin wrapper around the Auth.js session cookie.
 
 ### Persistence
 
 Drizzle ORM + Postgres (`apps/web/src/lib/db/schema.ts`, `apps/web/src/lib/db/index.ts`). Besides the
-Auth.js tables (`user`, `account`, `session`, `verificationToken`) and `mobile_refresh_tokens`, app tables
-are intentionally schemaless JSONB blobs:
+Auth.js tables (`user`, `account`, `session`, `verificationToken`), app tables are intentionally
+schemaless JSONB blobs:
 - `programs` — one row per saved program, `data: { stages: MultiplyStage[], cooldown: boolean }`.
 - `user_settings` — one row per user, `data: { activeProgramId: string | null }`.
 - `run_history` — one row per run, `data` holds start/finish timestamps + the telemetry array
@@ -219,8 +211,8 @@ durations live in `packages/core/src/services/trainingDefaults.ts`.
 | `/login`, `/register` | Auth pages (public, excluded from the proxy gate) |
 
 API routes under `apps/web/src/app/api/` (`programs`, `programs/[id]`, `runs`, `runs/[id]`,
-`user-settings`, `register`, `auth/[...nextauth]`, `mobile/auth/*`) all resolve the user via `getUserId()`
-(or `auth()` for the NextAuth handler itself) and scope Drizzle queries to that user's id.
+`user-settings`, `register`, `auth/[...nextauth]`) all resolve the user via `getUserId()` (or `auth()`
+for the NextAuth handler itself) and scope Drizzle queries to that user's id.
 
 ## Conventions
 

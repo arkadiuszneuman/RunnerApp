@@ -14,7 +14,7 @@ const updateProgramSchema = z.object({
 });
 
 export async function GET(request: Request, { params }: Params) {
-  const userId = await getUserId(request);
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const { id } = await params;
@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 export async function PUT(request: Request, { params }: Params) {
-  const userId = await getUserId(request);
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const { id } = await params;
@@ -53,7 +53,7 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 export async function DELETE(request: Request, { params }: Params) {
-  const userId = await getUserId(request);
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const { id } = await params;

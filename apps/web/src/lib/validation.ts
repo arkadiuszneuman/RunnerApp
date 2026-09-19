@@ -100,3 +100,10 @@ export const patchRunSchema = z.object({
   durationMs: z.number().nonnegative().optional(),
   telemetry: z.array(telemetryPointSchema).max(20_000),
 });
+
+/** Body of POST /api/register. 72 is bcrypt's own input cap — longer input is silently truncated. */
+export const registerSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  email: z.email().max(254),
+  password: z.string().min(8).max(72),
+});

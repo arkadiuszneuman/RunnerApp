@@ -6,7 +6,7 @@ import { getUserId } from '@/lib/session';
 import { parseJsonBody, patchRunSchema } from '@/lib/validation';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await getUserId(request);
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const { id } = await params;
@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await getUserId(request);
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const { id } = await params;
@@ -37,7 +37,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const userId = await getUserId(request);
+  const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
   const { id } = await params;

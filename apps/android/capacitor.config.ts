@@ -19,9 +19,10 @@ const config: CapacitorConfig = {
     allowNavigation: [new URL(serverUrl).host],
   },
   android: {
-    // Debuggable WebView so `chrome://inspect` can attach — harmless in release builds too,
-    // but flip off before a real Play Store release if that ever happens.
-    webContentsDebuggingEnabled: true,
+    // Debuggable WebView so `chrome://inspect` can attach during development. Off by default;
+    // set CAPACITOR_DEBUG=true for a local debug build (still requires USB debugging enabled on
+    // the device itself to matter) — never set it for a real release build.
+    webContentsDebuggingEnabled: process.env.CAPACITOR_DEBUG === 'true',
   },
   plugins: {
     // The app (theme.ts) is always dark-mode, regardless of the OS's own light/dark setting —

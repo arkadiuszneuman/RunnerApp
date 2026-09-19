@@ -20,7 +20,7 @@ out/
 # production
 build/
 
-# expo
+# mobile build artifacts / signing material (Expo + native Android/iOS)
 .expo/
 dist/
 web-build/
