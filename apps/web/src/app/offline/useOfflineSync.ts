@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { useSession } from 'next-auth/react';
+import { setUser as setSpeedCalibrationUser } from '../speedCalibrationStore';
 import { programsAtom, refreshPrograms, refreshRuns, runsAtom } from '../userData';
 import { adoptCacheOwner, registerServiceWorker, warmOfflineCache } from './serviceWorker';
 import { onOutboxFlushed, setSyncUser, startSyncTriggers } from './sync';
@@ -31,6 +32,7 @@ export function useOfflineSync(): void {
     if (status === 'loading') return;
     const id = status === 'authenticated' ? userId : null;
     setSyncUser(id);
+    setSpeedCalibrationUser(id);
     if (id) void adoptCacheOwner(id);
   }, [status, userId]);
 
@@ -43,7 +45,8 @@ export function useOfflineSync(): void {
           (e) =>
             e.key.startsWith('run-create:') ||
             e.key.startsWith('run-delete:') ||
-            (e.key.startsWith('run-patch:') && (e.body as { finishedAt?: string } | undefined)?.finishedAt)
+            (e.key.startsWith('run-patch:') &&
+              (e.body as { finishedAt?: string } | undefined)?.finishedAt)
         );
         if (runsChanged) void refreshRuns();
         if (sent.some((e) => e.key.startsWith('program-'))) void refreshPrograms();
@@ -52,7 +55,8 @@ export function useOfflineSync(): void {
   );
 
   useEffect(() => {
-    if (warmedRef.current || status !== 'authenticated' || !programs || !runs || !navigator.onLine) return;
+    if (warmedRef.current || status !== 'authenticated' || !programs || !runs || !navigator.onLine)
+      return;
     warmedRef.current = true;
     warmOfflineCache([
       ...APP_ROUTES,

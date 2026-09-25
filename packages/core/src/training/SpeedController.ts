@@ -28,6 +28,17 @@ export interface SpeedController {
   readonly lastState: { predictedHr: number; error: number } | null;
 }
 
-export function createSpeedController(kind: SpeedControllerKind, initialSpeed: number): SpeedController {
-  return kind === 'adaptive' ? new AdaptiveTraining(initialSpeed) : new Training(initialSpeed);
+export interface SpeedControllerFactoryOptions {
+  /** Forwarded to AdaptiveTraining; ignored by legacy (`Training` has no notion of a hint). */
+  speedHint?: (bpm: number) => number | undefined;
+}
+
+export function createSpeedController(
+  kind: SpeedControllerKind,
+  initialSpeed: number,
+  opts: SpeedControllerFactoryOptions = {}
+): SpeedController {
+  return kind === 'adaptive'
+    ? new AdaptiveTraining(initialSpeed, { speedHint: opts.speedHint })
+    : new Training(initialSpeed);
 }

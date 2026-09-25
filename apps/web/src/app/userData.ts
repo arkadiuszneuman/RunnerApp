@@ -8,6 +8,7 @@ import { useSession } from 'next-auth/react';
 import { activeProgramIdAtom, programInternalAtom } from './atoms';
 import { overlayPrograms, overlayRuns, pendingProgram, type ProgramData } from './offline/overlay';
 import { getPendingWrites } from './offline/sync';
+import { needsSeed, seedFromRuns } from './speedCalibrationStore';
 import { store } from './store';
 
 export type ProgramSummary = { id: string; name: string; updatedAt: string };
@@ -170,7 +171,9 @@ export async function loadProgramData(id: string): Promise<ProgramData | null> {
 /** Loads (and caches) every id not already in programDataCache, in parallel, best-effort. */
 export async function prefetchProgramData(ids: string[]): Promise<void> {
   await Promise.all(
-    ids.filter((id) => !programDataCache.has(id)).map((id) => loadProgramData(id).catch(() => undefined))
+    ids
+      .filter((id) => !programDataCache.has(id))
+      .map((id) => loadProgramData(id).catch(() => undefined))
   );
 }
 
@@ -214,6 +217,44 @@ export function useUserDataPreload(): void {
     if (status !== 'authenticated' || startedRef.current) return;
     startedRef.current = true;
     void refreshPrograms();
-    void refreshRuns();
+    void refreshRuns().then(seedSpeedCalibrationFromHistory);
   }, [status]);
+}
+
+const SEED_RUN_COUNT = 5;
+
+/**
+ * Fetches one run's full record, the same way runs/[id]/page.tsx does (raw-text response,
+ * Timespan-reviving only `data.program` — the one subtree with Timespan fields, rather than
+ * paying JSON.parse's reviver callback for every telemetry field too). Also warms
+ * runDetailsAtom, so opening this run from History right after sign-in doesn't re-fetch it.
+ */
+async function fetchRunDetail(id: string): Promise<RunRow | null> {
+  try {
+    const { data } = await axios.get(`/api/runs/${id}`, { transformResponse: [(raw) => raw] });
+    const row = JSON.parse(data) as RunRow;
+    if (row?.data?.program)
+      row.data.program = Timespan.reviveDeep(row.data.program) as RunRow['data']['program'];
+    cacheRunDetail(row);
+    return row;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A fresh sign-in (this device, or a calibration that never got learned — e.g. the app was
+ * closed mid-run) has no speedHint yet for AdaptiveTraining to ramp toward — see
+ * speedCalibrationStore.ts. Backfills one from the user's most recent runs, so even their very
+ * next run benefits, without waiting for a full run's worth of fresh data. No-op (and no
+ * network calls) once anything is already calibrated.
+ */
+async function seedSpeedCalibrationFromHistory(): Promise<void> {
+  if (!needsSeed()) return;
+  const recentIds = (store.get(runsAtom) ?? []).slice(0, SEED_RUN_COUNT).map((r) => r.id);
+  const rows = await Promise.all(recentIds.map(fetchRunDetail));
+  const telemetries = rows
+    .filter((r): r is RunRow => r !== null && r.data.telemetry.length > 0)
+    .map((r) => r.data.telemetry);
+  seedFromRuns(telemetries);
 }

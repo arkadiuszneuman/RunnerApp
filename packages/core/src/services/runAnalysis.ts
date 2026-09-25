@@ -84,7 +84,7 @@ export interface RunSeriesPoint {
 const TARGET_BAND_BPM = 5;
 const HR_BUCKET_SIZE = 10;
 
-interface Segment {
+export interface Segment {
   point: TelemetryPoint;
   durationSeconds: number;
 }
@@ -96,7 +96,7 @@ interface Segment {
  * be time-weighted by this held duration rather than averaged point-by-point,
  * or dense stretches would be over-counted relative to sparse ones.
  */
-function toSegments(telemetry: TelemetryPoint[], endT?: number): Segment[] {
+export function toSegments(telemetry: TelemetryPoint[], endT?: number): Segment[] {
   if (telemetry.length === 0) return [];
   const sorted = [...telemetry].sort((a, b) => a.t - b.t);
   return sorted.map((point, i) => {

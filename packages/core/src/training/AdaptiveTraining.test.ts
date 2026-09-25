@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import calculateStages, { type MultiplyStage, type Stage } from '../services/stagesCalculator';
 import { Timespan } from '../services/Timespan';
 import AdaptiveTraining from './AdaptiveTraining';
-import { simulateRun, summarizeSimulation } from './heartRateSimulation';
+import { simulateRun, summarizeSimulation, type SimulationPoint } from './heartRateSimulation';
 import Training from './Training';
 
 function bmpStage(bmp: number, minutes = 10): Stage {
@@ -76,6 +76,75 @@ describe('AdaptiveTraining', () => {
   it('stays within bounds', () => {
     expect(runFor(new AdaptiveTraining(17.9), 60, bmpStage(200), 60)).toBeLessThanOrEqual(18);
     expect(runFor(new AdaptiveTraining(1.2), 200, bmpStage(100), 60)).toBeGreaterThanOrEqual(1);
+  });
+
+  describe('speedHint', () => {
+    it('does not crash when explicitly passed speedHint: undefined (createSpeedController always forwards the key)', () => {
+      const controller = new AdaptiveTraining(6, { speedHint: undefined });
+      expect(() => runFor(controller, 120, bmpStage(150), 5)).not.toThrow();
+    });
+
+    it('ramps toward 90% of the hint on the first stage, at the slew limit, instead of starting cold', () => {
+      const hint = 14;
+      const controller = new AdaptiveTraining(4, { speedHint: () => hint });
+      const stage = bmpStage(200); // far above any speed reached here, so PI only ever pushes up too
+      let reachedTick: number | undefined;
+      for (let i = 0; i < 60 && reachedTick === undefined; i++) {
+        const speed = controller.update(60, stage, 1000);
+        if (speed >= hint * 0.9 - 1e-9) reachedTick = i;
+      }
+      // 4 -> 12.6 km/h at the 0.3 km/h/s slew limit takes ~29 ticks — far sooner than plain PI
+      // feedback would get there from a cold 4 km/h start with heart rate still at 60.
+      expect(reachedTick).toBeLessThanOrEqual(30);
+    });
+
+    it('ramps down to the hint when it is below the current speed, no 0.9 undershoot margin', () => {
+      const controller = new AdaptiveTraining(14, { speedHint: () => 10 });
+      const stage = bmpStage(80); // far below, so PI's own pressure (once the ramp hands over) is downward too
+      // 14 -> 10 km/h at the 0.3 km/h/s slew limit lands exactly on tick 14 (13 full 0.3 steps +
+      // one 0.1 remainder) — the returned (quantized, hysteresis-gated) speed can lag the internal
+      // one by up to one 0.1 km/h step right at that landing tick, hence precision 0 below.
+      let speed = NaN;
+      for (let i = 0; i < 14; i++) speed = controller.update(200, stage, 1000);
+      expect(speed).toBeCloseTo(10, 0);
+    });
+
+    it('a manual override interrupts the ramp — the belt does not jump toward a stale hint afterward', () => {
+      const controller = new AdaptiveTraining(4, { speedHint: () => 16 });
+      runFor(controller, 60, bmpStage(200), 3); // still ramping, well short of the hint (14.4)
+      controller.trackManualSpeed(9);
+      // One ordinary slew-limited PI step from the resumed speed (heart rate is still far below
+      // target, so PI itself also pushes up) — not a jump toward the abandoned ramp target.
+      expect(controller.update(60, bmpStage(200), 1000)).toBeCloseTo(9.3, 5);
+    });
+
+    it('with no hint for this bpm, behaves exactly as without the option (falls back to hrPerKmh feedforward)', () => {
+      const withHint = new AdaptiveTraining(8, { speedHint: (bmp) => (bmp === 999 ? 12 : undefined) });
+      const withoutHint = new AdaptiveTraining(8);
+      const stage = bmpStage(168);
+      expect(runFor(withHint, 150, stage, 5)).toBeCloseTo(runFor(withoutHint, 150, stage, 5), 5);
+    });
+
+    it('reaches a slow responder’s target noticeably sooner than without a hint, and does not add overshoot', () => {
+      const stages = calculateStages([{ times: 1, stages: [bmpStage(143, 30)] }]);
+      // Matches the sluggish real-world response (~4.5 bpm/km-h, ~70s time constant, ~15s dead
+      // time) found by fitting AdaptiveTraining.ts's model against a run where reaching target
+      // took far longer than expected — see the plan this shipped with.
+      const slowModel = { hrPerKmh: 4.5, timeConstantS: 70, sensorDelayS: 15 };
+      const withoutHint = simulateRun(new AdaptiveTraining(4), stages, slowModel);
+      const withHint = simulateRun(new AdaptiveTraining(4, { speedHint: () => 14 }), stages, slowModel);
+
+      const reachTick = (points: SimulationPoint[]) =>
+        points.findIndex((p) => p.targetHr !== null && Math.abs(p.hr - p.targetHr) <= 5);
+      const maxOvershoot = (points: SimulationPoint[]) =>
+        Math.max(...points.filter((p) => p.targetHr !== null).map((p) => p.hr - (p.targetHr as number)));
+
+      const tWithout = reachTick(withoutHint);
+      const tWith = reachTick(withHint);
+      expect(tWith).toBeGreaterThan(0);
+      expect(tWith).toBeLessThan(tWithout - 30);
+      expect(maxOvershoot(withHint)).toBeLessThanOrEqual(maxOvershoot(withoutHint) + 2);
+    });
   });
 });
 

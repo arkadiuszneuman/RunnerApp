@@ -41,7 +41,10 @@ interface Harness {
   loggerMessages: string[];
 }
 
-function makeHarness(flushIntervalMs = 30_000, opts: { failPatchRun?: boolean } = {}): Harness {
+function makeHarness(
+  flushIntervalMs = 30_000,
+  opts: { failPatchRun?: boolean; speedHint?: (bpm: number) => number | undefined } = {}
+): Harness {
   const store = createStore();
   const transport = new FakeTreadmill({ rampRate: 10 }); // fast ramp — not what's under test here
   const treadmill = new TreadmillProtocol({ transport });
@@ -68,6 +71,7 @@ function makeHarness(flushIntervalMs = 30_000, opts: { failPatchRun?: boolean } 
     now: () => nowRef.current,
     flushIntervalMs,
     logger: (message) => loggerMessages.push(message),
+    speedHint: opts.speedHint,
   });
   return {
     store,
@@ -157,6 +161,37 @@ describe('RunSession', () => {
     advance(h, 5000);
     const after = h.store.get(runningStateAtom);
     expect(after.running && after.treadmillOptions.speed).toBeGreaterThan(speedBefore);
+  });
+
+  it('start() forwards speedHint into the adaptive controller — the belt ramps toward it', async () => {
+    // Regression test: createSpeedController always forwards `speedHint` (even when the caller
+    // didn't configure one, as the harness's default doesn't), which used to crash the adaptive
+    // controller by overwriting its no-op default with an explicit `undefined` — see
+    // AdaptiveTraining.ts's options-merge comment.
+    const h = makeHarness(30_000, { speedHint: (bpm) => (bpm === 140 ? 14 : undefined) });
+    h.store.set(speedControllerAtom, 'adaptive');
+    h.store.set(programAtom, testProgram());
+    h.store.set(heartRateAtom, 100); // well below the 140 target — PID pressure would also push up
+    await connectAndStart(h);
+
+    // The 0.3 km/h/s slew limit means reaching 0.9×14=12.6 from a 4 km/h start takes ~29 PID
+    // ticks (RunSession gates those to 1 Hz) — advance comfortably past that.
+    advance(h, 35_000);
+    const state = h.store.get(runningStateAtom);
+    // Well above what 35s of generic PI pressure alone (no feedforward — this is the first
+    // stage) would produce; confirms the hint is what's driving this, and that it doesn't crash.
+    expect(state.running && state.treadmillOptions.speed).toBeGreaterThan(10);
+  });
+
+  it('exposes the current run’s buffered telemetry via the telemetry getter', async () => {
+    const h = makeHarness();
+    h.store.set(programAtom, testProgram());
+    h.store.set(heartRateAtom, 140);
+    expect(h.session.telemetry).toEqual([]);
+
+    await connectAndStart(h);
+    advance(h, 3000);
+    expect(h.session.telemetry.length).toBeGreaterThan(0);
   });
 
   it('start() refuses to start (and pump() is a no-op) when the program has no stages', async () => {

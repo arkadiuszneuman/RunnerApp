@@ -62,6 +62,13 @@ export interface RunSessionOptions {
   flushIntervalMs?: number;
   /** Called with a message when a telemetry flush fails. Defaults to a no-op. */
   logger?: (message: string) => void;
+  /**
+   * Forwarded to `createSpeedController` on every `start()` — evaluated live each time a bmp
+   * target is (re-)entered (not just once at construction), so a caller reading from a
+   * per-user store that updates between runs (see `learnSpeedCalibration`) always sees the
+   * latest calibration. See AdaptiveTraining.ts.
+   */
+  speedHint?: (bpm: number) => number | undefined;
 }
 
 /**
@@ -84,6 +91,7 @@ export class RunSession {
   private readonly now: () => number;
   private readonly flushIntervalMs: number;
   private readonly logger: (message: string) => void;
+  private readonly speedHint?: (bpm: number) => number | undefined;
 
   private training: SpeedController = createSpeedController('legacy', 1);
   private cooldownInitialized = false;
@@ -94,7 +102,7 @@ export class RunSession {
   private previousActualSpeed = 0;
 
   private runId: string | null = null;
-  private telemetry: TelemetryPoint[] = [];
+  private _telemetry: TelemetryPoint[] = [];
   private lastTelemetryPoint: Omit<TelemetryPoint, 't'> | null = null;
   private flushIntervalId: ReturnType<typeof setInterval> | undefined;
   private stopPromise: Promise<void> | undefined;
@@ -106,8 +114,18 @@ export class RunSession {
     this.now = opts.now ?? Date.now;
     this.flushIntervalMs = opts.flushIntervalMs ?? 30_000;
     this.logger = opts.logger ?? (() => {});
+    this.speedHint = opts.speedHint;
 
     this.treadmill.subscribe(this.onTreadmillEvent);
+  }
+
+  /**
+   * The current run's buffered telemetry (or the just-finished run's, until the next `start()`
+   * clears it) — read by callers that want to learn from a run once it ends, e.g. via
+   * `watchRunEnd`/`learnSpeedCalibration`. Not cleared on flush; only on the next `start()`.
+   */
+  get telemetry(): readonly TelemetryPoint[] {
+    return this._telemetry;
   }
 
   /**
@@ -149,13 +167,13 @@ export class RunSession {
 
       this.cooldownInitialized = false;
       const controller = this.store.get(speedControllerAtom);
-      this.training = createSpeedController(controller, 4);
+      this.training = createSpeedController(controller, 4, { speedHint: this.speedHint });
       this.lastStageIndex = undefined;
       this.lastPidUpdate = 0;
       this.lastCommandedSpeed = 0;
       this.previousActualSpeed = 0;
 
-      this.telemetry = [];
+      this._telemetry = [];
       this.lastTelemetryPoint = null;
       this.runId = null;
 
@@ -331,7 +349,7 @@ export class RunSession {
       last.inc !== point.inc ||
       last.si !== point.si
     ) {
-      this.telemetry.push({ t: elapsedS, ...point });
+      this._telemetry.push({ t: elapsedS, ...point });
       this.lastTelemetryPoint = point;
     }
   }
@@ -404,7 +422,7 @@ export class RunSession {
     // pump loop or the stop/pause flow) but still surfaced via the logger —
     // silently swallowing this would lose telemetry with no way to notice.
     this.api
-      .patchRun(this.runId, { startedAt, telemetry: this.telemetry, ...extra })
+      .patchRun(this.runId, { startedAt, telemetry: this._telemetry, ...extra })
       .catch((error) => this.logger(`RunSession: telemetry flush failed: ${error}`));
   }
 
