@@ -33,6 +33,7 @@ export {
   createSpeedController,
   SPEED_CONTROLLER_KINDS,
   type SpeedController,
+  type SpeedControllerFactoryOptions,
   type SpeedControllerKind,
 } from './training/SpeedController';
 export {
@@ -43,6 +44,21 @@ export {
   type SimulationPoint,
   type SimulationSummary,
 } from './training/heartRateSimulation';
+export {
+  EMPTY_SPEED_CALIBRATION,
+  learnSpeedCalibration,
+  MAX_BPM,
+  MAX_CALIBRATION_POINTS,
+  MAX_SPEED_KMH,
+  MIN_BPM,
+  MIN_SPEED_KMH,
+  mergeSpeedCalibrations,
+  parseSpeedCalibration,
+  speedCalibrationsEqual,
+  speedHintFor,
+  type SpeedCalibration,
+  type SpeedCalibrationPoint,
+} from './training/speedCalibration';
 
 export {
   runningStateAtom,

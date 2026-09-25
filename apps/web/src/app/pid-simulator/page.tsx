@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -56,7 +58,13 @@ function series(points: SimulationPoint[], pick: (p: SimulationPoint) => number 
 }
 
 function NumberField(
-  props: Readonly<{ label: string; value: number; step?: number; min?: number; onChange: (value: number) => void }>
+  props: Readonly<{
+    label: string;
+    value: number;
+    step?: number;
+    min?: number;
+    onChange: (value: number) => void;
+  }>
 ) {
   return (
     <TextField
@@ -73,7 +81,9 @@ function NumberField(
   );
 }
 
-function SummaryCard(props: Readonly<{ kind: SpeedControllerKind; summary: SimulationSummary; index: number }>) {
+function SummaryCard(
+  props: Readonly<{ kind: SpeedControllerKind; summary: SimulationSummary; index: number }>
+) {
   const stats = [
     { label: 'In ±5 bpm', value: `${Math.round(props.summary.pctInTarget)}%` },
     { label: 'Mean error', value: `${props.summary.meanAbsErrorBpm.toFixed(1)}` },
@@ -107,6 +117,10 @@ export default function PidSimulatorPage() {
   const [timeConstantS, setTimeConstantS] = useState(35);
   const [noiseBpm, setNoiseBpm] = useState(2);
   const [seed, setSeed] = useState(7);
+  // A fixed speedHint applied to every bmp target, standing in for speedCalibration.ts's real
+  // per-bpm learned values — good enough here to see the ramp-to-hint effect on the chart.
+  const [useHint, setUseHint] = useState(false);
+  const [hintSpeed, setHintSpeed] = useState(14);
 
   const usingSample = activeStages.length === 0;
   const stages = useMemo(
@@ -117,14 +131,18 @@ export default function PidSimulatorPage() {
   const results = useMemo(() => {
     const model = { hrPerKmh, timeConstantS, noiseBpm, seed };
     const legacy = simulateRun(new Training(4), stages, model);
-    const adaptive = simulateRun(new AdaptiveTraining(4), stages, model);
+    const adaptive = simulateRun(
+      new AdaptiveTraining(4, useHint ? { speedHint: () => hintSpeed } : undefined),
+      stages,
+      model
+    );
     return {
       legacy,
       adaptive,
       legacySummary: summarizeSimulation(legacy),
       adaptiveSummary: summarizeSimulation(adaptive),
     };
-  }, [stages, hrPerKmh, timeConstantS, noiseBpm, seed]);
+  }, [stages, hrPerKmh, timeConstantS, noiseBpm, seed, useHint, hintSpeed]);
 
   const hrData: ChartData<'line'> = {
     datasets: [
@@ -178,30 +196,85 @@ export default function PidSimulatorPage() {
   return (
     <Page eyebrow="Dev tool" title="Controller simulator" maxWidth={900}>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Both speed controllers run {usingSample ? `the sample program ${SAMPLE_PROGRAM}` : 'your active program'}{' '}
-        against a simulated runner, ticked at 1 Hz exactly like a real run.
+        Both speed controllers run{' '}
+        {usingSample ? `the sample program ${SAMPLE_PROGRAM}` : 'your active program'} against a
+        simulated runner, ticked at 1 Hz exactly like a real run.
       </Typography>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 1.5, ...enter(0) }}>
         <Typography sx={{ fontWeight: 600, mb: 1.5 }}>Simulated runner</Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' }, gap: 1.5 }}>
-          <NumberField label="bpm per km/h" value={hrPerKmh} step={0.5} min={1} onChange={setHrPerKmh} />
-          <NumberField label="HR lag τ (s)" value={timeConstantS} step={5} min={1} onChange={setTimeConstantS} />
-          <NumberField label="Noise ± bpm" value={noiseBpm} step={0.5} min={0} onChange={setNoiseBpm} />
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
+            gap: 1.5,
+          }}
+        >
+          <NumberField
+            label="bpm per km/h"
+            value={hrPerKmh}
+            step={0.5}
+            min={1}
+            onChange={setHrPerKmh}
+          />
+          <NumberField
+            label="HR lag τ (s)"
+            value={timeConstantS}
+            step={5}
+            min={1}
+            onChange={setTimeConstantS}
+          />
+          <NumberField
+            label="Noise ± bpm"
+            value={noiseBpm}
+            step={0.5}
+            min={0}
+            onChange={setNoiseBpm}
+          />
           <NumberField label="Noise seed" value={seed} step={1} min={1} onChange={setSeed} />
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.25 }}>
-          The adaptive controller assumes 9 bpm per km/h and τ = 35 s — change these to see how it copes
-          with a runner who responds differently.
+          The adaptive controller assumes 9 bpm per km/h and τ = 35 s — change these to see how it
+          copes with a runner who responds differently.
         </Typography>
       </Paper>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, mb: 1.5 }}>
-        <SummaryCard kind="legacy" summary={results.legacySummary} index={1} />
-        <SummaryCard kind="adaptive" summary={results.adaptiveSummary} index={2} />
+      <Paper variant="outlined" sx={{ p: 2, mb: 1.5, ...enter(1) }}>
+        <FormControlLabel
+          control={<Checkbox checked={useHint} onChange={(e) => setUseHint(e.target.checked)} />}
+          label="Adaptive: use a speed hint (like speedCalibration.ts learns from past runs)"
+        />
+        {useHint && (
+          <Box sx={{ mt: 1, maxWidth: 200 }}>
+            <NumberField
+              label="Hint speed (km/h)"
+              value={hintSpeed}
+              step={0.5}
+              min={1}
+              onChange={setHintSpeed}
+            />
+          </Box>
+        )}
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.25 }}>
+          Applied to every bmp target here (a real run learns one per bpm) — shows how much sooner
+          the belt reaches target when it starts from a known-good speed instead of feeling its way
+          up from 4 km/h.
+        </Typography>
+      </Paper>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gap: 1.5,
+          mb: 1.5,
+        }}
+      >
+        <SummaryCard kind="legacy" summary={results.legacySummary} index={2} />
+        <SummaryCard kind="adaptive" summary={results.adaptiveSummary} index={3} />
       </Box>
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 1.5, ...enter(3) }}>
+      <Paper variant="outlined" sx={{ p: 2, mb: 1.5, ...enter(4) }}>
         <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', mb: 1 }}>
           Heart rate
         </Typography>
@@ -210,7 +283,7 @@ export default function PidSimulatorPage() {
         </Box>
       </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2, ...enter(4) }}>
+      <Paper variant="outlined" sx={{ p: 2, ...enter(5) }}>
         <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', mb: 1 }}>
           Commanded speed
         </Typography>

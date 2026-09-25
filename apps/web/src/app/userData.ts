@@ -1,13 +1,27 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Timespan, type RunRecord, type RunSummary, type SpeedControllerKind } from '@runner/core';
+import {
+  parseSpeedCalibration,
+  speedCalibrationsEqual,
+  Timespan,
+  type RunRecord,
+  type RunSummary,
+  type SpeedControllerKind,
+} from '@runner/core';
 import axios from 'axios';
 import { atom } from 'jotai';
 import { useSession } from 'next-auth/react';
 import { activeProgramIdAtom, programInternalAtom } from './atoms';
 import { overlayPrograms, overlayRuns, pendingProgram, type ProgramData } from './offline/overlay';
-import { getPendingWrites } from './offline/sync';
+import { writes } from './offline/requests';
+import { enqueueWrite, getPendingWrites } from './offline/sync';
+import {
+  mergeServerCalibration,
+  needsSeed,
+  seedFromRuns,
+  setUser as setSpeedCalibrationUser,
+} from './speedCalibrationStore';
 import { store } from './store';
 
 export type ProgramSummary = { id: string; name: string; updatedAt: string };
@@ -170,7 +184,9 @@ export async function loadProgramData(id: string): Promise<ProgramData | null> {
 /** Loads (and caches) every id not already in programDataCache, in parallel, best-effort. */
 export async function prefetchProgramData(ids: string[]): Promise<void> {
   await Promise.all(
-    ids.filter((id) => !programDataCache.has(id)).map((id) => loadProgramData(id).catch(() => undefined))
+    ids
+      .filter((id) => !programDataCache.has(id))
+      .map((id) => loadProgramData(id).catch(() => undefined))
   );
 }
 
@@ -204,7 +220,8 @@ export function claimProgramSave(data: ProgramData): boolean {
  * instead.
  */
 export function useUserDataPreload(): void {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id ?? null;
   // Guards against StrictMode's dev-mode double-invoke and re-renders while
   // still loading — this must fire exactly once per session, not once per
   // status-changing render.
@@ -213,7 +230,68 @@ export function useUserDataPreload(): void {
   useEffect(() => {
     if (status !== 'authenticated' || startedRef.current) return;
     startedRef.current = true;
+    // The calibration cache is keyed by user; make sure it knows who before syncing (this effect
+    // can run before useOfflineSync's own setUser call on the same sign-in).
+    setSpeedCalibrationUser(userId);
     void refreshPrograms();
-    void refreshRuns();
+    void refreshRuns().then(syncSpeedCalibration);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
+}
+
+const SEED_RUN_COUNT = 5;
+
+/**
+ * Fetches one run's full record, the same way runs/[id]/page.tsx does (raw-text response,
+ * Timespan-reviving only `data.program` — the one subtree with Timespan fields, rather than
+ * paying JSON.parse's reviver callback for every telemetry field too). Also warms
+ * runDetailsAtom, so opening this run from History right after sign-in doesn't re-fetch it.
+ */
+async function fetchRunDetail(id: string): Promise<RunRow | null> {
+  try {
+    const { data } = await axios.get(`/api/runs/${id}`, { transformResponse: [(raw) => raw] });
+    const row = JSON.parse(data) as RunRow;
+    if (row?.data?.program)
+      row.data.program = Timespan.reviveDeep(row.data.program) as RunRow['data']['program'];
+    cacheRunDetail(row);
+    return row;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Brings the speed calibration (AdaptiveTraining's per-runner speedHint — see
+ * speedCalibrationStore.ts) in line with the server, which is its source of truth:
+ *
+ * - server value is merged into the device cache (newest point per target wins);
+ * - an account with nothing calibrated anywhere (it predates this feature) is backfilled from its
+ *   most recent runs, so even the very next run benefits;
+ * - anything the device knows that the server doesn't (learned offline, or from a backfill) is
+ *   queued for upload through the offline outbox.
+ *
+ * Best-effort: offline (or on any failure) the device cache is simply left as it is.
+ */
+async function syncSpeedCalibration(): Promise<void> {
+  let server;
+  try {
+    const { data } = await axios.get('/api/user-settings');
+    server = parseSpeedCalibration(data?.speedCalibration);
+  } catch {
+    return;
+  }
+
+  let merged = mergeServerCalibration(server);
+  if (needsSeed()) {
+    const recentIds = (store.get(runsAtom) ?? []).slice(0, SEED_RUN_COUNT).map((r) => r.id);
+    const rows = await Promise.all(recentIds.map(fetchRunDetail));
+    const telemetries = rows
+      .filter((r): r is RunRow => r !== null && r.data.telemetry.length > 0)
+      .map((r) => r.data.telemetry);
+    merged = seedFromRuns(telemetries);
+  }
+
+  if (merged.points.length > 0 && !speedCalibrationsEqual(merged, server)) {
+    void enqueueWrite(writes.setSpeedCalibration(merged));
+  }
 }
