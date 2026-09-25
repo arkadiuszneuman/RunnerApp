@@ -5,6 +5,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
+import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
 import SsidChartRoundedIcon from '@mui/icons-material/SsidChartRounded';
 import TerrainRoundedIcon from '@mui/icons-material/TerrainRounded';
 import Box from '@mui/material/Box';
@@ -17,6 +18,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
+import Snackbar from '@mui/material/Snackbar';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -44,6 +46,7 @@ import InclineChart from './charts/InclineChart';
 import SpeedChart from './charts/SpeedChart';
 import type { StageBand } from './charts/stageShadingPlugin';
 import { useDeferredMount } from './charts/useDeferredMount';
+import { exportRun } from './exportRun';
 
 const labelSx = {
   fontSize: '0.68rem',
@@ -54,15 +57,34 @@ const labelSx = {
 } as const;
 
 function StatTile(
-  props: Readonly<{ label: string; value: string; sub?: string; icon: ReactNode; accent: string; index: number }>
+  props: Readonly<{
+    label: string;
+    value: string;
+    sub?: string;
+    icon: ReactNode;
+    accent: string;
+    index: number;
+  }>
 ) {
   return (
     <Paper variant="outlined" sx={{ p: 1.5, height: '100%', ...enter(props.index) }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5, color: props.accent, '& svg': { fontSize: 16 } }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          mb: 0.5,
+          color: props.accent,
+          '& svg': { fontSize: 16 },
+        }}
+      >
         {props.icon}
         <Typography sx={labelSx}>{props.label}</Typography>
       </Box>
-      <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.6rem', lineHeight: 1.1 }}>
+      <Typography
+        className="tabular"
+        sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.6rem', lineHeight: 1.1 }}
+      >
         {props.value}
       </Typography>
       {props.sub && (
@@ -92,8 +114,13 @@ function ChartCard({
 }>) {
   const ready = useDeferredMount(deferIndex);
   return (
-    <Paper variant="outlined" sx={{ p: 2, gridColumn: wide ? '1 / -1' : undefined, minWidth: 0, ...enter(index) }}>
-      <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', mb: 1 }}>{title}</Typography>
+    <Paper
+      variant="outlined"
+      sx={{ p: 2, gridColumn: wide ? '1 / -1' : undefined, minWidth: 0, ...enter(index) }}
+    >
+      <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', mb: 1 }}>
+        {title}
+      </Typography>
       <Box sx={{ height }}>{ready ? children : null}</Box>
     </Paper>
   );
@@ -105,7 +132,8 @@ function stageTargetLabel(stage: {
   targetTempo?: Timespan;
 }): string {
   if (stage.speedType === 'bmp' && stage.targetBpm !== undefined) return `${stage.targetBpm} bpm`;
-  if (stage.speedType === 'tempo' && stage.targetTempo) return `${stage.targetTempo.toString('mm:ss')} /km`;
+  if (stage.speedType === 'tempo' && stage.targetTempo)
+    return `${stage.targetTempo.toString('mm:ss')} /km`;
   return '—';
 }
 
@@ -119,6 +147,8 @@ export default function RunDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState('');
 
   const row: RunRow | null = cachedRow ?? null;
   const loading = !row && isFetching;
@@ -150,7 +180,8 @@ export default function RunDetailPage() {
         cacheRunDetail(row);
       })
       .catch((err) => {
-        if (!cancelled && axios.isAxiosError(err) && err.response?.status === 404) setNotFound(true);
+        if (!cancelled && axios.isAxiosError(err) && err.response?.status === 404)
+          setNotFound(true);
       })
       .finally(() => {
         if (!cancelled) setIsFetching(false);
@@ -195,8 +226,26 @@ export default function RunDetailPage() {
     }
   };
 
+  const handleExport = async () => {
+    if (!row) return;
+    setExporting(true);
+    try {
+      const { method } = await exportRun(row);
+      if (method === 'clipboard') setExportNotice('Copied run JSON to clipboard');
+    } catch {
+      setExportNotice('Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const backButton = (
-    <IconButton component={Link} href="/runs" aria-label="Back to history" sx={{ ...glass, width: 40, height: 40 }}>
+    <IconButton
+      component={Link}
+      href="/runs"
+      aria-label="Back to history"
+      sx={{ ...glass, width: 40, height: 40 }}
+    >
       <ArrowBackRoundedIcon fontSize="small" />
     </IconButton>
   );
@@ -237,7 +286,19 @@ export default function RunDetailPage() {
             {startedAt.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
           </Typography>
         </Box>
-        <IconButton onClick={() => setDeleteOpen(true)} title="Delete run" sx={{ color: 'text.secondary' }}>
+        <IconButton
+          onClick={handleExport}
+          disabled={exporting}
+          title="Export run as JSON"
+          sx={{ color: 'text.secondary' }}
+        >
+          <FileDownloadRoundedIcon />
+        </IconButton>
+        <IconButton
+          onClick={() => setDeleteOpen(true)}
+          title="Delete run"
+          sx={{ color: 'text.secondary' }}
+        >
           <DeleteOutlineRoundedIcon />
         </IconButton>
       </Box>
@@ -245,8 +306,8 @@ export default function RunDetailPage() {
       {noData ? (
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography color="text.secondary">
-            No telemetry was recorded for this run (it may have been stopped immediately, or the app was
-            closed before any data could be saved).
+            No telemetry was recorded for this run (it may have been stopped immediately, or the app
+            was closed before any data could be saved).
           </Typography>
         </Paper>
       ) : (
@@ -280,9 +341,15 @@ export default function RunDetailPage() {
             />
             <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
               {(record.programName || record.controller) && (
-                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}
+                >
                   {record.programName && (
-                    <Chip label={record.programName} size="small" sx={{ bgcolor: tokens.surfaceHover }} />
+                    <Chip
+                      label={record.programName}
+                      size="small"
+                      sx={{ bgcolor: tokens.surfaceHover }}
+                    />
                   )}
                   {record.controller && <SpeedControllerBadge kind={record.controller} />}
                 </Box>
@@ -290,16 +357,26 @@ export default function RunDetailPage() {
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
                 <Typography
                   className="tabular"
-                  sx={{ fontFamily: displayFont, fontWeight: 800, fontSize: 'clamp(3rem, 16vw, 4.5rem)', lineHeight: 0.95 }}
+                  sx={{
+                    fontFamily: displayFont,
+                    fontWeight: 800,
+                    fontSize: 'clamp(3rem, 16vw, 4.5rem)',
+                    lineHeight: 0.95,
+                  }}
                 >
                   {summary.distanceKm.toFixed(2)}
                 </Typography>
-                <Typography sx={{ color: tokens.textMuted, fontWeight: 600, fontSize: '1.1rem' }}>km</Typography>
+                <Typography sx={{ color: tokens.textMuted, fontWeight: 600, fontSize: '1.1rem' }}>
+                  km
+                </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 3, mt: 1.5 }}>
                 <Box>
                   <Typography sx={labelSx}>Duration</Typography>
-                  <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.4rem' }}>
+                  <Typography
+                    className="tabular"
+                    sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.4rem' }}
+                  >
                     {Timespan.fromSeconds(summary.durationSeconds).toString(
                       summary.durationSeconds < 3600 ? 'mm:ss' : 'hh:mm:ss'
                     )}
@@ -307,7 +384,10 @@ export default function RunDetailPage() {
                 </Box>
                 <Box>
                   <Typography sx={labelSx}>Avg pace</Typography>
-                  <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.4rem' }}>
+                  <Typography
+                    className="tabular"
+                    sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.4rem' }}
+                  >
                     {summary.avgPace ? `${summary.avgPace.toString('mm:ss')} /km` : '—'}
                   </Typography>
                 </Box>
@@ -316,7 +396,10 @@ export default function RunDetailPage() {
             {summary.hrTarget && (
               <Box sx={{ textAlign: 'center', position: 'relative' }}>
                 <ProgressRing value={summary.hrTarget.pctInTarget} size={96} stroke={3.5}>
-                  <Typography className="tabular" sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.6rem' }}>
+                  <Typography
+                    className="tabular"
+                    sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.6rem' }}
+                  >
                     {Math.round(summary.hrTarget.pctInTarget)}%
                   </Typography>
                 </ProgressRing>
@@ -367,7 +450,14 @@ export default function RunDetailPage() {
             />
           </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mb: 1.5 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 1.5,
+              mb: 1.5,
+            }}
+          >
             <ChartCard title="Heart rate vs. target" wide index={5} deferIndex={0}>
               <HeartRateChart series={series} stageBands={analysis.stageBands} />
             </ChartCard>
@@ -377,7 +467,12 @@ export default function RunDetailPage() {
               </ChartCard>
             )}
             {summary.hrBuckets.length > 0 && (
-              <ChartCard title="Time per heart rate zone" wide={!summary.hrTarget} index={7} deferIndex={2}>
+              <ChartCard
+                title="Time per heart rate zone"
+                wide={!summary.hrTarget}
+                index={7}
+                deferIndex={2}
+              >
                 <HrBucketsChart buckets={summary.hrBuckets} />
               </ChartCard>
             )}
@@ -391,7 +486,9 @@ export default function RunDetailPage() {
 
           {stages && stages.length > 0 && summary.stages.length > 0 && (
             <Paper variant="outlined" sx={{ overflow: 'hidden', ...enter(10) }}>
-              <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', p: 2, pb: 1 }}>
+              <Typography
+                sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', p: 2, pb: 1 }}
+              >
                 Stages
               </Typography>
               <TableContainer sx={{ overflowX: 'auto' }}>
@@ -409,16 +506,26 @@ export default function RunDetailPage() {
                       <TableCell align="right">Distance</TableCell>
                     </TableRow>
                   </TableHead>
-                  <TableBody sx={{ '& td': { whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } }}>
+                  <TableBody
+                    sx={{ '& td': { whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } }}
+                  >
                     {summary.stages.map((stage) => (
                       <TableRow key={stage.stageIndex}>
                         <TableCell>{stage.stageIndex}</TableCell>
                         <TableCell>
                           {stage.type ? (
-                            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                            <Box
+                              component="span"
+                              sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}
+                            >
                               <Box
                                 component="span"
-                                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: stageTypeColor[stage.type] }}
+                                sx={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: '50%',
+                                  bgcolor: stageTypeColor[stage.type],
+                                }}
                               />
                               {stageTypeName[stage.type]}
                             </Box>
@@ -430,9 +537,13 @@ export default function RunDetailPage() {
                         <TableCell align="right">
                           {Timespan.fromSeconds(stage.durationSeconds).toString('mm:ss')}
                         </TableCell>
-                        <TableCell align="right">{stage.avgHr > 0 ? Math.round(stage.avgHr) : '—'}</TableCell>
                         <TableCell align="right">
-                          {stage.hrTarget ? `${stage.hrTarget.avgDeviationBpm.toFixed(1)} bpm` : '—'}
+                          {stage.avgHr > 0 ? Math.round(stage.avgHr) : '—'}
+                        </TableCell>
+                        <TableCell align="right">
+                          {stage.hrTarget
+                            ? `${stage.hrTarget.avgDeviationBpm.toFixed(1)} bpm`
+                            : '—'}
                         </TableCell>
                         <TableCell align="right">
                           {stage.hrTarget ? `${Math.round(stage.hrTarget.pctInTarget)}%` : '—'}
@@ -448,6 +559,14 @@ export default function RunDetailPage() {
           )}
         </>
       )}
+
+      <Snackbar
+        open={!!exportNotice}
+        message={exportNotice}
+        autoHideDuration={4000}
+        onClose={() => setExportNotice('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      />
 
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Delete run?</DialogTitle>

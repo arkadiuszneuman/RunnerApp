@@ -55,7 +55,10 @@ export default function Timer(props: {
     <Box
       sx={{
         position: 'relative',
-        width: `min(${size}rem, 80vw)`,
+        // Also capped by viewport height (not just width) so the ring shrinks on a short
+        // viewport instead of forcing the run screen to scroll — see the no-scroll layout in
+        // RunInfo.tsx / useFitPriority.ts, which relies on this to free up room for other tiles.
+        width: `min(${size}rem, 80vw, 42dvh)`,
         aspectRatio: '1',
         mx: 'auto',
         containerType: 'inline-size',

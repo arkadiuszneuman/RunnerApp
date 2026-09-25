@@ -17,14 +17,17 @@ import Link from 'next/link';
 import { isPausedAtom, runningStateAtom, stagesAtom } from '../atoms';
 import ActionBar from '../base/ActionBar';
 import BluetoothNotice, { isBluetoothBlocked } from '../base/BluetoothNotice';
-import SpeedControllerPicker from '../base/SpeedControllerPicker';
 import { useBluetoothAvailability } from '../ble/bluetoothAvailability';
 import { syncToneIcon, useSyncSummary } from '../offline/SyncIndicator';
 import { glass, tokens } from '../theme';
 import useRunningLoop from '../useRunningLoop';
 import RunInfo from './RunInfo/RunInfo';
 
-function StatusIcon({ active, title, icon }: Readonly<{ active: boolean; title: string; icon: ReactElement }>) {
+function StatusIcon({
+  active,
+  title,
+  icon,
+}: Readonly<{ active: boolean; title: string; icon: ReactElement }>) {
   return (
     <Tooltip title={title}>
       <Box
@@ -82,96 +85,121 @@ export default function Run() {
   const SyncIcon = syncToneIcon[sync.tone];
 
   return (
-    <Box sx={{ maxWidth: 520, mx: 'auto', animation: 'fade-in 400ms ease backwards' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <IconButton
-          component={Link}
-          href="/"
-          aria-label="Back"
-          disabled={runningState.running}
-          sx={{ ...glass, width: 40, height: 40, '&.Mui-disabled': { opacity: 0.35 } }}
-        >
-          <ArrowBackRoundedIcon fontSize="small" />
-        </IconButton>
-        <Typography variant="overline" sx={{ flex: 1, textAlign: 'center', color: 'text.secondary' }}>
-          {runningState.running ? (isPaused ? 'Paused' : 'Workout') : 'Ready'}
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 0.75 }}>
-          <StatusIcon
-            active={heartConnected}
-            title={`Heart rate monitor: ${heartConnected ? 'connected' : 'disconnected'}`}
-            icon={<FavoriteRoundedIcon />}
-          />
-          <StatusIcon
-            active={wakeLockActive}
-            title={`Screen keep-awake: ${wakeLockSupported ? runningLoop.wakeLock.wakeLockStatus : 'not supported'}`}
-            icon={<LightModeRoundedIcon />}
-          />
-          <StatusIcon
-            active={mounted && (sync.tone === 'ok' || sync.tone === 'syncing')}
-            title={`${sync.label}: ${sync.detail}`}
-            icon={<SyncIcon />}
-          />
-        </Box>
-      </Box>
-
-      {mounted && <BluetoothNotice availability={bluetooth} sx={{ mb: 1.5 }} />}
-
-      <RunInfo onResetManualSpeed={runningLoop.resetManualSpeed} />
-
-      {!runningState.running && (
-        <Box sx={{ mt: 1.5 }}>
-          <SpeedControllerPicker index={7} />
-        </Box>
-      )}
-
-      <ActionBar>
-        {!runningState.running ? (
-          <Tooltip
-            title={
-              bluetoothBlocked
-                ? "The treadmill can't be reached from this browser"
-                : stages.length === 0
-                  ? 'Add at least one stage to your program first'
-                  : ''
-            }
+    // Fixed to the viewport (rather than a normal in-flow page) so the run dashboard is exactly
+    // one screen: no vertical scroll, ever. AppShell's <main> padding doesn't apply to a fixed
+    // child, so the safe-area padding below re-states it. See useFitPriority.ts for how the
+    // content between the header and ActionBar decides what fits.
+    <Box
+      sx={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        justifyContent: 'center',
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: 520,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          px: 2,
+          pt: 'calc(12px + env(safe-area-inset-top))',
+          pb: 'calc(12px + env(safe-area-inset-bottom))',
+          animation: 'fade-in 400ms ease backwards',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexShrink: 0 }}>
+          <IconButton
+            component={Link}
+            href="/"
+            aria-label="Back"
+            disabled={runningState.running}
+            sx={{ ...glass, width: 40, height: 40, '&.Mui-disabled': { opacity: 0.35 } }}
           >
-            <Box component="span" sx={{ flex: 1, display: 'flex' }}>
+            <ArrowBackRoundedIcon fontSize="small" />
+          </IconButton>
+          <Typography
+            variant="overline"
+            sx={{ flex: 1, textAlign: 'center', color: 'text.secondary' }}
+          >
+            {runningState.running ? (isPaused ? 'Paused' : 'Workout') : 'Ready'}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.75 }}>
+            <StatusIcon
+              active={heartConnected}
+              title={`Heart rate monitor: ${heartConnected ? 'connected' : 'disconnected'}`}
+              icon={<FavoriteRoundedIcon />}
+            />
+            <StatusIcon
+              active={wakeLockActive}
+              title={`Screen keep-awake: ${wakeLockSupported ? runningLoop.wakeLock.wakeLockStatus : 'not supported'}`}
+              icon={<LightModeRoundedIcon />}
+            />
+            <StatusIcon
+              active={mounted && (sync.tone === 'ok' || sync.tone === 'syncing')}
+              title={`${sync.label}: ${sync.detail}`}
+              icon={<SyncIcon />}
+            />
+          </Box>
+        </Box>
+
+        {mounted && <BluetoothNotice availability={bluetooth} sx={{ mb: 1.5, flexShrink: 0 }} />}
+
+        <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <RunInfo onResetManualSpeed={runningLoop.resetManualSpeed} />
+        </Box>
+
+        <ActionBar>
+          {!runningState.running ? (
+            <Tooltip
+              title={
+                bluetoothBlocked
+                  ? "The treadmill can't be reached from this browser"
+                  : stages.length === 0
+                    ? 'Add at least one stage to your program first'
+                    : ''
+              }
+            >
+              <Box component="span" sx={{ flex: 1, display: 'flex' }}>
+                <Button
+                  fullWidth
+                  size="large"
+                  variant="contained"
+                  startIcon={<PlayArrowRoundedIcon />}
+                  onClick={runningLoop.start}
+                  disabled={stages.length === 0 || bluetoothBlocked}
+                >
+                  Start
+                </Button>
+              </Box>
+            </Tooltip>
+          ) : (
+            <>
+              <Button
+                size="large"
+                variant="glass"
+                onClick={runningLoop.stop}
+                startIcon={<StopRoundedIcon sx={{ color: tokens.heart }} />}
+                sx={{ flex: '0 0 38%' }}
+              >
+                Stop
+              </Button>
               <Button
                 fullWidth
                 size="large"
                 variant="contained"
-                startIcon={<PlayArrowRoundedIcon />}
-                onClick={runningLoop.start}
-                disabled={stages.length === 0 || bluetoothBlocked}
+                onClick={isPaused ? runningLoop.resume : runningLoop.pause}
+                startIcon={isPaused ? <PlayArrowRoundedIcon /> : <PauseRoundedIcon />}
               >
-                Start
+                {isPaused ? 'Resume' : 'Pause'}
               </Button>
-            </Box>
-          </Tooltip>
-        ) : (
-          <>
-            <Button
-              size="large"
-              variant="glass"
-              onClick={runningLoop.stop}
-              startIcon={<StopRoundedIcon sx={{ color: tokens.heart }} />}
-              sx={{ flex: '0 0 38%' }}
-            >
-              Stop
-            </Button>
-            <Button
-              fullWidth
-              size="large"
-              variant="contained"
-              onClick={isPaused ? runningLoop.resume : runningLoop.pause}
-              startIcon={isPaused ? <PlayArrowRoundedIcon /> : <PauseRoundedIcon />}
-            >
-              {isPaused ? 'Resume' : 'Pause'}
-            </Button>
-          </>
-        )}
-      </ActionBar>
+            </>
+          )}
+        </ActionBar>
+      </Box>
     </Box>
   );
 }

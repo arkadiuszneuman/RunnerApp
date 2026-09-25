@@ -1,7 +1,9 @@
 import { RunSession, type RunApi } from '@runner/core';
 import BleManager from './BleManager';
+import { stopRunBackground } from './nativeRunBackground';
 import { writes } from './offline/requests';
 import { enqueueWrite } from './offline/sync';
+import { watchRunEnd } from './runEndWatcher';
 import { store } from './store';
 
 /**
@@ -28,3 +30,7 @@ export const runSession = new RunSession({
   api,
   logger: (message) => console.warn(message),
 });
+
+// See runEndWatcher.ts: clears the native foreground-service notification on every path a run
+// can end, not just the Stop button. No-op outside the native shell.
+watchRunEnd(store, () => void stopRunBackground());

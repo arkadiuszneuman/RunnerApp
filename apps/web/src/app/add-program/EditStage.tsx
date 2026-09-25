@@ -91,16 +91,17 @@ function StageEdit(props: Readonly<{ stage: Stage; index: number; onStageChanged
           minute: stage.duration.minutes,
           second: stage.duration.seconds,
         })}
-        selectedSections={'empty'}
         slotProps={{ textField: { fullWidth: true } }}
         onChange={(e) => {
+          // Typing into the field reports partial/cleared input as null or an invalid date.
+          if (!e?.isValid()) return;
           setStage(
             (prev) =>
               ({
                 ...prev,
-                duration: Timespan.fromHours(Number(e?.hour()))
-                  .add(Timespan.fromMinutes(Number(e?.minute())))
-                  .add(Timespan.fromSeconds(Number(e?.second()))),
+                duration: Timespan.fromHours(e.hour())
+                  .add(Timespan.fromMinutes(e.minute()))
+                  .add(Timespan.fromSeconds(e.second())),
               } satisfies Stage)
           );
         }}
@@ -147,14 +148,12 @@ function StageEdit(props: Readonly<{ stage: Stage; index: number; onStageChanged
             minute: stage.speedType === 'tempo' ? stage.tempo.minutes : 0,
             second: stage.speedType === 'tempo' ? stage.tempo.seconds : 0,
           })}
-          selectedSections={'empty'}
           slotProps={{ textField: { fullWidth: true } }}
           onChange={(e) => {
+            if (!e?.isValid()) return;
             setStage((prev) => ({
               ...prev,
-              tempo: Timespan.fromMinutes(Number(e?.minute())).add(
-                Timespan.fromSeconds(Number(e?.second()))
-              ),
+              tempo: Timespan.fromMinutes(e.minute()).add(Timespan.fromSeconds(e.second())),
             }));
           }}
         />
