@@ -29,13 +29,22 @@ const digitSx = {
  * dragged (not yet released) when there is one — see LiveTimePicker below
  * for why the stock TimePickerToolbar can't do this.
  */
-function LiveToolbar({ liveValue }: Readonly<{ liveValue: PickerValidDate | null }>) {
+function LiveToolbar({
+  liveValue,
+  className,
+}: Readonly<{ liveValue: PickerValidDate | null; className?: string }>) {
   const { value, view, views, setView } = usePickerContext<PickerValidDate | null, TimeView>();
   const shown = liveValue ?? value;
   const activeViews = views.filter((v) => TIME_VIEWS.includes(v));
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '2px', pt: 2.5, pb: 1 }}>
+    // `className` carries `MuiPickersLayout-toolbar`, which is what places the toolbar in its own
+    // grid row above the clock — without it the toolbar lands in the clock's column and pushes the
+    // clock face (and the Cancel/OK bar) half out of the mobile dialog.
+    <Box
+      className={className}
+      sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '2px', pt: 2.5, pb: 1 }}
+    >
       {activeViews.map((v, i) => (
         <Box key={v} sx={{ display: 'flex', alignItems: 'baseline' }}>
           {i > 0 && (
@@ -113,7 +122,12 @@ export default function LiveTimePicker(props: Readonly<TimePickerProps>) {
           }),
         ...props.viewRenderers,
       }}
-      slots={{ toolbar: () => <LiveToolbar liveValue={liveValue} />, ...props.slots }}
+      slots={{
+        toolbar: (toolbarProps: { className?: string }) => (
+          <LiveToolbar liveValue={liveValue} className={toolbarProps.className} />
+        ),
+        ...props.slots,
+      }}
     />
   );
 }

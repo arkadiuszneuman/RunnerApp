@@ -1,8 +1,34 @@
 import { heartRateAtom, programAtom, runningStateAtom } from '@/app/atoms';
+import Box from '@mui/material/Box';
 import { Timespan } from '@runner/core';
 import { atomsForStorybook } from '@alexgorbatchev/storybook-addon-jotai';
 import type { Meta, StoryObj } from '@storybook/react';
 import RunInfo from './RunInfo';
+
+/**
+ * RunInfo is only ever mounted inside running/page.tsx's fixed-height, non-scrolling column (see
+ * useFitPriority.ts) — this decorator reproduces that bounded height so its "hide the lowest-
+ * priority section that doesn't fit" behavior is visible/testable in isolation. `height` mimics
+ * how much room is left after the header/ActionBar on a real device.
+ */
+function fixedHeightDecorator(height: number) {
+  return function Decorator(Story: React.ComponentType) {
+    return (
+      <Box
+        data-testid="fit-box"
+        sx={{
+          width: 380,
+          height,
+          display: 'flex',
+          flexDirection: 'column',
+          outline: '1px dashed #444',
+        }}
+      >
+        <Story />
+      </Box>
+    );
+  };
+}
 
 const meta = {
   title: 'Run/RunInfo',
@@ -26,7 +52,7 @@ const meta = {
             isCustomSpeedUsed: false,
             isManualSpeedActive: false,
           },
-          paused: false
+          paused: false,
         },
         program: [
           {
@@ -71,4 +97,7 @@ const meta = {
 export default meta;
 type Story = StoryObj;
 
-export const Primary: Story = {};
+export const Tall: Story = { decorators: [fixedHeightDecorator(820)] };
+export const Medium: Story = { decorators: [fixedHeightDecorator(620)] };
+export const Short: Story = { decorators: [fixedHeightDecorator(460)] };
+export const VeryShort: Story = { decorators: [fixedHeightDecorator(340)] };

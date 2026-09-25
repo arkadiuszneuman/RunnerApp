@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useWakeLock } from 'react-screen-wake-lock';
 import { useInterval } from '@runner/core';
+import { runningStateAtom } from './atoms';
 import BleManager from './BleManager';
 import { isChooserCancelled } from './ble/bluetoothAvailability';
 import { startRunBackground, stopRunBackground } from './nativeRunBackground';
-import useHeartRate from './useHeartRate';
 import { runSession } from './runSession';
+import { store } from './store';
+import useHeartRate from './useHeartRate';
 
 /**
  * Thin platform wrapper around the shared RunSession singleton (see
@@ -53,6 +55,11 @@ export default function useRunningLoop() {
     if (!BleManager.isConnected()) return;
     await startRunBackground();
     await runSession.start();
+    // runSession.start() fails silently (empty program, treadmill not connected, etc.) and
+    // never flips runningStateAtom to running — the runSession.ts subscription that clears the
+    // foreground-service notification only fires on a running:true → false transition, so a
+    // start that never actually started must be cleaned up here instead.
+    if (!store.get(runningStateAtom).running) await stopRunBackground();
   }, []);
 
   const stop = useCallback(async () => {
