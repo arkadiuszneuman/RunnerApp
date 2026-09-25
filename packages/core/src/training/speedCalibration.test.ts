@@ -3,12 +3,17 @@ import type { TelemetryPoint } from '../types/telemetry';
 import {
   EMPTY_SPEED_CALIBRATION,
   learnSpeedCalibration,
+  mergeSpeedCalibrations,
+  parseSpeedCalibration,
+  speedCalibrationsEqual,
   speedHintFor,
   type SpeedCalibration,
 } from './speedCalibration';
 
 /** Fills in the telemetry fields this module doesn't care about. */
-function point(p: Partial<TelemetryPoint> & Pick<TelemetryPoint, 't' | 'hr' | 'thr'>): TelemetryPoint {
+function point(
+  p: Partial<TelemetryPoint> & Pick<TelemetryPoint, 't' | 'hr' | 'thr'>
+): TelemetryPoint {
   return { spd: 0, inc: 0, si: 0, err: 0, phr: p.hr, ...p };
 }
 
@@ -32,7 +37,14 @@ function ramp(opts: {
 
 describe('learnSpeedCalibration', () => {
   it('learns the settled speed once heart rate ramps into and holds the target band', () => {
-    const telemetry = ramp({ thr: 143, startHr: 75, settledHr: 143, rampS: 200, totalS: 320, speed: 14.3 });
+    const telemetry = ramp({
+      thr: 143,
+      startHr: 75,
+      settledHr: 143,
+      rampS: 200,
+      totalS: 320,
+      speed: 14.3,
+    });
     const result = learnSpeedCalibration(telemetry, EMPTY_SPEED_CALIBRATION);
     expect(result.points).toHaveLength(1);
     expect(result.points[0]).toMatchObject({ bpm: 143 });
@@ -66,7 +78,14 @@ describe('learnSpeedCalibration', () => {
   });
 
   it('skips a target that is never reached', () => {
-    const telemetry = ramp({ thr: 160, startHr: 75, settledHr: 130, rampS: 200, totalS: 260, speed: 14 });
+    const telemetry = ramp({
+      thr: 160,
+      startHr: 75,
+      settledHr: 130,
+      rampS: 200,
+      totalS: 260,
+      speed: 14,
+    });
     const result = learnSpeedCalibration(telemetry, EMPTY_SPEED_CALIBRATION);
     expect(result.points).toHaveLength(0);
   });
@@ -92,8 +111,17 @@ describe('learnSpeedCalibration', () => {
   });
 
   it('upserts: a new run at a nearby bpm replaces the old point instead of adding a second one', () => {
-    const previous: SpeedCalibration = { points: [{ bpm: 142, speed: 13.0, at: '2026-01-01T00:00:00.000Z' }] };
-    const telemetry = ramp({ thr: 143, startHr: 75, settledHr: 143, rampS: 200, totalS: 320, speed: 14.5 });
+    const previous: SpeedCalibration = {
+      points: [{ bpm: 142, speed: 13.0, at: '2026-01-01T00:00:00.000Z' }],
+    };
+    const telemetry = ramp({
+      thr: 143,
+      startHr: 75,
+      settledHr: 143,
+      rampS: 200,
+      totalS: 320,
+      speed: 14.5,
+    });
     const result = learnSpeedCalibration(telemetry, previous, () => '2026-02-01T00:00:00.000Z');
     expect(result.points).toHaveLength(1);
     expect(result.points[0]).toEqual({ bpm: 143, speed: 14.5, at: '2026-02-01T00:00:00.000Z' });
@@ -102,8 +130,19 @@ describe('learnSpeedCalibration', () => {
   it('keeps points for distinct targets separate and caps the stored history at 12', () => {
     let calibration = EMPTY_SPEED_CALIBRATION;
     for (let bpm = 120; bpm < 120 + 15 * 10; bpm += 10) {
-      const telemetry = ramp({ thr: bpm, startHr: bpm - 60, settledHr: bpm, rampS: 200, totalS: 320, speed: 10 });
-      calibration = learnSpeedCalibration(telemetry, calibration, () => `2026-01-01T00:00:${bpm}.000Z`);
+      const telemetry = ramp({
+        thr: bpm,
+        startHr: bpm - 60,
+        settledHr: bpm,
+        rampS: 200,
+        totalS: 320,
+        speed: 10,
+      });
+      calibration = learnSpeedCalibration(
+        telemetry,
+        calibration,
+        () => `2026-01-01T00:00:${bpm}.000Z`
+      );
     }
     expect(calibration.points).toHaveLength(12);
     // The oldest (lowest bpm) entries were dropped, the most recent kept.
@@ -134,5 +173,73 @@ describe('speedHintFor', () => {
 
   it('returns undefined when the nearest calibrated point is more than 15 bpm away', () => {
     expect(speedHintFor(calibration, 170)).toBeUndefined();
+  });
+});
+
+describe('mergeSpeedCalibrations', () => {
+  const at = (n: number) => `2026-01-0${n}T00:00:00.000Z`;
+
+  it('keeps distinct targets from both sides', () => {
+    const merged = mergeSpeedCalibrations(
+      { points: [{ bpm: 130, speed: 11, at: at(1) }] },
+      { points: [{ bpm: 150, speed: 15, at: at(2) }] }
+    );
+    expect(merged.points.map((p) => p.bpm)).toEqual([130, 150]);
+  });
+
+  it('for the same target the newer point wins, whichever side it came from', () => {
+    const older = { points: [{ bpm: 143, speed: 13, at: at(1) }] };
+    const newer = { points: [{ bpm: 144, speed: 14.3, at: at(3) }] };
+    expect(mergeSpeedCalibrations(older, newer).points).toEqual(newer.points);
+    expect(mergeSpeedCalibrations(newer, older).points).toEqual(newer.points);
+  });
+
+  it('caps at 12 points, dropping the oldest', () => {
+    const many = {
+      points: Array.from({ length: 15 }, (_, i) => ({
+        bpm: 100 + i * 10,
+        speed: 10,
+        at: `2026-02-${String(i + 1).padStart(2, '0')}T00:00:00.000Z`,
+      })),
+    };
+    const merged = mergeSpeedCalibrations(many, EMPTY_SPEED_CALIBRATION);
+    expect(merged.points).toHaveLength(12);
+    expect(merged.points[0].bpm).toBe(130);
+  });
+});
+
+describe('speedCalibrationsEqual', () => {
+  it('ignores ordering', () => {
+    const a = {
+      points: [
+        { bpm: 130, speed: 11, at: '2026-01-01T00:00:00.000Z' },
+        { bpm: 150, speed: 15, at: '2026-01-02T00:00:00.000Z' },
+      ],
+    };
+    const b = { points: [...a.points].reverse() };
+    expect(speedCalibrationsEqual(a, b)).toBe(true);
+    expect(speedCalibrationsEqual(a, EMPTY_SPEED_CALIBRATION)).toBe(false);
+  });
+});
+
+describe('parseSpeedCalibration', () => {
+  it('returns empty for garbage', () => {
+    for (const v of [null, undefined, 'x', 3, {}, { points: 'no' }]) {
+      expect(parseSpeedCalibration(v)).toEqual(EMPTY_SPEED_CALIBRATION);
+    }
+  });
+
+  it('drops malformed or implausible points but keeps valid ones', () => {
+    const parsed = parseSpeedCalibration({
+      points: [
+        { bpm: 143, speed: 14.3, at: '2026-01-01T00:00:00.000Z' },
+        { bpm: 143, speed: 99, at: '2026-01-01T00:00:00.000Z' }, // implausible speed
+        { bpm: 'x', speed: 10, at: '2026-01-01T00:00:00.000Z' },
+        { bpm: 10, speed: 10, at: '2026-01-01T00:00:00.000Z' }, // implausible bpm
+        { bpm: 150, speed: 15 }, // missing at
+        null,
+      ],
+    });
+    expect(parsed.points).toEqual([{ bpm: 143, speed: 14.3, at: '2026-01-01T00:00:00.000Z' }]);
   });
 });

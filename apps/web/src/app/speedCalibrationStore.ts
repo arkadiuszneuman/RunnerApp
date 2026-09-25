@@ -1,12 +1,25 @@
 import {
   EMPTY_SPEED_CALIBRATION,
   learnSpeedCalibration,
+  mergeSpeedCalibrations,
+  parseSpeedCalibration,
   speedHintFor,
   type SpeedCalibration,
   type TelemetryPoint,
 } from '@runner/core';
 
 const STORAGE_PREFIX = 'runner.speedCalibration.';
+
+/**
+ * The per-runner speed calibration's *device cache*. The source of truth is the user's
+ * `user_settings` row on the server (see userData.ts's syncSpeedCalibration and
+ * offline/requests.ts's setSpeedCalibration), so it follows the runner across devices and
+ * survives clearing app data. It is cached here because `speedHint` is read synchronously in the
+ * middle of a run, which must work offline and can't wait on the network.
+ *
+ * Every function that changes the calibration returns the resulting value so the caller can
+ * queue it for the server — this module stays free of network/outbox concerns.
+ */
 
 /**
  * The signed-in user's id, as tracked by useOfflineSync's setSyncUser (see setUser below) — this
@@ -24,21 +37,13 @@ function storageKey(): string | null {
   return userId ? `${STORAGE_PREFIX}${userId}` : null;
 }
 
-function loadCalibration(): SpeedCalibration {
+/** The cached calibration for the signed-in user (empty when none, corrupted, or signed out). */
+export function currentCalibration(): SpeedCalibration {
   const key = storageKey();
   if (!key) return EMPTY_SPEED_CALIBRATION;
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return EMPTY_SPEED_CALIBRATION;
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      !parsed ||
-      typeof parsed !== 'object' ||
-      !Array.isArray((parsed as SpeedCalibration).points)
-    ) {
-      return EMPTY_SPEED_CALIBRATION;
-    }
-    return parsed as SpeedCalibration;
+    return raw ? parseSpeedCalibration(JSON.parse(raw)) : EMPTY_SPEED_CALIBRATION;
   } catch {
     return EMPTY_SPEED_CALIBRATION;
   }
@@ -50,13 +55,14 @@ function saveCalibration(calibration: SpeedCalibration): void {
   try {
     localStorage.setItem(key, JSON.stringify(calibration));
   } catch {
-    // Storage unavailable (private mode, blocked, quota) — the learned calibration just won't persist.
+    // Storage unavailable (private mode, blocked, quota) — the cache just won't persist; the
+    // server copy (queued by the caller) still does.
   }
 }
 
-/** Whether the signed-in user has any calibration yet — checked before bothering to fetch past runs to seed one. */
+/** Whether there's any calibration yet — checked before bothering to fetch past runs to seed one. */
 export function needsSeed(): boolean {
-  return loadCalibration().points.length === 0;
+  return currentCalibration().points.length === 0;
 }
 
 /**
@@ -64,23 +70,39 @@ export function needsSeed(): boolean {
  * passed as RunSession's `speedHint` (see AdaptiveTraining.ts's ramp-to-hint behavior).
  */
 export function speedHint(bpm: number): number | undefined {
-  return speedHintFor(loadCalibration(), bpm);
+  return speedHintFor(currentCalibration(), bpm);
 }
 
-/** Learns from a just-finished run and folds the result into the saved calibration. */
-export function learnFromRun(telemetry: readonly TelemetryPoint[]): void {
-  saveCalibration(learnSpeedCalibration([...telemetry], loadCalibration()));
+/** Learns from a just-finished run; returns the updated calibration to persist. */
+export function learnFromRun(telemetry: readonly TelemetryPoint[]): SpeedCalibration {
+  const updated = learnSpeedCalibration([...telemetry], currentCalibration());
+  saveCalibration(updated);
+  return updated;
 }
 
 /**
- * Seeds a fresh sign-in's calibration from past runs' telemetry, without clobbering anything
- * already learned (e.g. on another device, or from a run already recorded this session) — see
- * userData.ts's seedSpeedCalibrationFromHistory, which fetches the telemetry to pass here.
+ * Folds the server's copy into the cache (newest point per target wins, so a run learned offline
+ * or on another device isn't lost); returns the merged result, which may hold points the server
+ * doesn't have yet.
  */
-export function seedFromRuns(telemetries: readonly (readonly TelemetryPoint[])[]): void {
-  if (loadCalibration().points.length > 0) return;
+export function mergeServerCalibration(server: SpeedCalibration): SpeedCalibration {
+  const merged = mergeSpeedCalibrations(currentCalibration(), server);
+  saveCalibration(merged);
+  return merged;
+}
+
+/**
+ * Backfills from past runs' telemetry when nothing is calibrated yet (an account that
+ * predates this feature) — see userData.ts's syncSpeedCalibration, which fetches the telemetry.
+ * Never clobbers an existing calibration; returns the resulting one.
+ */
+export function seedFromRuns(
+  telemetries: readonly (readonly TelemetryPoint[])[]
+): SpeedCalibration {
+  if (!needsSeed()) return currentCalibration();
   let calibration = EMPTY_SPEED_CALIBRATION;
   for (const telemetry of telemetries)
     calibration = learnSpeedCalibration([...telemetry], calibration);
   if (calibration.points.length > 0) saveCalibration(calibration);
+  return calibration;
 }

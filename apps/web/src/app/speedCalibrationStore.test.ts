@@ -1,8 +1,18 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { TelemetryPoint } from '@runner/core';
-import { learnFromRun, needsSeed, seedFromRuns, setUser, speedHint } from './speedCalibrationStore';
+import {
+  currentCalibration,
+  learnFromRun,
+  mergeServerCalibration,
+  needsSeed,
+  seedFromRuns,
+  setUser,
+  speedHint,
+} from './speedCalibrationStore';
 
-function point(p: Partial<TelemetryPoint> & Pick<TelemetryPoint, 't' | 'hr' | 'thr'>): TelemetryPoint {
+function point(
+  p: Partial<TelemetryPoint> & Pick<TelemetryPoint, 't' | 'hr' | 'thr'>
+): TelemetryPoint {
   return { spd: 0, inc: 0, si: 0, err: 0, phr: p.hr, ...p };
 }
 
@@ -68,5 +78,36 @@ describe('speedCalibrationStore', () => {
     expect(speedHint(140)).toBeUndefined();
     expect(() => learnFromRun(settledRun(140, 12))).not.toThrow();
     expect(speedHint(140)).toBeCloseTo(12, 5);
+  });
+
+  it('returns the updated calibration from learnFromRun, for the caller to queue for the server', () => {
+    setUser('user-1');
+    const updated = learnFromRun(settledRun(140, 12));
+    expect(updated.points).toHaveLength(1);
+    expect(updated).toEqual(currentCalibration());
+  });
+
+  it('merges the server copy into the cache, keeping the newest point per target', () => {
+    setUser('user-1');
+    learnFromRun(settledRun(140, 12));
+    const local = currentCalibration();
+
+    const merged = mergeServerCalibration({
+      points: [
+        // Older than the local 140 point (loses), plus a target this device never learned (kept).
+        { bpm: 140, speed: 9, at: '2000-01-01T00:00:00.000Z' },
+        { bpm: 160, speed: 15, at: '2000-01-01T00:00:00.000Z' },
+      ],
+    });
+    expect(merged.points.map((p) => p.bpm).sort()).toEqual([140, 160]);
+    expect(speedHint(140)).toBeCloseTo(local.points[0].speed, 5);
+    expect(speedHint(160)).toBeCloseTo(15, 5);
+    expect(currentCalibration()).toEqual(merged);
+  });
+
+  it('does not cache a server calibration while signed out', () => {
+    mergeServerCalibration({ points: [{ bpm: 140, speed: 12, at: '2026-01-01T00:00:00.000Z' }] });
+    expect(localStorage.length).toBe(0);
+    expect(speedHint(140)).toBeUndefined();
   });
 });

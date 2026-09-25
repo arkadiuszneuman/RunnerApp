@@ -1,10 +1,10 @@
-import { RunSession, type RunApi } from '@runner/core';
+import { RunSession, speedCalibrationsEqual, type RunApi } from '@runner/core';
 import BleManager from './BleManager';
 import { stopRunBackground } from './nativeRunBackground';
 import { writes } from './offline/requests';
 import { enqueueWrite } from './offline/sync';
 import { watchRunEnd } from './runEndWatcher';
-import { learnFromRun, speedHint } from './speedCalibrationStore';
+import { currentCalibration, learnFromRun, speedHint } from './speedCalibrationStore';
 import { store } from './store';
 
 /**
@@ -43,4 +43,11 @@ watchRunEnd(store, () => void stopRunBackground());
 // Learns this runner's actual speed-to-heart-rate calibration from every finished run, for
 // speedHint above to use on the next one. Same "any way the run can end" coverage as the
 // notification watcher.
-watchRunEnd(store, () => learnFromRun(runSession.telemetry));
+watchRunEnd(store, () => {
+  const before = currentCalibration();
+  const after = learnFromRun(runSession.telemetry);
+  // The device cache is updated already; the server copy (source of truth, shared with the
+  // runner's other devices) goes through the offline outbox like every other write, so a run
+  // finished without a connection uploads its calibration later.
+  if (!speedCalibrationsEqual(before, after)) void enqueueWrite(writes.setSpeedCalibration(after));
+});

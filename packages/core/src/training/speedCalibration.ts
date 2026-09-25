@@ -28,6 +28,12 @@ const MIN_SAMPLE_S = 60;
 /** Two learned points within this many bpm of each other are treated as "the same" target. */
 const MERGE_BPM = 2;
 const MAX_POINTS = 12;
+/** Plausibility bounds for a stored point — also enforced by the /api/user-settings schema. */
+export const MIN_BPM = 30;
+export const MAX_BPM = 250;
+export const MIN_SPEED_KMH = 1;
+export const MAX_SPEED_KMH = 25;
+export const MAX_CALIBRATION_POINTS = MAX_POINTS;
 
 /**
  * Learns "at this heart rate, this runner's belt speed settles here" from a finished run's
@@ -98,9 +104,56 @@ function learnFromEpisode(episode: Segment[]): number | undefined {
   return weightedSpeed / totalDuration;
 }
 
-function upsertPoint(points: SpeedCalibrationPoint[], next: SpeedCalibrationPoint): SpeedCalibrationPoint[] {
+function upsertPoint(
+  points: SpeedCalibrationPoint[],
+  next: SpeedCalibrationPoint
+): SpeedCalibrationPoint[] {
   const withoutMatch = points.filter((p) => Math.abs(p.bpm - next.bpm) > MERGE_BPM);
   return [...withoutMatch, next];
+}
+
+/**
+ * Merges two calibrations (e.g. the one saved on the server and the one cached on this device,
+ * each possibly learned from runs the other never saw). Points are replayed oldest-first, so for
+ * any bpm the newest point wins — the same "a newer run supersedes an older one" rule
+ * learnSpeedCalibration applies within a single device.
+ */
+export function mergeSpeedCalibrations(a: SpeedCalibration, b: SpeedCalibration): SpeedCalibration {
+  const ordered = [...a.points, ...b.points].sort((x, y) =>
+    x.at < y.at ? -1 : x.at > y.at ? 1 : 0
+  );
+  return { points: ordered.reduce(upsertPoint, [] as SpeedCalibrationPoint[]).slice(-MAX_POINTS) };
+}
+
+export function speedCalibrationsEqual(a: SpeedCalibration, b: SpeedCalibration): boolean {
+  return (
+    JSON.stringify(mergeSpeedCalibrations(a, EMPTY_SPEED_CALIBRATION)) ===
+    JSON.stringify(mergeSpeedCalibrations(b, EMPTY_SPEED_CALIBRATION))
+  );
+}
+
+/**
+ * Defensive parse of a calibration read from storage or the network: drops anything malformed or
+ * implausible instead of trusting it, since a bad value here would steer the belt speed.
+ */
+export function parseSpeedCalibration(value: unknown): SpeedCalibration {
+  const raw = (value as { points?: unknown } | null | undefined)?.points;
+  if (!Array.isArray(raw)) return EMPTY_SPEED_CALIBRATION;
+  const points = raw.filter(
+    (p): p is SpeedCalibrationPoint =>
+      typeof p === 'object' &&
+      p !== null &&
+      Number.isFinite(p.bpm) &&
+      p.bpm >= MIN_BPM &&
+      p.bpm <= MAX_BPM &&
+      Number.isFinite(p.speed) &&
+      p.speed >= MIN_SPEED_KMH &&
+      p.speed <= MAX_SPEED_KMH &&
+      typeof p.at === 'string' &&
+      p.at.length > 0 &&
+      p.at.length <= 40
+  );
+  return mergeSpeedCalibrations({ points }, EMPTY_SPEED_CALIBRATION);
 }
 
 /**

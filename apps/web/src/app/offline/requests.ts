@@ -1,4 +1,4 @@
-import type { EnqueueOptions, OutboxRequest, RunApi } from '@runner/core';
+import type { EnqueueOptions, OutboxRequest, RunApi, SpeedCalibration } from '@runner/core';
 
 /** A mutation ready to hand to the outbox (see sync.ts). */
 export type QueuedWrite = { request: OutboxRequest; options: EnqueueOptions };
@@ -23,6 +23,7 @@ export const outboxKey = {
   programUpdate: (id: string) => `program-update:${id}`,
   programDelete: (id: string) => `program-delete:${id}`,
   userSettings: () => 'user-settings',
+  speedCalibration: () => 'speed-calibration',
   runCreate: (id: string) => `run-create:${id}`,
   runPatch: (id: string) => `run-patch:${id}`,
   runDelete: (id: string) => `run-delete:${id}`,
@@ -55,6 +56,18 @@ export const writes = {
     return {
       request: { method: 'PUT', url: '/api/user-settings', body: { activeProgramId } },
       options: { key: outboxKey.userSettings() },
+    };
+  },
+
+  /**
+   * Always the full merged calibration, so a newer write simply supersedes an older queued one
+   * (no merge needed). Deliberately its own key rather than 'user-settings': overlay.ts reads
+   * that entry's body as `{ activeProgramId }`, and the server merges the two fields anyway.
+   */
+  setSpeedCalibration(speedCalibration: SpeedCalibration): QueuedWrite {
+    return {
+      request: { method: 'PUT', url: '/api/user-settings', body: { speedCalibration } },
+      options: { key: outboxKey.speedCalibration() },
     };
   },
 
