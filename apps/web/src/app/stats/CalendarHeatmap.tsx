@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { DAY_MS, dailyDistance, startOfDay, startOfWeek, type StatsActivity } from '@runner/core';
@@ -35,11 +35,18 @@ export default function CalendarHeatmap({
     return { weeks, months };
   }, [list, nowLocalMs]);
 
+  // The newest weeks are on the right; on a narrow screen show those, older ones scroll in.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [weeks]);
+
   const level = (value: number) =>
     value <= 0 ? 0 : LEVELS.findIndex((bound) => value < bound) + 1 || 5;
 
   return (
-    <Box sx={{ overflowX: 'auto', pb: 0.5 }}>
+    <Box ref={scrollRef} sx={{ overflowX: 'auto', pb: 0.5 }}>
       <Box
         sx={{
           display: 'inline-grid',
