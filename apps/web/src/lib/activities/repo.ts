@@ -165,6 +165,13 @@ export async function importActivities(
       if (!match.garminId && candidate.garminId) patch.garminId = candidate.garminId;
       if (match.deletedAt && options.restoreDeleted) patch.deletedAt = null;
       if (match.deletedAt && !options.restoreDeleted) {
+        // Stays deleted, but remembers its intervals.icu id so sync stops offering it.
+        if (patch.intervalsId) {
+          await db
+            .update(externalActivities)
+            .set({ intervalsId: patch.intervalsId })
+            .where(eq(externalActivities.id, match.id));
+        }
         result.duplicates++;
         continue;
       }

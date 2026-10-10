@@ -186,8 +186,10 @@ repository layer in `apps/web`.
 
 Runs recorded on the user's Garmin watch are imported read-only (nothing is ever sent to Garmin) and linked to the
 RunnerApp run recorded at the same time. Direct Garmin API access isn't available (business-only program; the
-unofficial login broke in 2026), so the sources are FIT files — uploaded by hand (single files, zips, or Garmin's
-whole account export) and, in a later step, intervals.icu.
+unofficial login broke in 2026; Strava's API needs a paid subscription), so the sources are FIT files: pulled
+automatically from **intervals.icu** (an official Garmin partner; the user pastes their personal API key), and
+uploaded by hand (single files, zips, or Garmin's whole account export — for history older than the ~1 year
+Garmin gives intervals.icu).
 
 - **Core** (`packages/core/src/activities/`): `ActivityMetrics` (distance/time/HR, best efforts, per-bpm HR
   histogram, km splits, steady-state speed/HR) is computed the same way for watch activities
@@ -201,6 +203,13 @@ whole account export) and, in a later step, intervals.icu.
   time), intervals.icu id, or identical start time; auto-link after imports and when a run finishes;
   `link_mode` `'manual'`/`'none'` records the user's choice so auto-linking never overrides it; deleting only
   sets `deleted_at` (a tombstone background sync respects, an explicit re-upload restores).
+- **intervals.icu** (`lib/intervals/`): `client.ts` (Basic `API_KEY:<key>`; base URL overridable via
+  `INTERVALS_API_URL` for local testing), `sync.ts` — one bounded pass per `POST /api/integrations/intervals/sync`
+  (DB lease, ~40 s budget, no cursor: list → `planSync` diff → download original FIT → `decodeFit` → import), the
+  client loops while `remaining > 0` (`app/integrations/intervalsSync.ts`; auto-runs on app start at most hourly).
+  Strava-sourced activities can't be fetched from intervals.icu. The key is stored encrypted in
+  `user_integrations` (`lib/crypto.ts`, AES-256-GCM, user id as AAD; `INTEGRATIONS_ENCRYPTION_KEY` or derived from
+  `AUTH_SECRET`) and never returned to the client.
 - **UI**: History (`runs/page.tsx`) merges both (`historyAtom` in `userData.ts`); `/activities/[id]` and the
   "Watch" card on `/runs/[id]` show/change links (outbox writes `writes.linkActivity`/`deleteActivity`);
   `/settings` holds the file import and the heart-rate profile (`user_settings.athleteProfile`).
@@ -240,12 +249,12 @@ durations live in `packages/core/src/services/trainingDefaults.ts`.
 | `/programs` | List/select saved programs |
 | `/add-program` | Program builder |
 | `/activities/[id]` | Imported watch activity (charts, splits, best efforts, link to app run) |
-| `/settings` | Garmin file import, heart-rate profile |
+| `/settings` | Garmin sync (intervals.icu) and file import, heart-rate profile |
 | `/pid-simulator` | Dev tool comparing the speed controllers on a simulated runner |
 | `/login`, `/register` | Auth pages (public, excluded from the proxy gate) |
 
 API routes under `apps/web/src/app/api/` (`programs`, `programs/[id]`, `runs`, `runs/[id]`, `activities`,
-`activities/[id]`, `user-settings`, `register`, `auth/[...nextauth]`) all resolve the user via `getUserId()` (or `auth()`
+`activities/[id]`, `integrations/intervals`, `integrations/intervals/sync`, `user-settings`, `register`, `auth/[...nextauth]`) all resolve the user via `getUserId()` (or `auth()`
 for the NextAuth handler itself) and scope Drizzle queries to that user's id.
 
 ## Conventions

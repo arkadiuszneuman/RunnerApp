@@ -158,3 +158,34 @@ export const externalActivities = pgTable(
     index('external_activities_user_start_idx').on(a.userId, a.startTime),
   ]
 );
+
+/**
+ * A user's connection to a third-party data source (today only 'intervals' — intervals.icu, which
+ * relays the user's Garmin activities). `secret` is the encrypted credential (lib/crypto.ts) and
+ * never leaves the server. The sync bookkeeping lives here too: `sync_lock_until` is a lease so
+ * only one sync runs per user at a time, even across serverless instances.
+ */
+export const userIntegrations = pgTable(
+  'user_integrations',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    secret: text('secret').notNull(),
+    /** Last characters of the key, to show which one is connected. */
+    keyHint: text('key_hint').notNull(),
+    athleteId: text('athlete_id'),
+    athleteName: text('athlete_name'),
+    /** 'ok' | 'needs_reconnect' | 'error' */
+    status: text('status').notNull().default('ok'),
+    lastError: text('last_error'),
+    lastSyncedAt: timestamp('last_synced_at', { mode: 'date', withTimezone: true }),
+    fullSyncDoneAt: timestamp('full_sync_done_at', { mode: 'date', withTimezone: true }),
+    syncLockUntil: timestamp('sync_lock_until', { mode: 'date', withTimezone: true }),
+    retryAfter: timestamp('retry_after', { mode: 'date', withTimezone: true }),
+    createdAt: timestamp('created_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true }).notNull().defaultNow(),
+  },
+  (i) => [primaryKey({ columns: [i.userId, i.provider] })]
+);
