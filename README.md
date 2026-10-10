@@ -91,6 +91,6 @@ AUTH_GOOGLE_SECRET   # Google OAuth client secret
 NEXTAUTH_URL         # https://your-app.vercel.app
 ```
 
-5. On first deploy, run `pnpm db:migrate` locally pointing at the Neon connection string, or trigger it via a one-off Vercel function.
+5. Migrations run automatically on every **production** deploy: Vercel runs `apps/web`'s `vercel-build` script, which applies pending migrations (`scripts/migrate-production.sh`, using `DATABASE_URL_UNPOOLED` when set) before `next build`. Preview deploys skip them. A failed migration fails the deploy, leaving the previous one live.
 
 > **Pricing**: Vercel Postgres (Neon) is free on the Hobby plan — 0.5 GB storage, 190 compute hours/month.

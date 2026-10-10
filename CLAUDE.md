@@ -53,7 +53,9 @@ pnpm db:migrate     # Apply pending migrations (root drizzle/ folder)
 pnpm db:studio      # Open Drizzle Studio (DB browser)
 ```
 
-`db:*` scripts load env from `apps/web/.env.local` and run from the repo root (`drizzle.config.ts` points
+Production migrations are applied by the Vercel production build itself (`apps/web`'s `vercel-build` →
+`scripts/migrate-production.sh`; the DB credentials are sensitive env vars that can't be pulled locally). Preview
+builds skip them. `db:*` scripts load env from `apps/web/.env.local` and run from the repo root (`drizzle.config.ts` points
 at `apps/web/src/lib/db/schema.ts` and outputs to root `drizzle/`).
 
 Package manager is **pnpm**. Do not use npm or yarn. To run a script in one package directly:
