@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { displayFont, enter, tokens } from '../theme';
+import { displayFont, enter, MAX_STAGGER, tokens } from '../theme';
 
 /** Small uppercase caption used above stat values. */
 export const statLabelSx = {
@@ -25,7 +25,10 @@ export default function StatTile(
   }>
 ) {
   return (
-    <Paper variant="outlined" sx={{ p: 1.5, height: '100%', ...enter(props.index) }}>
+    <Paper
+      variant="outlined"
+      sx={{ p: 1.5, height: '100%', ...enter(Math.min(props.index, MAX_STAGGER)) }}
+    >
       <Box
         sx={{
           display: 'flex',

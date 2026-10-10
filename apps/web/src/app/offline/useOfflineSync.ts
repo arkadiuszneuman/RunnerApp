@@ -16,7 +16,7 @@ import { adoptCacheOwner, registerServiceWorker, warmOfflineCache } from './serv
 import { onOutboxFlushed, setSyncUser, startSyncTriggers } from './sync';
 
 /** Top-level routes whose pages (and their build assets) are pre-cached for offline use. */
-const APP_ROUTES = ['/', '/running', '/programs', '/add-program', '/runs', '/settings'];
+const APP_ROUTES = ['/', '/running', '/programs', '/add-program', '/runs', '/stats', '/settings'];
 
 /**
  * Mounted once at the app root (Providers.tsx): registers the service worker,
