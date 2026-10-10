@@ -32,6 +32,7 @@ import { displayFont, enter, MAX_STAGGER, pressable, tokens } from '../theme';
 import { applyFilter } from '@runner/core';
 import StatsFilterBar, { isDefaultFilter } from '../stats/StatsFilterBar';
 import {
+  firstDayOf,
   HISTORY_DEFAULT_FILTER,
   historyFilterAtom,
   nowLocalMs,
@@ -344,6 +345,7 @@ export default function RunsPage() {
           atom={historyFilterAtom}
           defaults={HISTORY_DEFAULT_FILTER}
           years={yearsOf(statsActivities)}
+          earliest={firstDayOf(statsActivities)}
         />
       )}
       {loading &&

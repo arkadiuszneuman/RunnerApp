@@ -31,7 +31,7 @@ import {
   ZonesPanel,
 } from './panels';
 import StatsFilterBar from './StatsFilterBar';
-import { statsFilterAtom, toLocalNow, useStatsActivities, yearsOf } from './statsState';
+import { firstDayOf, statsFilterAtom, toLocalNow, useStatsActivities, yearsOf } from './statsState';
 import { KpiTiles, PredictionsCard, RecordsCard, SectionTitle } from './Summary';
 import { useHrAnchors } from './useHrAnchors';
 
@@ -100,7 +100,7 @@ export default function StatsPage() {
       title="Stats"
       maxWidth={900}
     >
-      <StatsFilterBar atom={statsFilterAtom} years={years} />
+      <StatsFilterBar atom={statsFilterAtom} years={years} earliest={firstDayOf(all)} />
 
       {list.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 3, ...enter(1) }}>
