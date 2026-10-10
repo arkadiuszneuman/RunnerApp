@@ -4,7 +4,12 @@ import { useMemo } from 'react';
 import type { ChartData, ChartOptions } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { RunSeriesPoint } from '@runner/core';
-import { axisTitleColor, chartColors, tooltipTitleAsClock } from '@/app/charts/chartSetup';
+import {
+  axisTitleColor,
+  chartColors,
+  timeAxisFit,
+  tooltipTitleAsClock,
+} from '@/app/charts/chartSetup';
 import { makeStageShadingPlugin, type StageBand } from './stageShadingPlugin';
 
 export default function HeartRateChart({
@@ -93,6 +98,7 @@ export default function HeartRateChart({
       scales: {
         x: {
           type: 'linear',
+          ...timeAxisFit,
           title: { display: true, text: 'Minutes', color: axisTitleColor },
           ticks: { color: axisTitleColor },
         },
@@ -110,7 +116,8 @@ export default function HeartRateChart({
           },
         },
         tooltip: {
-          filter: (item) => item.dataset.label !== 'Target -5 bpm' && item.dataset.label !== 'Target +5 bpm',
+          filter: (item) =>
+            item.dataset.label !== 'Target -5 bpm' && item.dataset.label !== 'Target +5 bpm',
           callbacks: { title: tooltipTitleAsClock },
         },
       },
@@ -118,7 +125,10 @@ export default function HeartRateChart({
     []
   );
 
-  const plugins = useMemo(() => (stageBands ? [makeStageShadingPlugin(stageBands)] : []), [stageBands]);
+  const plugins = useMemo(
+    () => (stageBands ? [makeStageShadingPlugin(stageBands)] : []),
+    [stageBands]
+  );
 
   return <Line data={data} options={options} plugins={plugins} />;
 }

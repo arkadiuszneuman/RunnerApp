@@ -13,6 +13,7 @@ import {
   Tooltip,
   type ChartType,
   type Plugin,
+  type Scale,
   type ScriptableContext,
   type TooltipItem,
 } from 'chart.js';
@@ -204,3 +205,22 @@ export function tooltipTitleAsClock(items: TooltipItem<'line'>[]): string {
   if (x === undefined || x === null) return '';
   return Timespan.fromMinutes(x).toString('mm:ss');
 }
+
+/**
+ * Spread into a time (minutes) x axis so it ends where the data does instead of rounding up to
+ * the next tick (a 41-minute run used to leave an empty 41–50 stretch). With `bounds: 'data'`
+ * chart.js still adds a tick at the exact end (e.g. "41" squeezed next to "40"), so ticks off the
+ * regular grid are dropped — the axis keeps its range, only the stray labels/grid lines go.
+ */
+export const timeAxisFit = {
+  bounds: 'data',
+  afterBuildTicks: (scale: Scale) => {
+    const { ticks } = scale;
+    if (ticks.length < 3) return;
+    const spacing = ticks[2].value - ticks[1].value;
+    scale.ticks = ticks.filter((tick) => {
+      const steps = tick.value / spacing;
+      return Math.abs(steps - Math.round(steps)) < 1e-6;
+    });
+  },
+} as const;
