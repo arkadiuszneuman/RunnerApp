@@ -8,6 +8,7 @@
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
     "build": "next build",
+    "vercel-build": "sh ../../scripts/migrate-production.sh && next build",
     "start": "next start -p 3010",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
