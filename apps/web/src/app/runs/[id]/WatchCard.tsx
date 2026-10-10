@@ -80,24 +80,27 @@ export default function WatchCard({
                 : 'Import it from Garmin in Settings, or link one recorded around the same time.'}
           </Typography>
         </Box>
-        {activity && (
-          <Button variant="glass" component={Link} href={`/activities/${activity.id}`}>
-            Open
+        {/* Kept together: on a narrow screen the pair wraps below the text as one row. */}
+        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0, ml: 'auto' }}>
+          {activity && (
+            <Button variant="glass" component={Link} href={`/activities/${activity.id}`}>
+              Open
+            </Button>
+          )}
+          {!activity && connected && (
+            <Button
+              variant="glass"
+              disabled={sync.running}
+              onClick={() => void runIntervalsSync()}
+              startIcon={sync.running ? <CircularProgress size={14} color="inherit" /> : undefined}
+            >
+              Sync
+            </Button>
+          )}
+          <Button variant="glass" onClick={() => setOpen(true)}>
+            {activity ? 'Change' : 'Link'}
           </Button>
-        )}
-        {!activity && connected && (
-          <Button
-            variant="glass"
-            disabled={sync.running}
-            onClick={() => void runIntervalsSync()}
-            startIcon={sync.running ? <CircularProgress size={14} color="inherit" /> : undefined}
-          >
-            Sync
-          </Button>
-        )}
-        <Button variant="glass" onClick={() => setOpen(true)}>
-          {activity ? 'Change' : 'Link'}
-        </Button>
+        </Box>
       </Box>
       {m && (
         <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mt: 1.5 }}>
