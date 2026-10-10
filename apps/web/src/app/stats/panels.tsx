@@ -129,9 +129,27 @@ export function YearComparePanel({
 }
 const dayMonth = (x: number) => formatLocalDate(x, { day: 'numeric', month: 'long' });
 
+/**
+ * Paces this chart believes: a few hundred metres, or a pace slower than walking, is a recording
+ * left running or started by accident — one such point stretched the axis to 80 min/km and dragged
+ * the rolling average with it.
+ */
+const PACE_MIN_DISTANCE_M = 500;
+const PACE_SLOWEST_S_PER_KM = 15 * 60;
+const PACE_FASTEST_S_PER_KM = 2.5 * 60;
+const hasPlausiblePace = (a: StatsActivity) => {
+  const pace = paceOf(a);
+  return (
+    a.distanceM >= PACE_MIN_DISTANCE_M &&
+    pace >= PACE_FASTEST_S_PER_KM &&
+    pace <= PACE_SLOWEST_S_PER_KM
+  );
+};
+
 /** Every run's pace over time, treadmill vs outside, with a 4-week rolling average. */
-export function PacePanel({ list, index, deferIndex }: PanelProps) {
+export function PacePanel({ list: all, index, deferIndex }: PanelProps) {
   const series = useMemo((): TimeSeries[] => {
+    const list = all.filter(hasPlausiblePace);
     const point = (a: StatsActivity) => ({ x: a.localMs, y: paceOf(a) });
     const indoor = list.filter((a) => a.sport === 'treadmill' || a.sport === 'indoor');
     const outdoor = list.filter((a) => a.sport !== 'treadmill' && a.sport !== 'indoor');
@@ -159,10 +177,10 @@ export function PacePanel({ list, index, deferIndex }: PanelProps) {
       });
     }
     return result;
-  }, [list]);
+  }, [all]);
   return (
     <ChartCard title="Pace" index={index} deferIndex={deferIndex}>
-      <TimeChart series={series} yTitle="min/km" formatY={mmss} reverse />
+      <TimeChart series={series} yTitle="min/km" formatY={mmss} yStep={60} reverse />
     </ChartCard>
   );
 }

@@ -115,6 +115,7 @@ export function TimeChart({
   xFormat = defaultXFormat,
   tooltipTitle = defaultTooltipTitle,
   beginAtZero,
+  yStep,
 }: Readonly<{
   series: TimeSeries[];
   yTitle: string;
@@ -123,6 +124,8 @@ export function TimeChart({
   xFormat?: Intl.DateTimeFormatOptions;
   tooltipTitle?: (x: number) => string;
   beginAtZero?: boolean;
+  /** Tick spacing on the y axis, e.g. 60 for whole minutes of pace. */
+  yStep?: number;
 }>) {
   const data = useMemo(
     () => ({
@@ -183,7 +186,11 @@ export function TimeChart({
           reverse,
           beginAtZero,
           title: { display: true, text: yTitle, color: axisTitleColor },
-          ticks: { color: axisTitleColor, callback: (v) => formatY(Number(v)) },
+          ticks: {
+            color: axisTitleColor,
+            stepSize: yStep,
+            callback: (v) => formatY(Number(v)),
+          },
         },
       },
       plugins: {
@@ -198,7 +205,7 @@ export function TimeChart({
         },
       },
     }),
-    [series.length, xBounds, yTitle, formatY, reverse, xFormat, tooltipTitle, beginAtZero]
+    [series.length, xBounds, yTitle, formatY, reverse, xFormat, tooltipTitle, beginAtZero, yStep]
   );
   return <Chart type="line" data={data as ChartData<'line'>} options={options} />;
 }
