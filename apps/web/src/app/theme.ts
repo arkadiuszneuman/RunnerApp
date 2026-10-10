@@ -73,6 +73,8 @@ export const pressable = {
  * the same delay without duplicating the numbers. */
 export const ENTER_STEP_MS = 55;
 export const ENTER_DURATION_MS = 560;
+/** Long pages stop staggering entrances after this many items (later ones would wait seconds). */
+export const MAX_STAGGER = 12;
 
 /** Staggered entrance animation for list items (keyframes live in globals.css). */
 export function enter(index = 0, stepMs = ENTER_STEP_MS) {

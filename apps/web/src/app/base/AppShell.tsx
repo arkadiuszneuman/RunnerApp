@@ -4,6 +4,7 @@ import { ReactNode, useState } from 'react';
 import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import InstallMobileRoundedIcon from '@mui/icons-material/InstallMobileRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
@@ -36,7 +37,13 @@ const NAV_ITEMS = [
     href: '/runs',
     label: 'History',
     icon: HistoryRoundedIcon,
-    match: (p: string) => p.startsWith('/runs'),
+    match: (p: string) => p.startsWith('/runs') || p.startsWith('/activities'),
+  },
+  {
+    href: '/stats',
+    label: 'Stats',
+    icon: InsightsRoundedIcon,
+    match: (p: string) => p.startsWith('/stats'),
   },
 ];
 

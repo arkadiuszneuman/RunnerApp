@@ -214,6 +214,18 @@ Garmin gives intervals.icu).
   "Watch" card on `/runs/[id]` show/change links (outbox writes `writes.linkActivity`/`deleteActivity`);
   `/settings` holds the file import and the heart-rate profile (`user_settings.athleteProfile`).
 
+### Statistics
+
+`/stats` and History's filters run entirely client-side on `StatsActivity` (`packages/core/src/stats/`):
+`buildStatsActivities` merges app runs and watch activities (a linked pair counts once; belt vs watch distance is a
+per-device preference), with `localMs` = local wall-clock time encoded as UTC (read with `getUTC*`). Pure
+modules: `filters.ts` (presets + custom year/month/day ranges), `aggregate.ts` (totals, periods, YTD, streaks,
+distributions), `records.ts`, `predictions.ts` (VDOT, Riegel with fitted exponent, HR-based effective VO2max,
+Tanda), `load.ts` (TRIMP → CTL/ATL/TSB, HR zones). Web side: `app/stats/` (filter atoms in localStorage,
+generic chart.js wrappers in `charts.tsx`). Chart look (glass tooltip, glow, gradients) and the validated
+palette built from the theme's hues live in `app/charts/chartSetup.ts` — load the `dataviz` skill before
+changing colours.
+
 **`Timespan`** (`packages/core/src/services/Timespan.ts`) — immutable value object (ms internally). Always
 construct via static factories (`Timespan.fromSeconds`, `Timespan.fromMinutes`, `Timespan.parse`). Has a
 `toJSON`/`reviver` pair — API responses containing Timespans must be parsed with
@@ -249,7 +261,8 @@ durations live in `packages/core/src/services/trainingDefaults.ts`.
 | `/programs` | List/select saved programs |
 | `/add-program` | Program builder |
 | `/activities/[id]` | Imported watch activity (charts, splits, best efforts, link to app run) |
-| `/settings` | Garmin sync (intervals.icu) and file import, heart-rate profile |
+| `/stats` | Statistics: KPIs, race predictions, records, charts, filters |
+| `/settings` | Garmin sync (intervals.icu) and file import, heart-rate profile, stats preferences |
 | `/pid-simulator` | Dev tool comparing the speed controllers on a simulated runner |
 | `/login`, `/register` | Auth pages (public, excluded from the proxy gate) |
 

@@ -89,6 +89,7 @@ export * from './ble';
 export * from './session';
 export * from './sync';
 export * from './activities';
+export * from './stats';
 
 export {
   formatDigits,

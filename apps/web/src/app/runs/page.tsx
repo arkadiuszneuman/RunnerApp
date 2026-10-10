@@ -1,9 +1,10 @@
 'use client';
 
-import { Fragment, ReactNode, useEffect, useRef, useState } from 'react';
+import { Fragment, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
+import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import StraightenRoundedIcon from '@mui/icons-material/StraightenRounded';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import WatchRoundedIcon from '@mui/icons-material/WatchRounded';
@@ -27,7 +28,16 @@ import ProgressRing from '../base/ProgressRing';
 import { SpeedControllerBadge } from '../base/SpeedControllerPicker';
 import { writes } from '../offline/requests';
 import { enqueueWrite } from '../offline/sync';
-import { displayFont, enter, pressable, tokens } from '../theme';
+import { displayFont, enter, MAX_STAGGER, pressable, tokens } from '../theme';
+import { applyFilter } from '@runner/core';
+import StatsFilterBar, { isDefaultFilter } from '../stats/StatsFilterBar';
+import {
+  HISTORY_DEFAULT_FILTER,
+  historyFilterAtom,
+  nowLocalMs,
+  useStatsActivities,
+  yearsOf,
+} from '../stats/statsState';
 import { historyAtom, removeRunFromCache, type HistoryItem } from '../userData';
 
 function Stat({
@@ -92,8 +102,6 @@ function DateBadge({ date }: Readonly<{ date: Date }>) {
 
 /** Rows rendered up front; more are added as the list is scrolled. */
 const PAGE_SIZE = 40;
-/** Entrance animations stop staggering after this many rows (later ones would wait seconds). */
-const MAX_STAGGER = 12;
 
 function monthKey(ms: number): string {
   const d = new Date(ms);
@@ -263,8 +271,20 @@ function ActivityRow({
 
 export default function RunsPage() {
   const history = useAtomValue(historyAtom);
+  const filter = useAtomValue(historyFilterAtom);
+  const statsActivities = useStatsActivities(true);
   const loading = history === undefined;
-  const items = history ?? [];
+  const filtered = !isDefaultFilter(filter, HISTORY_DEFAULT_FILTER);
+  const [showFilters, setShowFilters] = useState(filtered);
+  // Matched through the same merged view of runs as Stats (see statsState.ts), so a linked pair
+  // is filtered as one run.
+  const items = useMemo(() => {
+    if (!history || !statsActivities || !filtered) return history ?? [];
+    const keys = new Set(applyFilter(statsActivities, filter, nowLocalMs()).map((a) => a.key));
+    return history.filter((item) =>
+      keys.has(item.kind === 'run' ? `run:${item.id}` : `watch:${item.id}`)
+    );
+  }, [history, statsActivities, filter, filtered]);
   const [shown, setShown] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<Extract<HistoryItem, { kind: 'run' }> | null>(
@@ -309,13 +329,35 @@ export default function RunsPage() {
     <Page
       eyebrow={loading ? 'Your training' : `${items.length} ${items.length === 1 ? 'run' : 'runs'}`}
       title="History"
+      action={
+        <IconButton
+          title="Filter runs"
+          onClick={() => setShowFilters((v) => !v)}
+          sx={{ color: filtered ? 'primary.main' : 'text.secondary' }}
+        >
+          <FilterListRoundedIcon />
+        </IconButton>
+      }
     >
+      {showFilters && (
+        <StatsFilterBar
+          atom={historyFilterAtom}
+          defaults={HISTORY_DEFAULT_FILTER}
+          years={yearsOf(statsActivities)}
+        />
+      )}
       {loading &&
         [0, 1, 2, 3].map((i) => (
           <Skeleton key={i} variant="rounded" height={84} sx={{ mb: 1.25, borderRadius: '20px' }} />
         ))}
 
-      {!loading && items.length === 0 && (
+      {!loading && items.length === 0 && filtered && (
+        <Typography color="text.secondary" sx={{ mt: 2 }}>
+          No runs match these filters.
+        </Typography>
+      )}
+
+      {!loading && items.length === 0 && !filtered && (
         <EmptyState
           icon={<DirectionsRunRoundedIcon />}
           title="No runs yet"

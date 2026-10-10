@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useDeferredMount } from '../charts/useDeferredMount';
-import { displayFont, enter } from '../theme';
+import { displayFont, enter, MAX_STAGGER } from '../theme';
 
 /** A titled card holding one chart; `wide` spans the whole row of a two-column grid. */
 export default function ChartCard({
@@ -26,7 +26,12 @@ export default function ChartCard({
   return (
     <Paper
       variant="outlined"
-      sx={{ p: 2, gridColumn: wide ? '1 / -1' : undefined, minWidth: 0, ...enter(index) }}
+      sx={{
+        p: 2,
+        gridColumn: wide ? '1 / -1' : undefined,
+        minWidth: 0,
+        ...enter(Math.min(index, MAX_STAGGER)),
+      }}
     >
       <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', mb: 1 }}>
         {title}
