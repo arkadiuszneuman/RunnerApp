@@ -1,17 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import WatchRoundedIcon from '@mui/icons-material/WatchRounded';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { formatKm, sportLabel } from '../../activities/format';
 import LinkDialog from '../../activities/LinkDialog';
 import { activityCandidates, setLink } from '../../activities/linking';
 import { statLabelSx } from '../../base/StatTile';
+import {
+  intervalsStatusAtom,
+  intervalsSyncAtom,
+  loadIntervalsStatus,
+  runIntervalsSync,
+} from '../../integrations/intervalsSync';
 import { displayFont, enter, tokens } from '../../theme';
 import { activitiesAtom, runsAtom } from '../../userData';
 
@@ -41,10 +48,19 @@ export default function WatchCard({
 }: Readonly<{ runId: string; beltKm: number; index: number }>) {
   const activities = useAtomValue(activitiesAtom);
   const run = useAtomValue(runsAtom)?.find((r) => r.id === runId);
+  const intervals = useAtomValue(intervalsStatusAtom);
+  const sync = useAtomValue(intervalsSyncAtom);
   const [open, setOpen] = useState(false);
-  if (!activities || activities.length === 0 || !run) return null;
 
-  const activity = activities.find((a) => a.linkedRunId === runId);
+  useEffect(() => {
+    if (intervals === undefined) void loadIntervalsStatus();
+  }, [intervals]);
+
+  const connected = intervals?.connected === true;
+  // Without imported activities or a connection there's nothing to show or do here.
+  if (!run || ((!activities || activities.length === 0) && !connected)) return null;
+
+  const activity = activities?.find((a) => a.linkedRunId === runId);
   const m = activity?.metrics;
   const diffPct = m && beltKm > 0 ? ((m.distanceM / 1000 - beltKm) / beltKm) * 100 : undefined;
 
@@ -59,12 +75,24 @@ export default function WatchCard({
           <Typography variant="caption" color="text.secondary">
             {activity
               ? `${activity.name ?? sportLabel[activity.sport]} · ${activity.linkMode === 'manual' ? 'linked by you' : 'matched by time'}`
-              : 'Import it from Garmin in Settings, or link one recorded around the same time.'}
+              : connected
+                ? 'Sync to fetch it from intervals.icu, or link one recorded around the same time.'
+                : 'Import it from Garmin in Settings, or link one recorded around the same time.'}
           </Typography>
         </Box>
         {activity && (
           <Button variant="glass" component={Link} href={`/activities/${activity.id}`}>
             Open
+          </Button>
+        )}
+        {!activity && connected && (
+          <Button
+            variant="glass"
+            disabled={sync.running}
+            onClick={() => void runIntervalsSync()}
+            startIcon={sync.running ? <CircularProgress size={14} color="inherit" /> : undefined}
+          >
+            Sync
           </Button>
         )}
         <Button variant="glass" onClick={() => setOpen(true)}>
@@ -92,7 +120,7 @@ export default function WatchCard({
       <LinkDialog
         open={open}
         title="Link a watch activity"
-        candidates={activityCandidates(run, activities)}
+        candidates={activityCandidates(run, activities ?? [])}
         emptyText="No watch activity was recorded within 12 hours of this run."
         linked={!!activity}
         onSelect={(activityId) => {

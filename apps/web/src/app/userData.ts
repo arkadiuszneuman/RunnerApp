@@ -16,6 +16,7 @@ import { useSession } from 'next-auth/react';
 import type { ActivityDetail, ActivityListItem } from '@/lib/activities/types';
 import { parseAthleteProfile, type AthleteProfile } from '@/lib/athleteProfile';
 import { activeProgramIdAtom, programInternalAtom } from './atoms';
+import { maybeAutoSync } from './integrations/intervalsSync';
 import {
   overlayActivities,
   overlayPrograms,
@@ -339,7 +340,8 @@ export function useUserDataPreload(): void {
     // can run before useOfflineSync's own setUser call on the same sign-in).
     setSpeedCalibrationUser(userId);
     void refreshPrograms();
-    void refreshActivities();
+    // Then pulls any new watch runs from intervals.icu, when connected.
+    void refreshActivities().then(maybeAutoSync);
     void refreshRuns().then(syncSpeedCalibration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
