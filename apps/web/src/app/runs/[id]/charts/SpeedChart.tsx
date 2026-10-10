@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import type { ChartData, ChartOptions } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { RunSeriesPoint } from '@runner/core';
-import { axisTitleColor, chartColors, tooltipTitleAsClock } from './chartSetup';
+import { axisTitleColor, chartColors, tooltipTitleAsClock } from '@/app/charts/chartSetup';
 import { makeStageShadingPlugin, type StageBand } from './stageShadingPlugin';
 
 export default function SpeedChart({

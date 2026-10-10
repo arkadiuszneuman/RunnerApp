@@ -24,7 +24,7 @@ import { Line } from 'react-chartjs-2';
 import { stagesAtom } from '../atoms';
 import Page from '../base/Page';
 import { SpeedControllerBadge, speedControllerColor } from '../base/SpeedControllerPicker';
-import { axisTitleColor, chartColors, tooltipTitleAsClock } from '../runs/[id]/charts/chartSetup';
+import { axisTitleColor, chartColors, tooltipTitleAsClock } from '../charts/chartSetup';
 import { displayFont, enter, tokens } from '../theme';
 
 /** Used when no program is active, so the page always has something to show. */

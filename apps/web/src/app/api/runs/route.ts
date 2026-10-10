@@ -1,12 +1,8 @@
-// Imported from the concrete module rather than the `@runner/core` barrel:
-// that barrel also re-exports useInterval (a React hook), and Next.js
-// refuses to bundle anything hook-shaped into a Route Handler's module graph
-// even when, as here, it's never called.
-import { analyzeRun, type RunRecord } from '@runner/core/src/services/runAnalysis';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { programs, runHistory } from '@/lib/db/schema';
+import { loadRunSummaries } from '@/lib/runs/summaries';
 import { getUserId } from '@/lib/session';
 import { createRunSchema, parseJsonBody } from '@/lib/validation';
 
@@ -34,13 +30,25 @@ export async function POST(request: Request) {
   // real Timespan instances — this jsonb column is untyped storage either
   // way, and the client re-hydrates them via Timespan.reviver on read (see
   // apps/web/src/app/runs/[id]/page.tsx), so no annotation here.
-  const data = { startedAt, telemetry: [], programId, programName, program, controller };
+  // `wallStartedAt` keeps the original start: RunSession's later PATCHes resend `startedAt`
+  // shifted by every pause (see runInterval in packages/core's activities/matching.ts), and the
+  // PATCH schema drops unknown keys, so nothing ever overwrites this one.
+  const data = {
+    startedAt,
+    wallStartedAt: startedAt,
+    telemetry: [],
+    programId,
+    programName,
+    program,
+    controller,
+  };
+  const startedAtDate = new Date(startedAt);
 
   // Idempotent on a client-supplied id: the offline outbox replays a create
   // whose response it never received, which must not fail or duplicate.
   const result = await db
     .insert(runHistory)
-    .values({ ...(id && { id }), userId, data })
+    .values({ ...(id && { id }), userId, data, startedAt: startedAtDate })
     .onConflictDoNothing({ target: runHistory.id })
     .returning({ id: runHistory.id });
 
@@ -62,29 +70,22 @@ export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json(null, { status: 401 });
 
-  const result = await db
-    .select({ id: runHistory.id, createdAt: runHistory.createdAt, data: runHistory.data })
-    .from(runHistory)
-    .where(eq(runHistory.userId, userId))
-    .orderBy(desc(runHistory.createdAt))
-    .limit(50);
-
-  // The list view only needs summary stats, not the full (potentially large)
-  // telemetry array — compute them server-side so that never has to cross
-  // the wire just to render a list row.
-  const summaries = result.map(({ id, createdAt, data }) => {
-    const record = data as RunRecord;
-    const endT = record.durationMs !== undefined ? record.durationMs / 1000 : undefined;
-    return {
+  // Every run, newest first, with summaries the server computed and stored when the run was
+  // saved — the full telemetry never has to cross the wire (or even leave the database) just to
+  // render a list row or a statistic.
+  const rows = await loadRunSummaries(userId);
+  return NextResponse.json(
+    rows.map(({ id, createdAt, startedAt, endedAt, meta, summary }) => ({
       id,
       createdAt,
-      startedAt: record.startedAt,
-      finishedAt: record.finishedAt,
-      programName: record.programName,
-      controller: record.controller,
-      summary: analyzeRun(record.telemetry ?? [], { endT }),
-    };
-  });
-
-  return NextResponse.json(summaries);
+      startedAt: meta.startedAt,
+      wallStartedAt: startedAt,
+      endedAt,
+      finishedAt: meta.finishedAt,
+      programName: meta.programName,
+      controller: meta.controller,
+      summary: summary.run,
+      metrics: summary.metrics,
+    }))
+  );
 }

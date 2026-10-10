@@ -20,3 +20,22 @@ describe('writes.setSpeedCalibration', () => {
     expect(writes.setActiveProgram(null).request.body).toEqual({ activeProgramId: null });
   });
 });
+
+describe('activity writes', () => {
+  it('PATCHes the link under a per-activity key', () => {
+    const write = writes.linkActivity('a1', 'r1');
+    expect(write.request).toEqual({
+      method: 'PATCH',
+      url: '/api/activities/a1',
+      body: { linkedRunId: 'r1' },
+    });
+    expect(write.options.key).toBe('activity-link:a1');
+    expect(writes.linkActivity('a1', null).request.body).toEqual({ linkedRunId: null });
+  });
+
+  it('sends the athlete profile on its own key', () => {
+    const write = writes.setAthleteProfile({ maxHr: 190, restingHr: 48 });
+    expect(write.request.body).toEqual({ athleteProfile: { maxHr: 190, restingHr: 48 } });
+    expect(write.options.key).toBe('athlete-profile');
+  });
+});

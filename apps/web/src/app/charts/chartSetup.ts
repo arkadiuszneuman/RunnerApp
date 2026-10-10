@@ -12,13 +12,22 @@ import {
 } from 'chart.js';
 import { Timespan } from '@runner/core';
 
-// Side-effect import shared by every chart in this folder — registers the
+// Side-effect import shared by every chart in the app — registers the
 // chart.js building blocks once, and applies the look shared by all of them
 // (no animation on data this dense; text/grid colors legible against the
 // app's dark theme). See apps/web/src/app/theme.ts for the app palette.
 // CategoryScale backs HrBucketsChart's labeled x axis; every line chart uses
 // LinearScale instead (minutes).
-ChartJS.register(LinearScale, CategoryScale, PointElement, LineElement, BarElement, Filler, Tooltip, Legend);
+ChartJS.register(
+  LinearScale,
+  CategoryScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Filler,
+  Tooltip,
+  Legend
+);
 ChartJS.defaults.animation = false;
 ChartJS.defaults.color = 'rgba(255,255,255,0.75)'; // ticks/labels — text tokens, never a series color
 ChartJS.defaults.borderColor = 'rgba(255,255,255,0.12)'; // hairline gridlines, recessive
@@ -39,6 +48,10 @@ export const chartColors = {
   incline: '#9085e9', // slot 7 (violet)
   deviation: '#d95926', // slot 2 (orange)
   zeroLine: 'rgba(255, 255, 255, 0.25)',
+  // Watch-activity charts (one series each, so no two of these share a plot).
+  pace: '#3987e5', // slot 1 (blue)
+  elevation: '#9085e9', // slot 7 (violet)
+  cadence: '#199e70', // slot 3 (aqua)
 } as const;
 
 export const axisTitleColor = 'rgba(255, 255, 255, 0.55)';

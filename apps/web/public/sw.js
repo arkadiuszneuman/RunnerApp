@@ -19,7 +19,7 @@
  * the common case — and still refreshes the cache in the background.
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 // Anything user-specific lives under this prefix so the app can wipe it on
 // sign-out / account switch. Must match src/app/offline/serviceWorker.ts.
 const USER_CACHE_PREFIX = 'runner-user-';
@@ -45,7 +45,8 @@ const RSC_CACHE_MAX_ENTRIES = 120;
 
 /** Pages that must never be served from cache (they'd show a stale auth state). */
 const UNCACHEABLE_PAGES = /^\/(login|register)(\/|$)/;
-const CACHEABLE_API = /^\/api\/(auth\/session|programs(\/[^/]+)?|user-settings|runs(\/[^/]+)?)$/;
+const CACHEABLE_API =
+  /^\/api\/(auth\/session|programs(\/[^/]+)?|user-settings|runs(\/[^/]+)?|activities(\/[^/]+)?)$/;
 const STATIC_ASSET_REF = /\/_next\/static\/[^"'\s\\)<>]+/g;
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────

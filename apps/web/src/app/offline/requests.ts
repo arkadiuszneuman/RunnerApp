@@ -1,4 +1,5 @@
 import type { EnqueueOptions, OutboxRequest, RunApi, SpeedCalibration } from '@runner/core';
+import type { AthleteProfile } from '@/lib/athleteProfile';
 
 /** A mutation ready to hand to the outbox (see sync.ts). */
 export type QueuedWrite = { request: OutboxRequest; options: EnqueueOptions };
@@ -27,6 +28,9 @@ export const outboxKey = {
   runCreate: (id: string) => `run-create:${id}`,
   runPatch: (id: string) => `run-patch:${id}`,
   runDelete: (id: string) => `run-delete:${id}`,
+  athleteProfile: () => 'athlete-profile',
+  activityLink: (id: string) => `activity-link:${id}`,
+  activityDelete: (id: string) => `activity-delete:${id}`,
 };
 
 export const writes = {
@@ -94,6 +98,29 @@ export const writes = {
     return {
       request: { method: 'DELETE', url: `/api/runs/${id}` },
       options: { key: outboxKey.runDelete(id) },
+    };
+  },
+
+  /** Always the whole profile; its own key for the same reason as setSpeedCalibration. */
+  setAthleteProfile(athleteProfile: AthleteProfile): QueuedWrite {
+    return {
+      request: { method: 'PUT', url: '/api/user-settings', body: { athleteProfile } },
+      options: { key: outboxKey.athleteProfile() },
+    };
+  },
+
+  /** Links an imported activity to a run, or unlinks it (null). The latest choice wins. */
+  linkActivity(id: string, linkedRunId: string | null): QueuedWrite {
+    return {
+      request: { method: 'PATCH', url: `/api/activities/${id}`, body: { linkedRunId } },
+      options: { key: outboxKey.activityLink(id) },
+    };
+  },
+
+  deleteActivity(id: string): QueuedWrite {
+    return {
+      request: { method: 'DELETE', url: `/api/activities/${id}` },
+      options: { key: outboxKey.activityDelete(id) },
     };
   },
 };
