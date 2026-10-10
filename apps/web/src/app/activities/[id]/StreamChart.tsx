@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import type { ChartData, ChartOptions, TooltipItem } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { axisTitleColor, tooltipTitleAsClock } from '@/app/charts/chartSetup';
+import { axisTitleColor, timeAxisFit, tooltipTitleAsClock } from '@/app/charts/chartSetup';
 
 /**
  * One watch-activity stream over time (x in minutes). `formatY` renders the hovered value (and
@@ -53,6 +53,7 @@ export default function StreamChart({
       scales: {
         x: {
           type: 'linear',
+          ...timeAxisFit,
           title: { display: true, text: 'Minutes', color: axisTitleColor },
           ticks: { color: axisTitleColor },
         },

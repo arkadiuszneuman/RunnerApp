@@ -4,7 +4,12 @@ import { useMemo } from 'react';
 import type { ChartData, ChartOptions } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { RunSeriesPoint } from '@runner/core';
-import { axisTitleColor, chartColors, tooltipTitleAsClock } from '@/app/charts/chartSetup';
+import {
+  axisTitleColor,
+  chartColors,
+  timeAxisFit,
+  tooltipTitleAsClock,
+} from '@/app/charts/chartSetup';
 import { makeStageShadingPlugin, type StageBand } from './stageShadingPlugin';
 
 export default function SpeedChart({
@@ -53,6 +58,7 @@ export default function SpeedChart({
       scales: {
         x: {
           type: 'linear',
+          ...timeAxisFit,
           title: { display: true, text: 'Minutes', color: axisTitleColor },
           ticks: { color: axisTitleColor },
         },
@@ -70,7 +76,10 @@ export default function SpeedChart({
     [hasActual]
   );
 
-  const plugins = useMemo(() => (stageBands ? [makeStageShadingPlugin(stageBands)] : []), [stageBands]);
+  const plugins = useMemo(
+    () => (stageBands ? [makeStageShadingPlugin(stageBands)] : []),
+    [stageBands]
+  );
 
   return <Line data={data} options={options} plugins={plugins} />;
 }
