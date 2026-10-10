@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import type { ChartData, ChartOptions } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import type { HrBucket } from '@runner/core';
-import { axisTitleColor, chartColors } from './chartSetup';
+import { axisTitleColor, chartColors } from '@/app/charts/chartSetup';
 
 export default function HrBucketsChart({ buckets }: Readonly<{ buckets: HrBucket[] }>) {
   // See HeartRateChart.tsx for why this (and options below) is memoized.

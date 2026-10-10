@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
@@ -32,9 +32,11 @@ import axios from 'axios';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import ChartCard from '../../base/ChartCard';
 import Page from '../../base/Page';
 import ProgressRing from '../../base/ProgressRing';
 import { SpeedControllerBadge } from '../../base/SpeedControllerPicker';
+import StatTile, { statLabelSx as labelSx } from '../../base/StatTile';
 import { writes } from '../../offline/requests';
 import { enqueueWrite } from '../../offline/sync';
 import { displayFont, enter, glass, stageTypeColor, stageTypeName, tokens } from '../../theme';
@@ -45,86 +47,8 @@ import HrBucketsChart from './charts/HrBucketsChart';
 import InclineChart from './charts/InclineChart';
 import SpeedChart from './charts/SpeedChart';
 import type { StageBand } from './charts/stageShadingPlugin';
-import { useDeferredMount } from './charts/useDeferredMount';
 import { exportRun } from './exportRun';
-
-const labelSx = {
-  fontSize: '0.68rem',
-  fontWeight: 600,
-  letterSpacing: '0.16em',
-  textTransform: 'uppercase',
-  color: tokens.textMuted,
-} as const;
-
-function StatTile(
-  props: Readonly<{
-    label: string;
-    value: string;
-    sub?: string;
-    icon: ReactNode;
-    accent: string;
-    index: number;
-  }>
-) {
-  return (
-    <Paper variant="outlined" sx={{ p: 1.5, height: '100%', ...enter(props.index) }}>
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.75,
-          mb: 0.5,
-          color: props.accent,
-          '& svg': { fontSize: 16 },
-        }}
-      >
-        {props.icon}
-        <Typography sx={labelSx}>{props.label}</Typography>
-      </Box>
-      <Typography
-        className="tabular"
-        sx={{ fontFamily: displayFont, fontWeight: 700, fontSize: '1.6rem', lineHeight: 1.1 }}
-      >
-        {props.value}
-      </Typography>
-      {props.sub && (
-        <Typography variant="caption" color="text.secondary">
-          {props.sub}
-        </Typography>
-      )}
-    </Paper>
-  );
-}
-
-function ChartCard({
-  title,
-  height = 260,
-  wide,
-  index,
-  deferIndex = 0,
-  children,
-}: Readonly<{
-  title: string;
-  height?: number;
-  wide?: boolean;
-  index: number;
-  /** Charts mount `deferIndex` animation frames after this card first renders — see useDeferredMount. */
-  deferIndex?: number;
-  children: ReactNode;
-}>) {
-  const ready = useDeferredMount(deferIndex);
-  return (
-    <Paper
-      variant="outlined"
-      sx={{ p: 2, gridColumn: wide ? '1 / -1' : undefined, minWidth: 0, ...enter(index) }}
-    >
-      <Typography sx={{ fontFamily: displayFont, fontWeight: 600, fontSize: '1.15rem', mb: 1 }}>
-        {title}
-      </Typography>
-      <Box sx={{ height }}>{ready ? children : null}</Box>
-    </Paper>
-  );
-}
+import WatchCard from './WatchCard';
 
 function stageTargetLabel(stage: {
   speedType?: 'bmp' | 'tempo';
@@ -449,6 +373,8 @@ export default function RunDetailPage() {
               index={4}
             />
           </Box>
+
+          <WatchCard runId={params.id} beltKm={summary.distanceKm} index={5} />
 
           <Box
             sx={{

@@ -4,12 +4,19 @@ import { useEffect, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { useSession } from 'next-auth/react';
 import { setUser as setSpeedCalibrationUser } from '../speedCalibrationStore';
-import { programsAtom, refreshPrograms, refreshRuns, runsAtom } from '../userData';
+import {
+  activitiesAtom,
+  programsAtom,
+  refreshActivities,
+  refreshPrograms,
+  refreshRuns,
+  runsAtom,
+} from '../userData';
 import { adoptCacheOwner, registerServiceWorker, warmOfflineCache } from './serviceWorker';
 import { onOutboxFlushed, setSyncUser, startSyncTriggers } from './sync';
 
 /** Top-level routes whose pages (and their build assets) are pre-cached for offline use. */
-const APP_ROUTES = ['/', '/running', '/programs', '/add-program', '/runs'];
+const APP_ROUTES = ['/', '/running', '/programs', '/add-program', '/runs', '/settings'];
 
 /**
  * Mounted once at the app root (Providers.tsx): registers the service worker,
@@ -21,6 +28,7 @@ export function useOfflineSync(): void {
   const userId = session?.user?.id ?? null;
   const programs = useAtomValue(programsAtom);
   const runs = useAtomValue(runsAtom);
+  const activities = useAtomValue(activitiesAtom);
   const warmedRef = useRef(false);
 
   useEffect(() => {
@@ -50,6 +58,9 @@ export function useOfflineSync(): void {
         );
         if (runsChanged) void refreshRuns();
         if (sent.some((e) => e.key.startsWith('program-'))) void refreshPrograms();
+        // A finished run may just have been auto-linked to its watch activity server-side.
+        if (runsChanged || sent.some((e) => e.key.startsWith('activity-')))
+          void refreshActivities();
       }),
     []
   );
@@ -64,6 +75,8 @@ export function useOfflineSync(): void {
       ...programs.map((p) => `/api/programs/${p.id}`),
       // Covers the run-detail route's own build assets (the page is dynamic).
       ...(runs[0] ? [`/runs/${runs[0].id}`] : []),
+      // Not waited for: a failed activities load mustn't hold back warming everything else.
+      ...(activities?.[0] ? [`/activities/${activities[0].id}`] : []),
     ]);
-  }, [status, programs, runs]);
+  }, [status, programs, runs, activities]);
 }

@@ -1,3 +1,4 @@
+import { ACTIVITY_SPORTS, EFFORT_KEYS } from '@runner/core/src/activities/types';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -87,7 +88,7 @@ export const createRunSchema = z.object({
    * idempotent rather than a duplicate row.
    */
   id: z.uuid().optional(),
-  startedAt: z.string().min(1),
+  startedAt: z.iso.datetime({ offset: true }),
   programId: z.string().min(1).nullable().optional(),
   program: programDataSchema.optional(),
   controller: z.enum(['legacy', 'adaptive']).optional(),
@@ -106,4 +107,75 @@ export const registerSchema = z.object({
   name: z.string().trim().min(1).max(100),
   email: z.email().max(254),
   password: z.string().min(8).max(72),
+});
+
+// ─── Imported watch activities ──────────────────────────────────────────────
+//
+// Mirrors packages/core/src/activities/types.ts's ImportedActivity. Uploads are parsed from FIT
+// files in the browser (see app/import/), so everything here is untrusted input: numbers are
+// bounded to what a run can plausibly produce and arrays are capped (one 5 s sample per entry
+// covers ~27 h at 20 000).
+
+const MAX_STREAM_LENGTH = 20_000;
+const streamValue = z.number().nullable();
+
+const activityStreamsSchema = z
+  .object({
+    t: z.array(z.number().min(0)).max(MAX_STREAM_LENGTH),
+    d: z.array(streamValue).max(MAX_STREAM_LENGTH),
+    hr: z.array(streamValue).max(MAX_STREAM_LENGTH),
+    spd: z.array(streamValue).max(MAX_STREAM_LENGTH),
+    alt: z.array(streamValue).max(MAX_STREAM_LENGTH),
+    cad: z.array(streamValue).max(MAX_STREAM_LENGTH),
+  })
+  .refine(
+    (s) => [s.d, s.hr, s.spd, s.alt, s.cad].every((column) => column.length === s.t.length),
+    'Stream columns must all be as long as `t`'
+  );
+
+const activityMetricsSchema = z.object({
+  distanceM: z.number().min(0).max(1_000_000),
+  movingS: z.number().min(0).max(7 * 86_400),
+  elapsedS: z.number().min(0).max(7 * 86_400),
+  avgHr: z.number().min(0).max(300).optional(),
+  maxHr: z.number().min(0).max(300).optional(),
+  elevGainM: z.number().min(0).max(30_000).optional(),
+  cadenceSpm: z.number().min(0).max(400).optional(),
+  calories: z.number().min(0).max(50_000).optional(),
+  trainingEffect: z.number().min(0).max(5).optional(),
+  bestEfforts: z.partialRecord(z.enum(EFFORT_KEYS), z.number().positive().max(7 * 86_400)),
+  hrHist: z
+    .object({ start: z.number().int().min(0).max(300), s: z.array(z.number().min(0)).max(300) })
+    .optional(),
+  splitsKmS: z.array(z.number().positive()).max(1_000).optional(),
+  steady: z
+    .object({
+      speedMps: z.number().positive().max(15),
+      hr: z.number().positive().max(300),
+      seconds: z.number().positive(),
+      gradePct: z.number().min(-50).max(50).optional(),
+    })
+    .optional(),
+});
+
+export const importedActivitySchema = z.object({
+  startTime: z.iso.datetime(),
+  tzOffsetMin: z.number().int().min(-14 * 60).max(14 * 60).optional(),
+  sport: z.enum(ACTIVITY_SPORTS),
+  name: z.string().max(200).optional(),
+  device: z.string().max(100).optional(),
+  dedupKey: z.string().min(1).max(100),
+  garminId: z.string().regex(/^\d{1,20}$/).optional(),
+  metrics: activityMetricsSchema,
+  streams: activityStreamsSchema.optional(),
+});
+
+/** Body of POST /api/activities — one batch of browser-parsed uploads. */
+export const importActivitiesSchema = z.object({
+  activities: z.array(importedActivitySchema).min(1).max(100),
+});
+
+/** Body of PATCH /api/activities/:id — link to a run, or unlink with null. */
+export const patchActivitySchema = z.object({
+  linkedRunId: z.uuid().nullable(),
 });

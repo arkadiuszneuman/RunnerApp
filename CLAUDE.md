@@ -77,6 +77,7 @@ WebBluetoothTransport ──► TreadmillProtocol ──► BleManager ──►
 useRunningLoop (wake lock, heart rate, 200ms pump) ─────────────────┘
 useProgramSync ──► GET /api/programs, /api/user-settings ──► Drizzle ──► Postgres
 useProgramSync / pages / RunSession ──► offline Outbox (IndexedDB) ──► POST/PUT/PATCH/DELETE /api/*
+Settings → import worker (FIT/zip) ──► POST /api/activities ──► external_activities ◄─► run_history (links)
 public/sw.js (service worker) ── caches pages, build assets and GET /api reads for offline use
 ```
 
@@ -101,7 +102,9 @@ The app is an installable PWA that must keep working with no network during a ru
   order when reachable. Replays must be idempotent — creates carry client-generated UUIDs (`POST /api/runs`
   and `POST /api/programs` accept an optional `id` and return 200 for a replay). `app/offline/overlay.ts`
   layers still-queued writes over (possibly SW-cached) reads — see `refreshPrograms`/`loadProgramData` in
-  `userData.ts`.
+  `userData.ts`. The one deliberate exception is importing watch activities from files
+  (`app/import/runImport.ts`): an explicit, online-only action whose payload is far too big for the outbox, and
+  safe to re-run (the server deduplicates).
 - **Bluetooth** — Web Bluetooth exists only in Chromium browsers (not iOS, not Firefox) and only in a secure
   context. `ble/bluetoothAvailability.ts` + `base/BluetoothNotice.tsx` explain/disable accordingly.
 
@@ -166,12 +169,41 @@ Drizzle ORM + Postgres (`apps/web/src/lib/db/schema.ts`, `apps/web/src/lib/db/in
 Auth.js tables (`user`, `account`, `session`, `verificationToken`), app tables are intentionally
 schemaless JSONB blobs:
 - `programs` — one row per saved program, `data: { stages: MultiplyStage[], cooldown: boolean }`.
-- `user_settings` — one row per user, `data: { activeProgramId: string | null }`.
+- `user_settings` — one row per user, `data: { activeProgramId, speedCalibration, athleteProfile }`.
 - `run_history` — one row per run, `data` holds start/finish timestamps + the telemetry array
-  (`packages/core/src/types/telemetry.ts`).
+  (`packages/core/src/types/telemetry.ts`). Next to it, server-derived columns the client never writes
+  (`started_at`/`ended_at`/`summary`/`summary_version`, see `apps/web/src/lib/runs/summaries.ts`): computed on
+  every telemetry PATCH, lazily backfilled by `GET /api/runs` for rows with an outdated `RUN_SUMMARY_VERSION`, so
+  the list/statistics never load telemetry. `data.startedAt` is shifted by pauses on every flush — use
+  `data.wallStartedAt` / the `started_at` column (see `runInterval` in `packages/core/src/activities/matching.ts`)
+  for when a run really happened.
+- `external_activities` — watch activities (Garmin) imported from FIT files, see "Watch activities" below.
 
 Program data flows through `/api/programs` + `programAtom`/`useProgramSync` — there is no separate
 repository layer in `apps/web`.
+
+### Watch activities (Garmin import)
+
+Runs recorded on the user's Garmin watch are imported read-only (nothing is ever sent to Garmin) and linked to the
+RunnerApp run recorded at the same time. Direct Garmin API access isn't available (business-only program; the
+unofficial login broke in 2026), so the sources are FIT files — uploaded by hand (single files, zips, or Garmin's
+whole account export) and, in a later step, intervals.icu.
+
+- **Core** (`packages/core/src/activities/`): `ActivityMetrics` (distance/time/HR, best efforts, per-bpm HR
+  histogram, km splits, steady-state speed/HR) is computed the same way for watch activities
+  (`fitActivity.ts`, from decoded FIT messages) and app runs (`runMetrics.ts`, from telemetry), so they compare.
+  `matching.ts` pairs runs and activities by time overlap. `fitActivity.ts` is imported by concrete path, never via
+  the barrel.
+- **Decoding**: `apps/web/src/lib/fit/decodeFit.ts` is the only user of `@garmin/fitsdk`. Browser uploads are
+  unpacked (`@zip.js/zip.js`, nested zips, `.fit.gz`) and decoded in a module Worker (`app/import/`), then posted
+  in ≤2 MB batches (Vercel's request limit is 4.5 MB).
+- **Server** (`lib/activities/repo.ts`): dedup by recording identity (`dedup_key` = watch serial + file creation
+  time), intervals.icu id, or identical start time; auto-link after imports and when a run finishes;
+  `link_mode` `'manual'`/`'none'` records the user's choice so auto-linking never overrides it; deleting only
+  sets `deleted_at` (a tombstone background sync respects, an explicit re-upload restores).
+- **UI**: History (`runs/page.tsx`) merges both (`historyAtom` in `userData.ts`); `/activities/[id]` and the
+  "Watch" card on `/runs/[id]` show/change links (outbox writes `writes.linkActivity`/`deleteActivity`);
+  `/settings` holds the file import and the heart-rate profile (`user_settings.athleteProfile`).
 
 **`Timespan`** (`packages/core/src/services/Timespan.ts`) — immutable value object (ms internally). Always
 construct via static factories (`Timespan.fromSeconds`, `Timespan.fromMinutes`, `Timespan.parse`). Has a
@@ -207,11 +239,13 @@ durations live in `packages/core/src/services/trainingDefaults.ts`.
 | `/running` | Active run dashboard |
 | `/programs` | List/select saved programs |
 | `/add-program` | Program builder |
+| `/activities/[id]` | Imported watch activity (charts, splits, best efforts, link to app run) |
+| `/settings` | Garmin file import, heart-rate profile |
 | `/pid-simulator` | Dev tool comparing the speed controllers on a simulated runner |
 | `/login`, `/register` | Auth pages (public, excluded from the proxy gate) |
 
-API routes under `apps/web/src/app/api/` (`programs`, `programs/[id]`, `runs`, `runs/[id]`,
-`user-settings`, `register`, `auth/[...nextauth]`) all resolve the user via `getUserId()` (or `auth()`
+API routes under `apps/web/src/app/api/` (`programs`, `programs/[id]`, `runs`, `runs/[id]`, `activities`,
+`activities/[id]`, `user-settings`, `register`, `auth/[...nextauth]`) all resolve the user via `getUserId()` (or `auth()`
 for the NextAuth handler itself) and scope Drizzle queries to that user's id.
 
 ## Conventions

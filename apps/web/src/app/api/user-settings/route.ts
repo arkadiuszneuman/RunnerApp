@@ -8,6 +8,7 @@ import {
   MIN_BPM,
   MIN_SPEED_KMH,
 } from '@runner/core/src/training/speedCalibration';
+import { MAX_HR_RANGE, RESTING_HR_RANGE } from '@/lib/athleteProfile';
 import { db } from '@/lib/db';
 import { userSettings } from '@/lib/db/schema';
 import { getUserId } from '@/lib/session';
@@ -26,12 +27,20 @@ const speedCalibrationSchema = z.object({
     .max(MAX_CALIBRATION_POINTS),
 });
 
+/** Mirrors lib/athleteProfile.ts's AthleteProfile. */
+const athleteProfileSchema = z.object({
+  maxHr: z.number().int().min(MAX_HR_RANGE.min).max(MAX_HR_RANGE.max).optional(),
+  restingHr: z.number().int().min(RESTING_HR_RANGE.min).max(RESTING_HR_RANGE.max).optional(),
+});
+
 // Every field is optional: each writer sends only what it owns (the programs list sends
-// activeProgramId, the run-end learning sends speedCalibration), and PUT merges them into the
-// stored blob instead of replacing it — see below.
+// activeProgramId, the run-end learning sends speedCalibration, the settings page sends
+// athleteProfile), and PUT merges them into the stored blob instead of replacing it — see below.
+
 const userSettingsSchema = z.object({
   activeProgramId: z.uuid().nullable().optional(),
   speedCalibration: speedCalibrationSchema.optional(),
+  athleteProfile: athleteProfileSchema.optional(),
 });
 
 export async function GET() {

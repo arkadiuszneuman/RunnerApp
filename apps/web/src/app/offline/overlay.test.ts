@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { Timespan, type OutboxEntry } from '@runner/core';
+import type { ActivityListItem } from '@/lib/activities/types';
 import type { RunListItem } from '../userData';
 import {
   countPendingRuns,
   overlayActiveProgramId,
+  overlayActivities,
   overlayPrograms,
   overlayRuns,
   pendingProgram,
@@ -115,5 +117,43 @@ describe('run overlays', () => {
         entry(writes.updateProgram('p1', { name: 'x' })),
       ])
     ).toBe(2);
+  });
+});
+
+describe('overlayActivities', () => {
+  const activity = (id: string, linkedRunId: string | null = null): ActivityListItem => ({
+    id,
+    source: 'fit_upload',
+    intervalsId: null,
+    garminId: null,
+    startTime: '2026-10-01T06:00:00.000Z',
+    tzOffsetMin: 120,
+    sport: 'treadmill',
+    name: null,
+    device: null,
+    metrics: { distanceM: 10_000, movingS: 3_000, elapsedS: 3_000, bestEfforts: {} },
+    linkedRunId,
+    linkMode: linkedRunId ? 'auto' : null,
+    importError: null,
+  });
+
+  it('applies a queued manual link, detaching the run from its previous activity', () => {
+    const result = overlayActivities(
+      [activity('a1', 'r1'), activity('a2')],
+      [entry(writes.linkActivity('a2', 'r1'))]
+    );
+    expect(result.map((a) => [a.id, a.linkedRunId, a.linkMode])).toEqual([
+      ['a1', null, 'none'],
+      ['a2', 'r1', 'manual'],
+    ]);
+  });
+
+  it('applies a queued unlink and hides a queued delete', () => {
+    const result = overlayActivities(
+      [activity('a1', 'r1'), activity('a2')],
+      [entry(writes.linkActivity('a1', null)), entry(writes.deleteActivity('a2'))]
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: 'a1', linkedRunId: null, linkMode: 'none' });
   });
 });

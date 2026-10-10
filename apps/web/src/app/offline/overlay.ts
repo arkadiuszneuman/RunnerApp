@@ -1,4 +1,5 @@
 import { Timespan, type MultiplyStage, type OutboxEntry } from '@runner/core';
+import type { ActivityListItem } from '@/lib/activities/types';
 import type { ProgramSummary, RunListItem } from '../userData';
 
 export type ProgramData = { stages: MultiplyStage[]; cooldown: boolean };
@@ -82,4 +83,32 @@ export function countPendingRuns(entries: readonly OutboxEntry[]): number {
   return new Set(
     entries.map((e) => splitKey(e.key)).filter(([kind]) => kind.startsWith('run-')).map(([, id]) => id)
   ).size;
+}
+
+/**
+ * Layers queued link/unlink/delete choices over the (possibly SW-cached) activity list, with the
+ * same rules the server applies: linking an activity to a run detaches that run's previous
+ * activity, and any choice made by hand is never auto-linked over.
+ */
+export function overlayActivities(
+  list: ActivityListItem[],
+  entries: readonly OutboxEntry[]
+): ActivityListItem[] {
+  let result = list;
+  for (const entry of entries) {
+    const [kind, id] = splitKey(entry.key);
+    if (kind === 'activity-delete') {
+      result = result.filter((a) => a.id !== id);
+    } else if (kind === 'activity-link') {
+      const runId = (entry.body as { linkedRunId: string | null }).linkedRunId;
+      result = result.map((a) => {
+        if (a.id === id) {
+          return { ...a, linkedRunId: runId, linkMode: runId ? ('manual' as const) : ('none' as const) };
+        }
+        if (runId && a.linkedRunId === runId) return { ...a, linkedRunId: null, linkMode: 'none' as const };
+        return a;
+      });
+    }
+  }
+  return result;
 }

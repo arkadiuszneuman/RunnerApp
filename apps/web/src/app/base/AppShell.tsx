@@ -6,6 +6,7 @@ import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import InstallMobileRoundedIcon from '@mui/icons-material/InstallMobileRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import ViewAgendaRoundedIcon from '@mui/icons-material/ViewAgendaRounded';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
@@ -166,6 +167,12 @@ function TopBar() {
               Install app
             </MenuItem>
           )}
+          <MenuItem component={Link} href="/settings" onClick={() => setAnchor(null)}>
+            <ListItemIcon>
+              <SettingsRoundedIcon fontSize="small" />
+            </ListItemIcon>
+            Settings
+          </MenuItem>
           <MenuItem onClick={handleSignOut}>
             <ListItemIcon>
               <LogoutRoundedIcon fontSize="small" />

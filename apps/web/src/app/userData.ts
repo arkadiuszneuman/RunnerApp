@@ -5,6 +5,7 @@ import {
   parseSpeedCalibration,
   speedCalibrationsEqual,
   Timespan,
+  type ActivityMetrics,
   type RunRecord,
   type RunSummary,
   type SpeedControllerKind,
@@ -12,8 +13,16 @@ import {
 import axios from 'axios';
 import { atom } from 'jotai';
 import { useSession } from 'next-auth/react';
+import type { ActivityDetail, ActivityListItem } from '@/lib/activities/types';
+import { parseAthleteProfile, type AthleteProfile } from '@/lib/athleteProfile';
 import { activeProgramIdAtom, programInternalAtom } from './atoms';
-import { overlayPrograms, overlayRuns, pendingProgram, type ProgramData } from './offline/overlay';
+import {
+  overlayActivities,
+  overlayPrograms,
+  overlayRuns,
+  pendingProgram,
+  type ProgramData,
+} from './offline/overlay';
 import { writes } from './offline/requests';
 import { enqueueWrite, getPendingWrites } from './offline/sync';
 import {
@@ -30,10 +39,18 @@ export type RunListItem = {
   id: string;
   createdAt: string;
   startedAt: string;
+  /**
+   * When the run really started (pauses don't shift it, unlike `startedAt`) and ended — the
+   * server derives both (see lib/runs/summaries.ts). Absent from responses cached before they
+   * existed, as is `metrics`.
+   */
+  wallStartedAt?: string | null;
+  endedAt?: string | null;
   finishedAt?: string;
   programName?: string;
   controller?: SpeedControllerKind;
   summary: RunSummary;
+  metrics?: ActivityMetrics;
 };
 
 export type RunRow = { id: string; createdAt: string; data: RunRecord };
@@ -49,6 +66,54 @@ export type RunRow = { id: string; createdAt: string; data: RunRecord };
 export const programsAtom = atom<ProgramSummary[] | undefined>(undefined);
 export const runsAtom = atom<RunListItem[] | undefined>(undefined);
 export const runDetailsAtom = atom<Record<string, RunRow>>({});
+/** Imported watch activities (see lib/activities), same loading conventions as runsAtom. */
+export const activitiesAtom = atom<ActivityListItem[] | undefined>(undefined);
+export const activityDetailsAtom = atom<Record<string, ActivityDetail>>({});
+/** undefined = not loaded yet. */
+export const athleteProfileAtom = atom<AthleteProfile | undefined>(undefined);
+
+/** When a run started, for ordering it among watch activities. */
+export function runStartMs(run: RunListItem): number {
+  return Date.parse(run.wallStartedAt ?? run.startedAt);
+}
+
+/**
+ * One row of the History list: a RunnerApp run (with the watch activity recorded alongside it,
+ * once linked), or a watch activity on its own — an outdoor run, or a treadmill run done without
+ * the app.
+ */
+export type HistoryItem =
+  | { kind: 'run'; id: string; startMs: number; run: RunListItem; activity?: ActivityListItem }
+  | { kind: 'activity'; id: string; startMs: number; activity: ActivityListItem };
+
+/** Runs and unlinked activities merged newest first; undefined until runs have loaded. */
+export const historyAtom = atom<HistoryItem[] | undefined>((get) => {
+  const runs = get(runsAtom);
+  if (runs === undefined) return undefined;
+  const activities = get(activitiesAtom) ?? [];
+  const runIds = new Set(runs.map((r) => r.id));
+  const byRun = new Map<string, ActivityListItem>();
+  for (const a of activities)
+    if (a.linkedRunId && runIds.has(a.linkedRunId)) byRun.set(a.linkedRunId, a);
+  const items: HistoryItem[] = [
+    ...runs.map((run): HistoryItem => ({
+      kind: 'run',
+      id: run.id,
+      startMs: runStartMs(run),
+      run,
+      activity: byRun.get(run.id),
+    })),
+    ...activities
+      .filter((a) => !(a.linkedRunId && runIds.has(a.linkedRunId)))
+      .map((activity): HistoryItem => ({
+        kind: 'activity',
+        id: activity.id,
+        startMs: Date.parse(activity.startTime),
+        activity,
+      })),
+  ];
+  return items.sort((a, b) => b.startMs - a.startMs);
+});
 
 /** Set once useProgramSync's initial /api/user-settings load finishes (success or failure). */
 export const userSettingsLoadedAtom = atom(false);
@@ -103,6 +168,31 @@ export function cacheRunDetail(row: RunRow): void {
   store.set(runDetailsAtom, (prev) => ({ ...prev, [row.id]: row }));
 }
 
+export function cacheActivityDetail(activity: ActivityDetail): void {
+  store.set(activityDetailsAtom, (prev) => ({ ...prev, [activity.id]: activity }));
+}
+
+/** Reflects a link/unlink in the caches right away, the way the server will apply it. */
+export function applyActivityLink(id: string, linkedRunId: string | null): void {
+  const update = <T extends ActivityListItem>(a: T): T => {
+    if (a.id === id) return { ...a, linkedRunId, linkMode: linkedRunId ? 'manual' : 'none' };
+    if (linkedRunId && a.linkedRunId === linkedRunId)
+      return { ...a, linkedRunId: null, linkMode: 'none' };
+    return a;
+  };
+  store.set(activitiesAtom, (prev) => prev?.map(update));
+  store.set(activityDetailsAtom, (prev) =>
+    Object.fromEntries(Object.entries(prev).map(([key, a]) => [key, update(a)]))
+  );
+}
+
+export function removeActivityFromCache(id: string): void {
+  store.set(activitiesAtom, (prev) => prev?.filter((a) => a.id !== id));
+  store.set(activityDetailsAtom, (prev) =>
+    id in prev ? Object.fromEntries(Object.entries(prev).filter(([key]) => key !== id)) : prev
+  );
+}
+
 /**
  * Re-fetches the programs list from the server and replaces the cache,
  * with not-yet-synced offline edits layered on top. Best-effort.
@@ -133,6 +223,21 @@ export async function refreshRuns(): Promise<void> {
       getPendingWrites(),
     ]);
     setRuns(overlayRuns(JSON.parse(data, Timespan.reviver) ?? [], pending));
+  } catch {
+    // Best-effort background refresh.
+  }
+}
+
+/** Re-fetches the imported activities list, with queued link/unlink/delete choices on top. Best-effort. */
+export async function refreshActivities(): Promise<void> {
+  try {
+    const [{ data }, pending] = await Promise.all([
+      axios.get<ActivityListItem[]>('/api/activities'),
+      getPendingWrites(),
+    ]);
+    // Cached details are kept: their link fields may be stale, so the detail page takes those
+    // from this list instead.
+    store.set(activitiesAtom, overlayActivities(data ?? [], pending));
   } catch {
     // Best-effort background refresh.
   }
@@ -234,6 +339,7 @@ export function useUserDataPreload(): void {
     // can run before useOfflineSync's own setUser call on the same sign-in).
     setSpeedCalibrationUser(userId);
     void refreshPrograms();
+    void refreshActivities();
     void refreshRuns().then(syncSpeedCalibration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
@@ -277,6 +383,8 @@ async function syncSpeedCalibration(): Promise<void> {
   try {
     const { data } = await axios.get('/api/user-settings');
     server = parseSpeedCalibration(data?.speedCalibration);
+    // Piggybacks on the same settings fetch rather than making another.
+    store.set(athleteProfileAtom, parseAthleteProfile(data?.athleteProfile));
   } catch {
     return;
   }
