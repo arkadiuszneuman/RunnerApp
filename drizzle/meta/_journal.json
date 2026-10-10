@@ -43,6 +43,13 @@
       "when": 1791632943879,
       "tag": "0005_redundant_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791672303758,
+      "tag": "0006_clear_export_garmin_ids",
+      "breakpoints": true
     }
   ]
 }

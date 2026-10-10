@@ -214,20 +214,28 @@ export async function syncIntervals(userId: string): Promise<SyncResult> {
       .select({
         id: externalActivities.id,
         intervalsId: externalActivities.intervalsId,
+        garminId: externalActivities.garminId,
         startTime: externalActivities.startTime,
       })
       .from(externalActivities)
       .where(eq(externalActivities.userId, userId));
     const plan = planSync(
       listed,
-      known.map((k) => ({ id: k.id, intervalsId: k.intervalsId, startMs: k.startTime.getTime() }))
+      known.map((k) => ({ ...k, startMs: k.startTime.getTime() }))
     );
 
-    for (const { activityId, intervalsId } of plan.attach) {
+    for (const { activityId, garminId } of plan.garminIds) {
+      await db
+        .update(externalActivities)
+        .set({ garminId, updatedAt: new Date() })
+        .where(and(eq(externalActivities.id, activityId), isNull(externalActivities.garminId)));
+    }
+
+    for (const { activityId, intervalsId, garminId } of plan.attach) {
       try {
         await db
           .update(externalActivities)
-          .set({ intervalsId, updatedAt: new Date() })
+          .set({ intervalsId, ...(garminId && { garminId }), updatedAt: new Date() })
           .where(
             and(eq(externalActivities.id, activityId), isNull(externalActivities.intervalsId))
           );

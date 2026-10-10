@@ -1,4 +1,11 @@
-import { BlobReader, BlobWriter, configure, Uint8ArrayWriter, ZipReader } from '@zip.js/zip.js';
+import {
+  BlobReader,
+  BlobWriter,
+  configure,
+  TextWriter,
+  Uint8ArrayWriter,
+  ZipReader,
+} from '@zip.js/zip.js';
 
 export type FitFile = { name: string; bytes: Uint8Array };
 
@@ -6,13 +13,76 @@ export type FitFile = { name: string; bytes: Uint8Array };
 export const ACCEPTED_IMPORT_TYPES = '.fit,.FIT,.gz,.zip,application/zip,application/gzip';
 
 /**
- * Garmin activity ids in file names: the full data export names uploaded files
- * `<email>_<activityId>.fit`, and Garmin Connect's "Export original" download contains
- * `<activityId>_ACTIVITY.fit`.
+ * The Garmin activity id in a file name: Garmin Connect's "Export original" download contains
+ * `<activityId>_ACTIVITY.fit`. The full account export's `<email>_<number>.fit` names carry a
+ * different number (the uploaded file's, not the activity's) — Garmin Connect can't open an
+ * activity by it, so it isn't read.
  */
 export function garminIdFromName(name: string): string | undefined {
   const base = name.split('/').pop() ?? name;
-  return /(?:^|_)(\d{8,20})(?:_ACTIVITY)?\.fit$/i.exec(base)?.[1];
+  return /^(\d{8,20})_ACTIVITY\.fit$/i.exec(base)?.[1];
+}
+
+/** Garmin activity ids by start time (whole seconds since the epoch, UTC). */
+export type GarminIdsByStart = Map<number, string>;
+
+/**
+ * Collects Garmin activity ids from the full account export's activity summaries
+ * (`DI_CONNECT/DI-Connect-Fitness/<email>_0_summarizedActivities.json`) — the only place in that
+ * export that holds them, since its FIT files are named by upload, not by activity. Walks the JSON
+ * generically: every object with a numeric `activityId` and a start timestamp counts.
+ */
+export function collectGarminIds(
+  json: unknown,
+  into: GarminIdsByStart = new Map()
+): GarminIdsByStart {
+  if (Array.isArray(json)) {
+    for (const item of json) collectGarminIds(item, into);
+  } else if (json && typeof json === 'object') {
+    const record = json as Record<string, unknown>;
+    const start = record.startTimeGmt ?? record.beginTimestamp;
+    if (typeof record.activityId === 'number' && typeof start === 'number') {
+      into.set(Math.round(start / 1000), String(record.activityId));
+    } else {
+      for (const value of Object.values(record)) collectGarminIds(value, into);
+    }
+  }
+  return into;
+}
+
+/** The Garmin activity id of the activity that started at `startTime` (ISO), if known. */
+export function garminIdAt(ids: GarminIdsByStart, startTime: string): string | undefined {
+  const sec = Math.round(Date.parse(startTime) / 1000);
+  for (const delta of [0, -1, 1, -2, 2]) {
+    const id = ids.get(sec + delta);
+    if (id) return id;
+  }
+  return undefined;
+}
+
+const isSummaries = (name: string) => /summarizedActivities[^/]*\.json$/i.test(name);
+
+/** The activity ids in a Garmin account export zip (empty for any other file). */
+export async function garminIdsFromExport(file: Blob, name: string): Promise<GarminIdsByStart> {
+  const ids: GarminIdsByStart = new Map();
+  if (!isZip(name)) return ids;
+  configureZip();
+  const reader = new ZipReader(new BlobReader(file));
+  try {
+    for await (const entry of reader.getEntriesGenerator()) {
+      if (entry.directory || !isSummaries(entry.filename)) continue;
+      try {
+        collectGarminIds(JSON.parse(await entry.getData(new TextWriter())), ids);
+      } catch {
+        // Unreadable summaries only cost the Garmin Connect links, not the import.
+      }
+    }
+  } catch {
+    // Not a readable zip — fitFilesFrom reports that.
+  } finally {
+    await reader.close();
+  }
+  return ids;
 }
 
 const isFit = (name: string) => /\.fit$/i.test(name);
@@ -26,6 +96,14 @@ export async function gunzip(data: Blob): Promise<Uint8Array> {
 }
 
 let zipConfigured = false;
+
+function configureZip() {
+  if (zipConfigured) return;
+  // This runs inside the import worker already; zip.js spawning its own workers from there buys
+  // nothing.
+  configure({ useWebWorkers: false });
+  zipConfigured = true;
+}
 
 /**
  * Every FIT file in an upload: a `.fit` / `.fit.gz` file itself, or each one inside a zip —
@@ -53,12 +131,7 @@ export async function* fitFilesFrom(
   }
   if (!isZip(name)) return;
 
-  if (!zipConfigured) {
-    // This runs inside the import worker already; zip.js spawning its own workers from there
-    // buys nothing.
-    configure({ useWebWorkers: false });
-    zipConfigured = true;
-  }
+  configureZip();
   const reader = new ZipReader(new BlobReader(file));
   try {
     for await (const entry of reader.getEntriesGenerator()) {

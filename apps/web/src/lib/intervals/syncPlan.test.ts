@@ -42,11 +42,52 @@ describe('planSync', () => {
 
   it('skips known ids (including deleted ones) and attaches ids to file uploads with the same start', () => {
     const plan = planSync(listed, [
-      { id: 'a1', intervalsId: 'i1', startMs: Date.parse('2026-10-01T06:00:00Z') },
-      { id: 'a2', intervalsId: null, startMs: Date.parse('2026-10-03T06:00:01Z') },
+      { id: 'a1', intervalsId: 'i1', garminId: null, startMs: Date.parse('2026-10-01T06:00:00Z') },
+      { id: 'a2', intervalsId: null, garminId: null, startMs: Date.parse('2026-10-03T06:00:01Z') },
     ]);
     expect(plan.download.map((a) => a.id)).toEqual(['i3']);
     expect(plan.attach).toEqual([{ activityId: 'a2', intervalsId: 'i2' }]);
+    expect(plan.garminIds).toEqual([]);
+  });
+
+  it("records Garmin Connect's activity id on stored activities that lack one", () => {
+    const fromGarmin = (id: string, garminId: string, start: string) => ({
+      id,
+      type: 'Run',
+      source: 'GARMIN_CONNECT',
+      external_id: garminId,
+      ...at(start),
+    });
+    const plan = planSync(
+      [
+        fromGarmin('i1', '17000000001', '2026-10-01T06:00:00Z'),
+        fromGarmin('i2', '17000000002', '2026-10-03T06:00:00Z'),
+        fromGarmin('i3', '17000000003', '2026-10-05T06:00:00Z'),
+      ],
+      [
+        {
+          id: 'a1',
+          intervalsId: 'i1',
+          garminId: null,
+          startMs: Date.parse('2026-10-01T06:00:00Z'),
+        },
+        {
+          id: 'a2',
+          intervalsId: null,
+          garminId: null,
+          startMs: Date.parse('2026-10-03T06:00:00Z'),
+        },
+        {
+          id: 'a3',
+          intervalsId: 'i3',
+          garminId: '17000000003',
+          startMs: Date.parse('2026-10-05T06:00:00Z'),
+        },
+      ]
+    );
+    expect(plan.garminIds).toEqual([{ activityId: 'a1', garminId: '17000000001' }]);
+    expect(plan.attach).toEqual([{ activityId: 'a2', intervalsId: 'i2', garminId: '17000000002' }]);
+    expect(plan.download).toEqual([]);
   });
 });
 
