@@ -10,6 +10,7 @@ import {
 import { and, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { externalActivities, runHistory } from '@/lib/db/schema';
+import { backfillRunSummaries } from '@/lib/runs/summaries';
 import type { ActivityDetail, ActivityListItem, ActivitySource } from './types';
 
 export type { ActivityDetail, ActivityListItem, ActivitySource };
@@ -238,6 +239,9 @@ export async function autoLink(
   userId: string,
   span: { fromMs: number; toMs: number }
 ): Promise<number> {
+  // Runs recorded before summaries were stored have no start/end yet — fill them in first, so
+  // importing historical activities links them too, whatever was loaded before.
+  await backfillRunSummaries(userId);
   const from = new Date(span.fromMs - LINK_WINDOW_MS);
   const to = new Date(span.toMs + LINK_WINDOW_MS);
   const [runs, activities] = await Promise.all([

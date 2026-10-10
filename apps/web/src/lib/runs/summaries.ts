@@ -84,28 +84,26 @@ export type RunListRow = {
 
 const BACKFILL_CHUNK = 20;
 
-/**
- * Every run of a user, newest first, with its stored summary — without ever selecting the
- * (potentially large) telemetry of a run whose summary is current. Rows whose summary is missing
- * or stale (recorded before summaries were stored, or computed by an older version) are computed
- * here and written back, a chunk at a time so memory stays bounded; that's a one-off cost per row.
- */
-export async function loadRunSummaries(userId: string): Promise<RunListRow[]> {
-  const rows = await db
-    .select({
-      id: runHistory.id,
-      createdAt: runHistory.createdAt,
-      startedAt: runHistory.startedAt,
-      endedAt: runHistory.endedAt,
-      meta: sql<RunMeta>`${runHistory.data} - 'telemetry'`,
-      summary: runHistory.summary,
-      summaryVersion: runHistory.summaryVersion,
-    })
-    .from(runHistory)
-    .where(eq(runHistory.userId, userId))
-    .orderBy(sql`coalesce(${runHistory.startedAt}, ${runHistory.createdAt}) desc`);
+export type Span = { fromMs: number; toMs: number };
 
-  const stale = rows.filter((r) => r.summaryVersion !== RUN_SUMMARY_VERSION || !r.summary);
+/**
+ * Computes and stores the derived columns of every run whose summary is missing or outdated
+ * (recorded before summaries were stored, or computed by an older RUN_SUMMARY_VERSION), a chunk
+ * at a time so memory stays bounded — a one-off cost per row. Returns the span of the runs it
+ * filled in, if any: until then those runs had no start/end and couldn't be linked to watch
+ * activities, so the caller should link that span.
+ */
+export async function backfillRunSummaries(userId: string): Promise<Span | undefined> {
+  const stale = await db
+    .select({ id: runHistory.id, meta: sql<RunMeta>`${runHistory.data} - 'telemetry'` })
+    .from(runHistory)
+    .where(
+      and(
+        eq(runHistory.userId, userId),
+        sql`${runHistory.summaryVersion} is distinct from ${RUN_SUMMARY_VERSION}`
+      )
+    );
+  let span: Span | undefined;
   for (let i = 0; i < stale.length; i += BACKFILL_CHUNK) {
     const chunk = stale.slice(i, i + BACKFILL_CHUNK);
     const telemetries = await db
@@ -128,22 +126,41 @@ export async function loadRunSummaries(userId: string): Promise<RunListRow[]> {
       chunk.map(async (row) => {
         const derived = computeRunDerived(row.meta, byId.get(row.id) ?? []);
         await saveRunDerived(row.id, derived);
-        Object.assign(row, derived);
+        if (derived.startedAt && derived.endedAt) {
+          span = {
+            fromMs: Math.min(span?.fromMs ?? Infinity, derived.startedAt.getTime()),
+            toMs: Math.max(span?.toMs ?? -Infinity, derived.endedAt.getTime()),
+          };
+        }
       })
     );
   }
-
-  const sorted = stale.length > 0 ? [...rows].sort((a, b) => startOf(b) - startOf(a)) : rows;
-  return sorted.map(({ id, createdAt, startedAt, endedAt, meta, summary }) => ({
-    id,
-    createdAt,
-    startedAt,
-    endedAt,
-    meta,
-    summary: summary as StoredRunSummary,
-  }));
+  return span;
 }
 
-function startOf(row: { startedAt: Date | null; createdAt: Date }): number {
-  return (row.startedAt ?? row.createdAt).getTime();
+/**
+ * Every run of a user, newest first, with its stored summary — without ever selecting the
+ * (potentially large) telemetry. Outdated summaries are brought up to date first (see
+ * backfillRunSummaries); `backfilled` is the span that needed it.
+ */
+export async function loadRunSummaries(
+  userId: string
+): Promise<{ rows: RunListRow[]; backfilled?: Span }> {
+  const backfilled = await backfillRunSummaries(userId);
+  const rows = await db
+    .select({
+      id: runHistory.id,
+      createdAt: runHistory.createdAt,
+      startedAt: runHistory.startedAt,
+      endedAt: runHistory.endedAt,
+      meta: sql<RunMeta>`${runHistory.data} - 'telemetry'`,
+      summary: runHistory.summary,
+    })
+    .from(runHistory)
+    .where(eq(runHistory.userId, userId))
+    .orderBy(sql`coalesce(${runHistory.startedAt}, ${runHistory.createdAt}) desc`);
+  return {
+    rows: rows.map((row) => ({ ...row, summary: row.summary as StoredRunSummary })),
+    backfilled,
+  };
 }
