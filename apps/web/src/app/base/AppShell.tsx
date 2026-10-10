@@ -1,14 +1,10 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
-import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
-import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
-import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import InstallMobileRoundedIcon from '@mui/icons-material/InstallMobileRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
-import ViewAgendaRoundedIcon from '@mui/icons-material/ViewAgendaRounded';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -23,29 +19,8 @@ import { usePathname } from 'next/navigation';
 import { forgetCachedUserData, installPromptAtom, promptInstall } from '../offline/serviceWorker';
 import SyncIndicator from '../offline/SyncIndicator';
 import { displayFont, glass, tokens } from '../theme';
+import { NAV_ITEMS } from './navItems';
 import NativeDevicePickerDialog from './NativeDevicePickerDialog';
-
-const NAV_ITEMS = [
-  { href: '/', label: 'Home', icon: HomeRoundedIcon, match: (p: string) => p === '/' },
-  {
-    href: '/programs',
-    label: 'Programs',
-    icon: ViewAgendaRoundedIcon,
-    match: (p: string) => p.startsWith('/programs') || p.startsWith('/add-program'),
-  },
-  {
-    href: '/runs',
-    label: 'History',
-    icon: HistoryRoundedIcon,
-    match: (p: string) => p.startsWith('/runs') || p.startsWith('/activities'),
-  },
-  {
-    href: '/stats',
-    label: 'Stats',
-    icon: InsightsRoundedIcon,
-    match: (p: string) => p.startsWith('/stats'),
-  },
-];
 
 /** Routes with their own full-screen action bar — the floating nav would compete with it. */
 const IMMERSIVE_ROUTES = ['/running', '/add-program'];
@@ -192,8 +167,70 @@ function TopBar() {
   );
 }
 
+// Slingshot: the pill is first drawn back a little away from the target, then released — it
+// leaves at full speed and decelerates into the target without overshooting it. The pull-back
+// stays within the nav's 8px padding, so the outer tabs' pill doesn't poke past its edge.
+const PULL_BACK = 7; // % of the pill's own width
+const PULL_MS = 170;
+const FLIGHT_MS = 380; // plus FLIGHT_MS_PER_TAB for every tab travelled
+const FLIGHT_MS_PER_TAB = 50;
+
+/** The pill's rendered translateX as % of its width, including a running animation. */
+function currentOffset(el: HTMLElement): number {
+  const { m41 } = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+  return el.offsetWidth ? (m41 / el.offsetWidth) * 100 : 0;
+}
+
 function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
-  const activeIndex = NAV_ITEMS.findIndex((item) => item.match(pathname));
+  // A tapped tab is selected right away rather than once its route has rendered (which takes a
+  // beat), so the pill launches the moment the finger lands. Dropped as soon as the path changes.
+  const [tapped, setTapped] = useState<{ index: number; from: string } | null>(null);
+  const activeIndex =
+    tapped?.from === pathname ? tapped.index : NAV_ITEMS.findIndex((item) => item.match(pathname));
+  const pillRef = useRef<HTMLDivElement>(null);
+  const prevIndexRef = useRef(activeIndex);
+
+  useLayoutEffect(() => {
+    const pill = pillRef.current;
+    const prevIndex = prevIndexRef.current;
+    prevIndexRef.current = activeIndex;
+    if (!pill || prevIndex === activeIndex || prevIndex < 0 || activeIndex < 0) return;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion || typeof pill.animate !== 'function') return;
+
+    // The style already holds the new position; mid-flight, start from where the animation has
+    // got to instead, so a quick second tap re-aims the pill smoothly.
+    const running = pill.getAnimations();
+    const from = running.length ? currentOffset(pill) : prevIndex * 100;
+    running.forEach((animation) => animation.cancel());
+    const to = activeIndex * 100;
+    const flightMs = FLIGHT_MS + FLIGHT_MS_PER_TAB * Math.abs(activeIndex - prevIndex);
+    const release = 'cubic-bezier(0.16, 1, 0.3, 1)';
+    if (running.length) {
+      // Already flying — no second pull-back, just re-aim.
+      pill.animate(
+        [
+          { transform: `translateX(${from}%)`, easing: release },
+          { transform: `translateX(${to}%)` },
+        ],
+        { duration: flightMs }
+      );
+      return;
+    }
+    const pulled = from - Math.sign(to - from) * PULL_BACK;
+    pill.animate(
+      [
+        { transform: `translateX(${from}%)`, easing: 'cubic-bezier(0.45, 0, 0.55, 1)' },
+        {
+          transform: `translateX(${pulled}%)`,
+          offset: PULL_MS / (PULL_MS + flightMs),
+          easing: release,
+        },
+        { transform: `translateX(${to}%)` },
+      ],
+      { duration: PULL_MS + flightMs }
+    );
+  }, [activeIndex]);
 
   return (
     <Box
@@ -217,6 +254,7 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
     >
       {/* Sliding active pill */}
       <Box
+        ref={pillRef}
         aria-hidden
         sx={{
           position: 'absolute',
@@ -229,7 +267,9 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
           border: `1px solid rgba(198,255,61,0.25)`,
           transform: `translateX(${Math.max(activeIndex, 0) * 100}%)`,
           opacity: activeIndex < 0 ? 0 : 1,
-          transition: 'transform 520ms var(--ease-spring), opacity 200ms ease',
+          // The slide itself is the slingshot animation above; this only fades it in/out on
+          // routes outside the nav.
+          transition: 'opacity 200ms ease',
         }}
       />
       {NAV_ITEMS.map((item, i) => {
@@ -240,6 +280,9 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
             key={item.href}
             component={Link}
             href={item.href}
+            onClick={() => {
+              if (!active) setTapped({ index: i, from: pathname });
+            }}
             aria-current={active ? 'page' : undefined}
             sx={{
               position: 'relative',
