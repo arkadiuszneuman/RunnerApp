@@ -124,6 +124,12 @@ export function useStatsActivities(keepEmpty = false): StatsActivity[] | undefin
 }
 
 /** Calendar years (local) that have runs, newest first — quick picks in the date filter. */
+/** The local date (YYYY-MM-DD) of the earliest activity, if any. */
+export function firstDayOf(list: readonly StatsActivity[] | undefined): string | undefined {
+  if (!list?.length) return undefined;
+  return new Date(Math.min(...list.map((a) => a.localMs))).toISOString().slice(0, 10);
+}
+
 export function yearsOf(list: readonly StatsActivity[] | undefined): number[] {
   return [...new Set((list ?? []).map((a) => new Date(a.localMs).getUTCFullYear()))].sort(
     (a, b) => b - a

@@ -53,7 +53,14 @@ export default function StatsFilterBar({
   atom,
   defaults = DEFAULT_STATS_FILTER,
   years,
-}: Readonly<{ atom: FilterAtom; defaults?: StatsFilter; years?: number[] }>) {
+  earliest,
+}: Readonly<{
+  atom: FilterAtom;
+  defaults?: StatsFilter;
+  years?: number[];
+  /** The first activity's local date (YYYY-MM-DD): the earliest date the pickers offer. */
+  earliest?: string;
+}>) {
   const [filter, setFilter] = useAtom(atom);
   const update = (patch: Partial<StatsFilter>) => setFilter({ ...filter, ...patch });
 
@@ -118,7 +125,7 @@ export default function StatsFilterBar({
           </IconButton>
         )}
       </Box>
-      <DateRangeFields filter={filter} onChange={update} years={years} />
+      <DateRangeFields filter={filter} onChange={update} years={years} earliest={earliest} />
       <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
         {ACTIVITY_SPORTS.map((sport) => {
           const selected = filter.sports.includes(sport);
