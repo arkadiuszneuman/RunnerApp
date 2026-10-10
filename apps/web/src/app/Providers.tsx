@@ -10,6 +10,7 @@ import objectSupport from 'dayjs/plugin/objectSupport';
 import { Provider } from 'jotai';
 import { SessionProvider } from 'next-auth/react';
 import ThemeColorSync from './base/ThemeColorSync';
+import { useNativeBackButton } from './nativeBackButton';
 import { useOfflineSync } from './offline/useOfflineSync';
 import { useLoadSpeedControllerPreference } from './speedControllerPreference';
 import { store } from './store';
@@ -22,6 +23,7 @@ function ProgramSyncInitializer() {
   useLoadSpeedControllerPreference();
   useUserDataPreload();
   useOfflineSync();
+  useNativeBackButton();
   return null;
 }
 
