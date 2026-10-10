@@ -34,13 +34,23 @@ export function sportOf(activity: IntervalsActivity): ActivitySport {
 }
 
 /** What's already stored, as far as planning a sync is concerned (tombstones included). */
-export type KnownActivity = { id: string; intervalsId: string | null; startMs: number };
+export type KnownActivity = {
+  id: string;
+  intervalsId: string | null;
+  garminId: string | null;
+  startMs: number;
+};
 
 export type SyncPlan = {
   /** To download and import, newest first. */
   download: IntervalsActivity[];
-  /** Already stored (e.g. uploaded from a FIT file) — only needs its intervals.icu id recorded. */
-  attach: { activityId: string; intervalsId: string }[];
+  /**
+   * Already stored (e.g. uploaded from a FIT file) — only needs its intervals.icu id recorded, and
+   * its Garmin activity id when it has none yet.
+   */
+  attach: { activityId: string; intervalsId: string; garminId?: string }[];
+  /** Already linked to intervals.icu, but missing the Garmin activity id intervals.icu knows. */
+  garminIds: { activityId: string; garminId: string }[];
 };
 
 /**
@@ -52,17 +62,25 @@ export function planSync(
   listed: readonly IntervalsActivity[],
   known: readonly KnownActivity[]
 ): SyncPlan {
-  const knownIntervalsIds = new Set(
-    known.map((k) => k.intervalsId).filter((id): id is string => !!id)
-  );
+  const byIntervalsId = new Map(known.filter((k) => k.intervalsId).map((k) => [k.intervalsId, k]));
   const unidentified = known.filter((k) => !k.intervalsId);
-  const plan: SyncPlan = { download: [], attach: [] };
+  const plan: SyncPlan = { download: [], attach: [], garminIds: [] };
   for (const activity of listed) {
-    if (!isImportable(activity) || knownIntervalsIds.has(activity.id)) continue;
+    if (!isImportable(activity)) continue;
+    const garminId = garminIdOf(activity);
+    const stored = byIntervalsId.get(activity.id);
+    if (stored) {
+      if (garminId && !stored.garminId) plan.garminIds.push({ activityId: stored.id, garminId });
+      continue;
+    }
     const startMs = startMsOf(activity)!;
     const sameStart = unidentified.find((k) => Math.abs(k.startMs - startMs) <= SAME_START_MS);
     if (sameStart) {
-      plan.attach.push({ activityId: sameStart.id, intervalsId: activity.id });
+      plan.attach.push({
+        activityId: sameStart.id,
+        intervalsId: activity.id,
+        ...(garminId && !sameStart.garminId && { garminId }),
+      });
       unidentified.splice(unidentified.indexOf(sameStart), 1);
     } else {
       plan.download.push(activity);

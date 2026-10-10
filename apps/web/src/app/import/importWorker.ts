@@ -1,5 +1,5 @@
 import { decodeFit } from '@/lib/fit/decodeFit';
-import { fitFilesFrom, garminIdFromName } from './fitFiles';
+import { fitFilesFrom, garminIdAt, garminIdFromName, garminIdsFromExport } from './fitFiles';
 import type { ImportWorkerMessage, ImportWorkerRequest } from './protocol';
 
 /**
@@ -12,15 +12,18 @@ const post = (message: ImportWorkerMessage) => self.postMessage(message);
 self.onmessage = async (event: MessageEvent<ImportWorkerRequest>) => {
   for (const file of event.data.files) {
     const onError = (name: string, message: string) => post({ type: 'error', name, message });
+    // Read up front: zip entry order is arbitrary, the summaries may come after the FIT files.
+    const exportIds = await garminIdsFromExport(file, file.name);
     for await (const fit of fitFilesFrom(file, file.name, onError)) {
       const result = decodeFit(fit.bytes);
-      const garminId = garminIdFromName(fit.name);
+      const fromName = garminIdFromName(fit.name);
       post({
         type: 'file',
         name: fit.name,
-        activities: garminId
-          ? result.activities.map((a) => ({ ...a, garminId }))
-          : result.activities,
+        activities: result.activities.map((a) => {
+          const garminId = fromName ?? garminIdAt(exportIds, a.startTime);
+          return garminId ? { ...a, garminId } : a;
+        }),
         skipped: 'skipped' in result ? result.skipped : undefined,
         error: 'error' in result ? result.error : undefined,
       });
