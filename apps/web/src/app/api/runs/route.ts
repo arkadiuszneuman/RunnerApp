@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { programs, runHistory } from '@/lib/db/schema';
+import { autoLink } from '@/lib/activities/repo';
 import { loadRunSummaries } from '@/lib/runs/summaries';
 import { getUserId } from '@/lib/session';
 import { createRunSchema, parseJsonBody } from '@/lib/validation';
@@ -73,7 +74,10 @@ export async function GET() {
   // Every run, newest first, with summaries the server computed and stored when the run was
   // saved — the full telemetry never has to cross the wire (or even leave the database) just to
   // render a list row or a statistic.
-  const rows = await loadRunSummaries(userId);
+  const { rows, backfilled } = await loadRunSummaries(userId);
+  // Runs that only now got their start/end can finally be paired with watch activities imported
+  // before (e.g. historical runs from a Garmin export).
+  if (backfilled) await autoLink(userId, backfilled);
   return NextResponse.json(
     rows.map(({ id, createdAt, startedAt, endedAt, meta, summary }) => ({
       id,
