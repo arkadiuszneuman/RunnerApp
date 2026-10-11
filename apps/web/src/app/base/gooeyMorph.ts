@@ -20,6 +20,11 @@ export interface GooFrame {
   drop: Pose;
   /** A bump the target option puts out to catch the drop, swallowed when it lands. */
   catcher: Pose;
+  /**
+   * How much the anchor melts into the drop (0–1). It starts out exactly on top of the drop, and
+   * melting two coincident shapes would swell their shared edges — so it eases in.
+   */
+  anchorMelt: number;
 }
 
 export interface GooOptions {
@@ -71,7 +76,7 @@ export function gooFrames(
   to: Span,
   base: number,
   {
-    maxStretch = 1.3,
+    maxStretch = 1.6,
     thinning = 0.36,
     pullBackPx = 0,
     pullShare = 0,
@@ -101,6 +106,7 @@ export function gooFrames(
           sy: 1 + 0.04 * e,
         },
         catcher: HIDDEN(toCenter),
+        anchorMelt: 0,
       };
     }
     const u = pull < 1 ? (t - pull) / (1 - pull) : 1;
@@ -114,7 +120,7 @@ export function gooFrames(
         sx:
           lerp(fromSx * (pull ? 0.94 : 1), 1, easeInOutCubic(x)) *
           (1 + (maxStretch - 1) * speed) *
-          (1 - 0.4 * narrow * speed),
+          (1 - 0.3 * narrow * speed),
         sy: (pull ? lerp(1.04, 1, x) : 1) - (thinning + 0.08 * narrow) * speed,
       };
     } else {
@@ -143,7 +149,7 @@ export function gooFrames(
       sy: Math.min(1, size * 1.15),
     };
 
-    return { offset: t, anchor, drop, catcher };
+    return { offset: t, anchor, drop, catcher, anchorMelt: easeInOutSine(clamp01(u / 0.2)) };
   });
 }
 

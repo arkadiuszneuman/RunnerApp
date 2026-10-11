@@ -20,6 +20,7 @@ import { forgetCachedUserData, installPromptAtom, promptInstall } from '../offli
 import SyncIndicator from '../offline/SyncIndicator';
 import { displayFont, glass, tokens } from '../theme';
 import GooIndicator, { type GooIndicatorHandle } from './GooIndicator';
+import type { Span } from './gooeyMorph';
 import { NAV_ITEMS } from './navItems';
 import NativeDevicePickerDialog from './NativeDevicePickerDialog';
 
@@ -188,25 +189,42 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
   const gooRef = useRef<GooIndicatorHandle>(null);
   const prevIndexRef = useRef(activeIndex);
 
+  const tabSpan = (nav: HTMLElement, index: number): Span => {
+    const width = (nav.clientWidth - 16) / NAV_ITEMS.length;
+    return { left: index * width, width };
+  };
+
   useLayoutEffect(() => {
     const nav = navRef.current;
     const goo = gooRef.current;
     const prevIndex = prevIndexRef.current;
     prevIndexRef.current = activeIndex;
-    if (!nav || !goo || prevIndex === activeIndex || prevIndex < 0 || activeIndex < 0) return;
+    if (!nav || !goo || activeIndex < 0) return;
+    const to = tabSpan(nav, activeIndex);
+    goo.place(to);
+    if (prevIndex === activeIndex || prevIndex < 0) return;
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion || typeof nav.animate !== 'function') return;
+    if (reduceMotion) return;
 
-    // The drop's style already holds the new position (see dropSx); this is the way there.
-    const width = (nav.clientWidth - 16) / NAV_ITEMS.length;
     const flightMs = FLIGHT_MS + FLIGHT_MS_PER_TAB * Math.abs(activeIndex - prevIndex);
-    const pullBackPx = Math.min(PULL_BACK * width, PULL_BACK_MAX_PX);
-    goo.morph(
-      { left: prevIndex * width, width },
-      { left: activeIndex * width, width },
-      { duration: PULL_MS + flightMs, pullBackPx, pullShare: PULL_MS / (PULL_MS + flightMs) }
-    );
+    const pullBackPx = Math.min(PULL_BACK * to.width, PULL_BACK_MAX_PX);
+    goo.morph(tabSpan(nav, prevIndex), to, {
+      duration: PULL_MS + flightMs,
+      pullBackPx,
+      pullShare: PULL_MS / (PULL_MS + flightMs),
+    });
   }, [activeIndex]);
+
+  // Re-place (no animation) when the nav's width changes.
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (prevIndexRef.current >= 0) gooRef.current?.place(tabSpan(nav, prevIndexRef.current));
+    });
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <Box
@@ -231,12 +249,12 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
     >
       <GooIndicator
         ref={gooRef}
-        blur={6}
-        fillOpacity={0.17}
         radius={999}
-        background={`linear-gradient(135deg, ${tokens.volt}, ${tokens.cyan})`}
+        smooth={16}
+        gradient={['rgba(198,255,61,0.2)', 'rgba(56,225,255,0.12)']}
         outline="rgba(198,255,61,0.25)"
-        dropSx={{
+        // Until the goo is drawn (or where it can't be): server-rendered on the active tab.
+        fallbackSx={{
           width: `${100 / NAV_ITEMS.length}%`,
           transform: `translateX(${Math.max(activeIndex, 0) * 100}%)`,
         }}

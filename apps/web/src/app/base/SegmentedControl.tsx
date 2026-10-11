@@ -143,9 +143,9 @@ export default function SegmentedControl<T extends string>({
     >
       <GooIndicator
         ref={gooRef}
-        blur={4}
+        radius={12}
+        smooth={12}
         fillOpacity={0.18}
-        radius="12px"
         sx={{ top: 4, bottom: 4, left: 0, right: 0 }}
       />
       {options.map((opt) => (
