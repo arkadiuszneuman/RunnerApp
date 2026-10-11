@@ -30,11 +30,16 @@ const METRIC_OPTIONS: readonly SegmentedControlOption<RouteMetric>[] = [
   { value: 'cad', label: 'Cadence', color: chartColors.cadence },
 ];
 
-// OpenStreetMap's own tiles: no API key, used lightly (one user's own activities), attributed.
-// They're light; the tile pane is filtered into the app's dark look (see the sx below).
-const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+// Esri's Light Gray Canvas: a plain map — streets and water, no terrain or land use — so the
+// coloured route is the only thing that stands out. No API key; attributed as Esri requires. The
+// labels come as a separate layer drawn on top.
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas';
+const TILES = `${ESRI}/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`;
+const LABELS = `${ESRI}/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}`;
+/** Deepest zoom the canvas tiles exist at; Leaflet scales them up beyond it. */
+const TILES_MAX_ZOOM = 16;
 const ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 /** How often a hidden map checks whether its page has gone for good (see PersistentChart). */
 const ORPHAN_CHECK_MS = 10_000;
@@ -93,7 +98,8 @@ export default function RouteMap({ streams }: Readonly<{ streams: ActivityStream
           attributionControl: false,
         });
         L.control.attribution({ prefix: false }).addAttribution(ATTRIBUTION).addTo(map);
-        L.tileLayer(TILES, { maxZoom: 19 }).addTo(map);
+        L.tileLayer(TILES, { maxZoom: 19, maxNativeZoom: TILES_MAX_ZOOM }).addTo(map);
+        L.tileLayer(LABELS, { maxZoom: 19, maxNativeZoom: TILES_MAX_ZOOM }).addTo(map);
         const points = routePoints(streams);
         if (points.length > 0) map.fitBounds(L.latLngBounds(points), { padding: [16, 16] });
         mapRef.current = map;
@@ -125,8 +131,10 @@ export default function RouteMap({ streams }: Readonly<{ streams: ActivityStream
     const L = leaflet;
     const layer = L.layerGroup();
     const all = runs.map((r) => r.points);
-    // A dark casing under the line keeps every step of the ramp readable on the basemap.
-    L.polyline(all, { color: '#05070b', weight: 7, opacity: 0.7, interactive: false }).addTo(layer);
+    // A thin dark casing under the line keeps the pale end of the ramp readable on the light map.
+    L.polyline(all, { color: '#1b2230', weight: 6.5, opacity: 0.45, interactive: false }).addTo(
+      layer
+    );
     for (const run of runs) {
       L.polyline(run.points, {
         color: stepColor(run.step, ramp),
@@ -213,15 +221,12 @@ export default function RouteMap({ streams }: Readonly<{ streams: ActivityStream
           minHeight: 0,
           borderRadius: 2,
           overflow: 'hidden',
-          bgcolor: '#0e131d',
-          '& .leaflet-tile-pane': {
-            filter: 'invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.85) saturate(0.4)',
-          },
+          bgcolor: '#e8e8e8',
           '& .leaflet-control-attribution': {
-            bgcolor: 'rgba(14, 19, 29, 0.7)',
-            color: 'text.secondary',
+            bgcolor: 'rgba(255, 255, 255, 0.75)',
+            color: '#4a5260',
             fontSize: '0.65rem',
-            '& a': { color: 'text.secondary' },
+            '& a': { color: '#4a5260' },
           },
           '& .route-tooltip': {
             bgcolor: 'rgba(14, 19, 29, 0.92)',

@@ -215,8 +215,8 @@ Garmin gives intervals.icu).
   `user_integrations` (`lib/crypto.ts`, AES-256-GCM, user id as AAD; `INTEGRATIONS_ENCRYPTION_KEY` or derived from
   `AUTH_SECRET`) and never returned to the client.
 - **Route map**: outdoor activities keep their GPS track in `streams.lat`/`lng` (5 s bins, index-aligned with the
-  other streams); `/activities/[id]` draws it with Leaflet on OSM tiles (`RouteMap.tsx`), coloured by pace/HR/
-  elevation/cadence, each in its chart's hue (`routeSegments.ts`). The stream charts run on moving time (`movingTimes`):
+  other streams); `/activities/[id]` draws it with Leaflet on Esri's plain Light Gray Canvas tiles (`RouteMap.tsx`), coloured by pace/HR/
+  elevation/cadence, each in its chart's hue, darker = higher (`routeSegments.ts`). The stream charts run on moving time (`movingTimes`):
   pauses take no room, and gaps are bridged with a dashed line, like Garmin's own charts. `external_activities.streams_version` (`ACTIVITY_STREAMS_VERSION`) marks
   streams built before the route existed: the intervals.icu sync re-downloads those files (`planRouteRefresh`), and
   re-uploading a file upgrades it too.
