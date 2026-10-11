@@ -42,9 +42,7 @@ export const accounts = pgTable(
     id_token: text('id_token'),
     session_state: text('session_state'),
   },
-  (account) => [
-    primaryKey({ columns: [account.provider, account.providerAccountId] }),
-  ]
+  (account) => [primaryKey({ columns: [account.provider, account.providerAccountId] })]
 );
 
 export const sessions = pgTable('session', {
@@ -143,6 +141,8 @@ export const externalActivities = pgTable(
     summary: jsonb('summary').notNull(),
     summaryVersion: integer('summary_version').notNull(),
     streams: jsonb('streams'),
+    /** ACTIVITY_STREAMS_VERSION the streams were built with (2: with the GPS route). */
+    streamsVersion: integer('streams_version').notNull().default(1),
     importError: text('import_error'),
     linkedRunId: uuid('linked_run_id').references(() => runHistory.id, { onDelete: 'set null' }),
     /** LinkMode: null (never touched) | 'auto' | 'manual' | 'none' (unlinked by the user). */

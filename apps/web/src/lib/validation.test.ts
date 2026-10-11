@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createRunSchema, parseJsonBody, patchRunSchema, programDataSchema } from './validation';
+import {
+  createRunSchema,
+  importActivitiesSchema,
+  parseJsonBody,
+  patchRunSchema,
+  programDataSchema,
+} from './validation';
 
 function jsonRequest(body: unknown): Request {
   return new Request('http://localhost/api/example', {
@@ -75,9 +81,46 @@ describe('createRunSchema / patchRunSchema', () => {
   it('patchRunSchema requires telemetry as an array of flat numeric points', () => {
     const point = { t: 0, hr: 140, thr: 150, phr: 145, spd: 8.5, inc: 2, si: 1, err: 5 };
     expect(patchRunSchema.safeParse({ telemetry: [point] }).success).toBe(true);
-    expect(patchRunSchema.safeParse({ telemetry: [{ ...point, hr: 'not a number' }] }).success).toBe(
+    expect(
+      patchRunSchema.safeParse({ telemetry: [{ ...point, hr: 'not a number' }] }).success
+    ).toBe(false);
+    expect(patchRunSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('importActivitiesSchema', () => {
+  const activity = (streams: Record<string, unknown>) => ({
+    activities: [
+      {
+        startTime: '2026-10-09T05:30:00.000Z',
+        sport: 'run',
+        dedupKey: 'fit:1:2',
+        metrics: { distanceM: 10, movingS: 10, elapsedS: 10, bestEfforts: {} },
+        streams: {
+          t: [0, 5],
+          d: [0, 10],
+          hr: [1, 1],
+          spd: [2, 2],
+          alt: [0, 0],
+          cad: [1, 1],
+          ...streams,
+        },
+      },
+    ],
+  });
+
+  it('keeps a GPS route', () => {
+    const parsed = importActivitiesSchema.parse(activity({ lat: [52.1, 52.2], lng: [21, null] }));
+    expect(parsed.activities[0].streams?.lat).toEqual([52.1, 52.2]);
+  });
+
+  it('rejects a half, misaligned or out-of-range route', () => {
+    expect(importActivitiesSchema.safeParse(activity({ lat: [52.1, 52.2] })).success).toBe(false);
+    expect(importActivitiesSchema.safeParse(activity({ lat: [52], lng: [21] })).success).toBe(
       false
     );
-    expect(patchRunSchema.safeParse({}).success).toBe(false);
+    expect(
+      importActivitiesSchema.safeParse(activity({ lat: [91, 0], lng: [21, 21] })).success
+    ).toBe(false);
   });
 });

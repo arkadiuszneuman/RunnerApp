@@ -58,15 +58,14 @@ import {
 } from '../format';
 import LinkDialog from '../LinkDialog';
 import { runCandidates, setLink } from '../linking';
+import RouteMap from './RouteMap';
+import { MIN_PACE_SPEED_MPS, routePoints } from './routeSegments';
 import StreamChart from './StreamChart';
 
 const paceLabel = (secondsPerKm: number) => {
   const s = Math.round(secondsPerKm);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
-
-/** Slower than this is walking/standing — left out of the pace chart so it doesn't flatten it. */
-const MIN_PACE_SPEED_MPS = 1.2;
 
 export default function ActivityDetailPage() {
   const params = useParams<{ id: string }>();
@@ -128,6 +127,11 @@ export default function ActivityDetailPage() {
       cad: has(streams.cad) ? pick(streams.cad) : null,
     };
   }, [activity?.streams]);
+
+  const hasRoute = useMemo(
+    () => (activity?.streams ? routePoints(activity.streams).length > 1 : false),
+    [activity?.streams]
+  );
 
   const backButton = (
     <IconButton
@@ -373,6 +377,11 @@ export default function ActivityDetailPage() {
             mb: 1.5,
           }}
         >
+          {hasRoute && activity?.streams && (
+            <ChartCard title="Route" wide height={420} index={6} deferIndex={0}>
+              <RouteMap streams={activity.streams} />
+            </ChartCard>
+          )}
           {series.hr && (
             <ChartCard title="Heart rate" wide index={6} deferIndex={0}>
               <StreamChart points={series.hr} color={chartColors.hr} yTitle="bpm" />

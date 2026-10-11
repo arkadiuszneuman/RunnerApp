@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { garminIdOf, isImportable, planSync, sportOf, summaryOnlyCandidate } from './syncPlan';
+import {
+  garminIdOf,
+  isImportable,
+  planRouteRefresh,
+  planSync,
+  sportOf,
+  summaryOnlyCandidate,
+} from './syncPlan';
 
 const at = (iso: string) => ({ start_date: iso });
 
@@ -114,5 +121,34 @@ describe('summaryOnlyCandidate / garminIdOf', () => {
       metrics: { distanceM: 8000, movingS: 2400, elapsedS: 2500, avgHr: 150, bestEfforts: {} },
     });
     expect(garminIdOf({ id: 'x', source: 'UPLOAD', external_id: '123456789' })).toBeUndefined();
+  });
+});
+
+describe('planRouteRefresh', () => {
+  const row = (
+    id: string,
+    patch: Partial<Parameters<typeof planRouteRefresh>[0][number]> = {}
+  ) => ({
+    id,
+    intervalsId: `i-${id}`,
+    sport: 'run',
+    startMs: Number(id.replace(/\D/g, '')) * 1000,
+    hasStreams: true,
+    streamsVersion: 1,
+    deleted: false,
+    ...patch,
+  });
+
+  it('re-fetches outdoor intervals.icu activities without a route, newest first', () => {
+    const plan = planRouteRefresh([
+      row('a1'),
+      row('a3', { sport: 'trail' }),
+      row('a2', { sport: 'treadmill' }),
+      row('a4', { streamsVersion: 2 }),
+      row('a5', { intervalsId: null }),
+      row('a6', { deleted: true }),
+      row('a7', { hasStreams: false }),
+    ]);
+    expect(plan.map((s) => s.id)).toEqual(['a3', 'a1']);
   });
 });

@@ -1,4 +1,5 @@
-import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import { ACTIVITY_STREAMS_VERSION } from '@runner/core/src/activities/types';
+import { and, eq, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { importActivities, type ImportCandidate } from '@/lib/activities/repo';
 import { decryptSecret, encryptSecret } from '@/lib/crypto';
 import { db } from '@/lib/db';
@@ -11,7 +12,13 @@ import {
   type IntervalsAthlete,
   type IntervalsClient,
 } from './client';
-import { garminIdOf, planSync, startMsOf, summaryOnlyCandidate } from './syncPlan';
+import {
+  garminIdOf,
+  planRouteRefresh,
+  planSync,
+  startMsOf,
+  summaryOnlyCandidate,
+} from './syncPlan';
 import type { IntervalsStatus, SyncResult } from './types';
 
 export type { IntervalsStatus, SyncResult };
@@ -122,6 +129,45 @@ function isoDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+type Job =
+  | { kind: 'import'; listed: IntervalsActivity }
+  | { kind: 'route'; id: string; intervalsId: string; startTime: Date };
+
+/** Rate limit, revoked key or no connection: the job is retried by a later pass. */
+function isTransient(error: unknown): error is IntervalsError {
+  return (
+    error instanceof IntervalsError && (error.status === 429 || error.isAuth || error.status === 0)
+  );
+}
+
+async function markStreamsCurrent(id: string): Promise<void> {
+  await db
+    .update(externalActivities)
+    .set({ streamsVersion: ACTIVITY_STREAMS_VERSION, updatedAt: new Date() })
+    .where(eq(externalActivities.id, id));
+}
+
+/**
+ * Downloads a stored activity's original file again for the GPS route, which older imports didn't
+ * keep. `importActivities` recognises it by its intervals.icu id and only swaps the streams in; an
+ * activity whose file has no route (or no longer decodes) is still marked current, so it isn't
+ * fetched again.
+ */
+async function refreshRoute(
+  userId: string,
+  client: IntervalsClient,
+  job: { id: string; intervalsId: string; startTime: Date }
+): Promise<void> {
+  const candidate = await candidateFor(client, {
+    id: job.intervalsId,
+    start_date: job.startTime.toISOString(),
+  });
+  if (!candidate.importError) {
+    await importActivities(userId, [candidate], { source: 'intervals', restoreDeleted: false });
+  }
+  await markStreamsCurrent(job.id);
+}
+
 /**
  * Turns one listed activity into something to import: its original FIT file (or, if that isn't
  * a FIT — e.g. a GPX upload — intervals.icu's FIT rendering of it), falling back to the list
@@ -216,6 +262,10 @@ export async function syncIntervals(userId: string): Promise<SyncResult> {
         intervalsId: externalActivities.intervalsId,
         garminId: externalActivities.garminId,
         startTime: externalActivities.startTime,
+        sport: externalActivities.sport,
+        hasStreams: isNotNull(externalActivities.streams),
+        streamsVersion: externalActivities.streamsVersion,
+        deletedAt: externalActivities.deletedAt,
       })
       .from(externalActivities)
       .where(eq(externalActivities.userId, userId));
@@ -245,11 +295,42 @@ export async function syncIntervals(userId: string): Promise<SyncResult> {
       }
     }
 
-    const queue = [...plan.download];
+    // New activities first, then the GPS route backfill of ones stored before it existed.
+    const queue: Job[] = [
+      ...plan.download.map((listed): Job => ({ kind: 'import', listed })),
+      ...planRouteRefresh(
+        known.map((k) => ({
+          ...k,
+          startMs: k.startTime.getTime(),
+          hasStreams: Boolean(k.hasStreams),
+          deleted: k.deletedAt !== null,
+        }))
+      ).map((stored): Job => ({
+        kind: 'route',
+        id: stored.id,
+        intervalsId: stored.intervalsId!,
+        startTime: new Date(stored.startMs),
+      })),
+    ];
     let stop: IntervalsError | undefined;
     const worker = async () => {
       while (queue.length > 0 && !stop && Date.now() - startedAt < TIME_BUDGET_MS) {
-        const listedActivity = queue.shift()!;
+        const job = queue.shift()!;
+        if (job.kind === 'route') {
+          try {
+            await refreshRoute(userId, client, job);
+          } catch (error) {
+            if (isTransient(error)) {
+              queue.unshift(job);
+              stop = error;
+            } else {
+              // A file that no longer downloads or decodes: keep what's stored, don't retry.
+              await markStreamsCurrent(job.id);
+            }
+          }
+          continue;
+        }
+        const listedActivity = job.listed;
         try {
           const candidate = await candidateFor(client, listedActivity);
           const imported = await importActivities(userId, [candidate], {
@@ -259,11 +340,8 @@ export async function syncIntervals(userId: string): Promise<SyncResult> {
           if (candidate.importError) result.failed++;
           else result.imported += imported.inserted.length + imported.updated.length;
         } catch (error) {
-          if (
-            error instanceof IntervalsError &&
-            (error.status === 429 || error.isAuth || error.status === 0)
-          ) {
-            queue.unshift(listedActivity);
+          if (isTransient(error)) {
+            queue.unshift(job);
             stop = error;
           } else {
             // A broken file or an unexpected response for this one activity: keep its summary.

@@ -1,0 +1,1 @@
+ALTER TABLE "external_activities" ADD COLUMN "streams_version" integer DEFAULT 1 NOT NULL;

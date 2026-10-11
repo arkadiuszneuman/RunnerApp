@@ -93,6 +93,23 @@ describe('activityFromFitMessages', () => {
     // 5 s streams, steps per minute for cadence.
     expect(a.streams?.t.slice(0, 3)).toEqual([0, 5, 10]);
     expect(a.streams?.cad[0]).toBe(171);
+    expect(a.streams?.lat).toBeUndefined();
+  });
+
+  it('keeps the GPS route of an outdoor run, in degrees', () => {
+    const messages = treadmillRun(60, { subSport: 'generic' });
+    const semicircles = (deg: number) => Math.round((deg * 2 ** 31) / 180);
+    messages.recordMesgs = messages.recordMesgs!.map((r, s) =>
+      // No fix for the first two seconds.
+      s < 2
+        ? r
+        : { ...r, positionLat: semicircles(52.2297 + s * 1e-5), positionLong: semicircles(21.0122) }
+    );
+    const streams = activityFromFitMessages(messages).activities[0].streams!;
+    expect(streams.lat).toHaveLength(streams.t.length);
+    expect(streams.lat![0]).toBeCloseTo(52.22974, 5);
+    expect(streams.lng![0]).toBeCloseTo(21.0122, 5);
+    expect(streams.lat![1]).toBeCloseTo(52.22979, 5);
   });
 
   it('rescales record distances to a calibrated session total', () => {
