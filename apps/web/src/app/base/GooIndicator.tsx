@@ -8,6 +8,8 @@ import type { GooOptions, Span } from './gooeyMorph';
 import { epochNow, type GooCommand, parseColor } from './gooRenderer';
 
 export interface GooIndicatorHandle {
+  /** The layer the goo is drawn on: spans passed to `place`/`morph` are relative to its left edge. */
+  layer(): HTMLElement | null;
   /** Puts the drop on `span`, tinted `color` (unless a `gradient` fills it). */
   place(span: Span, color?: string): void;
   /**
@@ -63,6 +65,7 @@ export default function GooIndicator({
   fillOpacity = 1,
   gradient,
   outline,
+  padY = 0,
   fallbackSx,
   sx,
 }: Readonly<{
@@ -76,6 +79,11 @@ export default function GooIndicator({
   /** A 135° gradient (CSS colours) filling the goo instead of the options' colours. */
   gradient?: [string, string];
   outline?: string;
+  /**
+   * Room (px) the layer has above and below the goo at rest, so melting blobs that swell where
+   * they meet aren't cut off flat. The layer is that much taller than the goo.
+   */
+  padY?: number;
   /** Where the stand-in rests before `place` is first called (e.g. from server rendering). */
   fallbackSx?: CSSObject;
   sx?: CSSObject;
@@ -89,6 +97,7 @@ export default function GooIndicator({
   useImperativeHandle(ref, () => {
     const tint = (color: string) => parseColor(color, fillOpacity);
     return {
+      layer: () => layerRef.current,
       place(span, color) {
         const fallback = fallbackRef.current;
         if (fallback) {
@@ -138,6 +147,7 @@ export default function GooIndicator({
         smooth,
         gradient: gradient && [parseColor(gradient[0]), parseColor(gradient[1])],
         outline: outline ? parseColor(outline) : undefined,
+        padY,
       },
     });
     const sendSize = () =>
@@ -169,8 +179,8 @@ export default function GooIndicator({
         ref={fallbackRef}
         sx={{
           position: 'absolute',
-          top: 0,
-          bottom: 0,
+          top: padY,
+          bottom: padY,
           left: 0,
           borderRadius: `${radius}px`,
           background: gradient && `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
