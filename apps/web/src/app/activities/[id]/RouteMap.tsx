@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import type { ActivityStreams } from '@runner/core';
+import { movingTimes, type ActivityStreams } from '@runner/core';
 import type * as Leaflet from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { chartColors } from '@/app/charts/chartSetup';
@@ -11,6 +11,7 @@ import SegmentedControl, { type SegmentedControlOption } from '../../base/Segmen
 import { formatDuration } from '../format';
 import {
   formatMetric,
+  metricRamp,
   metricValues,
   rampGradient,
   routePoints,
@@ -62,6 +63,9 @@ export default function RouteMap({ streams }: Readonly<{ streams: ActivityStream
   const values = useMemo(() => metricValues(streams, metric), [streams, metric]);
   const scale = useMemo(() => routeScale(values), [values]);
   const runs = useMemo(() => routeRuns(streams, metric), [streams, metric]);
+  const ramp = useMemo(() => metricRamp(metric), [metric]);
+  // The readout shows moving time, like the charts below.
+  const moving = useMemo(() => movingTimes(streams.t), [streams]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
@@ -83,13 +87,12 @@ export default function RouteMap({ streams }: Readonly<{ streams: ActivityStream
         const map = L.map(container, {
           preferCanvas: true,
           zoomControl: false,
+          // The wheel scrolls the page; one finger pans the map and two zoom it (the page still
+          // scrolls beside the map, which doesn't fill the screen).
           scrollWheelZoom: false,
-          // One finger scrolls the page on a phone; pinch still zooms the map.
-          dragging: !L.Browser.mobile,
           attributionControl: false,
         });
         L.control.attribution({ prefix: false }).addAttribution(ATTRIBUTION).addTo(map);
-        L.control.zoom({ position: 'topright' }).addTo(map);
         L.tileLayer(TILES, { maxZoom: 19 }).addTo(map);
         const points = routePoints(streams);
         if (points.length > 0) map.fitBounds(L.latLngBounds(points), { padding: [16, 16] });
@@ -126,7 +129,7 @@ export default function RouteMap({ streams }: Readonly<{ streams: ActivityStream
     L.polyline(all, { color: '#05070b', weight: 7, opacity: 0.7, interactive: false }).addTo(layer);
     for (const run of runs) {
       L.polyline(run.points, {
-        color: stepColor(run.step),
+        color: stepColor(run.step, ramp),
         weight: 4,
         lineCap: 'round',
         lineJoin: 'round',
@@ -174,7 +177,7 @@ export default function RouteMap({ streams }: Readonly<{ streams: ActivityStream
       tooltip
         .setLatLng([lat[best]!, lng[best]!])
         .setContent(
-          `${formatDuration(t[best])} · ${value === null ? '—' : formatMetric(metric, value)}`
+          `${formatDuration(moving[best])} · ${value === null ? '—' : formatMetric(metric, value)}`
         );
       if (!map.hasLayer(tooltip)) tooltip.addTo(map);
     };
@@ -189,7 +192,7 @@ export default function RouteMap({ streams }: Readonly<{ streams: ActivityStream
       map.closeTooltip(tooltip);
       layer.remove();
     };
-  }, [leaflet, runs, streams, values, metric]);
+  }, [leaflet, runs, ramp, streams, values, metric, moving]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%' }}>
@@ -236,7 +239,7 @@ export default function RouteMap({ streams }: Readonly<{ streams: ActivityStream
           <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
             {formatMetric(metric, scale.low)}
           </Typography>
-          <Box sx={{ flex: 1, height: 6, borderRadius: 3, background: rampGradient }} />
+          <Box sx={{ flex: 1, height: 6, borderRadius: 3, background: rampGradient(ramp) }} />
           <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
             {formatMetric(metric, scale.high)}
           </Typography>

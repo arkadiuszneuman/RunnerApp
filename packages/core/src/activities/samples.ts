@@ -12,6 +12,18 @@ export function sampleDurations(t: readonly number[], maxGap = MAX_SAMPLE_GAP_S)
   return t.map((ti, i) => (i + 1 < t.length ? Math.min(Math.max(0, t[i + 1] - ti), maxGap) : 1));
 }
 
+/**
+ * Moving time (seconds) at each sample: `t` with every pause squeezed out, the way the watch's own
+ * charts run on timer time. A gap counts as `sampleDurations` counts it — up to `maxGap`.
+ */
+export function movingTimes(t: readonly number[], maxGap = MAX_SAMPLE_GAP_S): number[] {
+  const out: number[] = [];
+  t.forEach((ti, i) =>
+    out.push(i === 0 ? 0 : out[i - 1] + Math.min(Math.max(0, ti - t[i - 1]), maxGap))
+  );
+  return out;
+}
+
 /** Time-weighted per-bpm histogram of the heart-rate samples that have a reading. */
 export function hrHistogram(
   hr: readonly (number | null)[],

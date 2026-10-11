@@ -6,7 +6,7 @@ import { Line } from '@/app/charts/PersistentChart';
 import { axisTitleColor, timeAxisFit, tooltipTitleAsClock } from '@/app/charts/chartSetup';
 
 /**
- * One watch-activity stream over time (x in minutes). `formatY` renders the hovered value (and
+ * One watch-activity stream over moving time (x in minutes, pauses squeezed out). `formatY` renders the hovered value (and
  * the ticks); `reverse` flips the axis — for pace, where lower is faster and belongs on top.
  */
 export default function StreamChart({
@@ -54,7 +54,7 @@ export default function StreamChart({
         x: {
           type: 'linear',
           ...timeAxisFit,
-          title: { display: true, text: 'Minutes', color: axisTitleColor },
+          title: { display: true, text: 'Moving time (min)', color: axisTitleColor },
           ticks: { color: axisTitleColor },
         },
         y: {

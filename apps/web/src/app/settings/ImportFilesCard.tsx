@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 import { ACCEPTED_IMPORT_TYPES } from '../import/fitFiles';
 import type { ImportProgress } from '../import/runImport';
 import { displayFont, enter } from '../theme';
-import { refreshActivities } from '../userData';
+import { forgetActivityDetails, refreshActivities } from '../userData';
 
 function summary(p: ImportProgress): string {
   const parts = [`${p.files} files read`, `${p.found} runs found`];
@@ -39,6 +39,8 @@ export default function ImportFilesCard({ index }: Readonly<{ index: number }>) 
     const result = await job.done;
     cancelRef.current = null;
     if (result.inserted > 0 || result.updated > 0) void refreshActivities();
+    // A re-uploaded file may have filled in streams (e.g. the route) of an activity already viewed.
+    if (result.updated > 0) forgetActivityDetails();
   };
 
   return (

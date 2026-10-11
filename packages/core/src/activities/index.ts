@@ -4,6 +4,7 @@ export {
   hrHistogram,
   histogramMean,
   MAX_SAMPLE_GAP_S,
+  movingTimes,
   resample,
   sampleDurations,
   steadyState,

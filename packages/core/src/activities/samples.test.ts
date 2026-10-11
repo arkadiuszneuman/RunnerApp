@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { histogramMean, hrHistogram, resample, sampleDurations, steadyState } from './samples';
+import {
+  histogramMean,
+  hrHistogram,
+  movingTimes,
+  resample,
+  sampleDurations,
+  steadyState,
+} from './samples';
+
+describe('movingTimes', () => {
+  it('squeezes pauses out of the time axis', () => {
+    expect(movingTimes([0, 5, 10, 1100, 1105])).toEqual([0, 5, 10, 20, 25]);
+    expect(movingTimes([])).toEqual([]);
+  });
+});
 
 describe('sampleDurations', () => {
   it('holds each sample until the next, capping pauses', () => {
