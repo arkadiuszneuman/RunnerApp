@@ -3,6 +3,7 @@
 import { ReactNode, startTransition, useLayoutEffect, useOptimistic, useRef } from 'react';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import { alpha } from '@mui/material/styles';
 import { tokens } from '../theme';
 import GooIndicator, { type GooIndicatorHandle } from './GooIndicator';
 
@@ -157,7 +158,16 @@ export default function SegmentedControl<T extends string>({
         <ToggleButton
           key={opt.value}
           value={opt.value}
-          sx={{ '&.Mui-selected, &.Mui-selected:hover': { color: opt.color } }}
+          // The goo is the only feedback: a ripple would flash a second blob in the option's colour.
+          disableRipple
+          sx={{
+            '&.Mui-selected, &.Mui-selected:hover': { color: opt.color },
+            // Without the ripple, keyboard focus needs its own mark.
+            '&.Mui-focusVisible': {
+              outline: `2px solid ${alpha(opt.color, 0.6)}`,
+              outlineOffset: -2,
+            },
+          }}
         >
           {opt.label}
         </ToggleButton>
