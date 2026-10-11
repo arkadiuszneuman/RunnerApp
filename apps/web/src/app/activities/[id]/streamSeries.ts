@@ -17,8 +17,8 @@ export interface StreamSeries {
 
 /**
  * The activity's charts over moving time, like the watch's own: a pause takes no room on the x
- * axis, and the line breaks across it instead of joining the values before and after with one
- * steep stroke. Null where a stream has nothing to draw.
+ * axis, and a null point marks it, so the chart draws the jump across it as a gap (dashed) rather
+ * than as data. Null where a stream has nothing to draw.
  */
 export function streamSeries(streams: ActivityStreams): StreamSeries {
   const { t } = streams;

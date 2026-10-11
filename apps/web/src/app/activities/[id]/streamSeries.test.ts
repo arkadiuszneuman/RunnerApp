@@ -8,7 +8,7 @@ function streams(t: number[], hr: (number | null)[], spd: (number | null)[]): Ac
 }
 
 describe('streamSeries', () => {
-  it('squeezes a pause out of the time axis and breaks the line across it', () => {
+  it('squeezes a pause out of the time axis and marks it with a gap', () => {
     // 9 Oct 2026: an 18-minute stop mid-run — HR fell from 158 to 92 while the timer was off.
     const s = streamSeries(
       streams([0, 5, 10, 1085, 1090], [150, 155, 158, 92, 95], [3, 3, 3, 3, 3])
