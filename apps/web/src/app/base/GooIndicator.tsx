@@ -32,7 +32,7 @@ const slowMotion = () =>
 /** The one worker drawing every indicator on the page (goo.worker.ts), started on first use. */
 let worker: Worker | null = null;
 let nextId = 1;
-const onDrawn = new Map<number, () => void>();
+const onDrawn = new Map<number, (drawn: boolean) => void>();
 
 function gooWorker(): Worker {
   if (!worker) {
@@ -40,7 +40,7 @@ function gooWorker(): Worker {
     // chunks with importScripts(), which module workers forbid (Android's WebView enforces it).
     worker = new Worker(new URL('./goo.worker.ts', import.meta.url));
     worker.onmessage = (event: MessageEvent<GooWorkerMessage>) => {
-      if (event.data.type === 'drawn') onDrawn.get(event.data.id)?.();
+      onDrawn.get(event.data.id)?.(event.data.type === 'drawn');
     };
   }
   return worker;
@@ -54,8 +54,9 @@ const send = (message: GooWorkerRequest, transfer: Transferable[] = []) =>
  * bit stays stuck to the option being left while a drop flies off, and the neck between them
  * thins and snaps. Drawn with WebGL (gooRenderer.ts) by a worker shared by every indicator, so
  * the animation stays smooth while the page is busy (a tab's route rendering). Until the first
- * frame is drawn — and wherever a worker can't draw (no OffscreenCanvas, no WebGL) — a plain
- * rounded box stands in for it, jumping between options. Sits behind the options (`sx`
+ * frame is drawn — wherever a worker can't draw (no OffscreenCanvas, no WebGL), and while the
+ * GPU has taken the WebGL context away — a plain rounded box stands in for it, jumping between
+ * options. Sits behind the options (`sx`
  * positions it); the parent drives it through `ref`.
  */
 export default function GooIndicator({
@@ -136,7 +137,7 @@ export default function GooIndicator({
     const id = nextId++;
     const offscreen = canvas.transferControlToOffscreen();
     send({ type: 'init', id, canvas: offscreen }, [offscreen]);
-    onDrawn.set(id, () => setDrawn(true));
+    onDrawn.set(id, setDrawn);
     layer.appendChild(canvas);
 
     const post = (command: GooCommand) => send({ type: 'command', id, command });
