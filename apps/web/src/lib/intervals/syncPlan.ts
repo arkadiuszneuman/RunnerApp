@@ -102,7 +102,7 @@ export type StoredStreams = {
 };
 
 /** Sports recorded outdoors — the only ones whose file can carry a GPS route. */
-const OUTDOOR_SPORTS = new Set<string>(['run', 'trail', 'track']);
+export const OUTDOOR_SPORTS = ['run', 'trail', 'track'];
 
 /**
  * Stored intervals.icu activities whose streams predate the GPS route (ACTIVITY_STREAMS_VERSION),
@@ -117,7 +117,7 @@ export function planRouteRefresh(stored: readonly StoredStreams[]): StoredStream
         !s.deleted &&
         s.hasStreams &&
         s.streamsVersion < ACTIVITY_STREAMS_VERSION &&
-        OUTDOOR_SPORTS.has(s.sport)
+        OUTDOOR_SPORTS.includes(s.sport)
     )
     .sort((a, b) => b.startMs - a.startMs);
 }

@@ -1,5 +1,5 @@
 import { ACTIVITY_STREAMS_VERSION } from '@runner/core/src/activities/types';
-import { and, eq, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { importActivities, type ImportCandidate } from '@/lib/activities/repo';
 import { decryptSecret, encryptSecret } from '@/lib/crypto';
 import { db } from '@/lib/db';
@@ -14,6 +14,7 @@ import {
 } from './client';
 import {
   garminIdOf,
+  OUTDOOR_SPORTS,
   planRouteRefresh,
   planSync,
   startMsOf,
@@ -41,6 +42,24 @@ async function loadIntegration(userId: string) {
   return rows[0];
 }
 
+/** How many stored activities planRouteRefresh would pick — the same conditions, counted in SQL. */
+async function countRoutesPending(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(externalActivities)
+    .where(
+      and(
+        eq(externalActivities.userId, userId),
+        isNotNull(externalActivities.intervalsId),
+        isNull(externalActivities.deletedAt),
+        isNotNull(externalActivities.streams),
+        lt(externalActivities.streamsVersion, ACTIVITY_STREAMS_VERSION),
+        inArray(externalActivities.sport, OUTDOOR_SPORTS)
+      )
+    );
+  return row?.n ?? 0;
+}
+
 export async function getIntervalsStatus(userId: string): Promise<IntervalsStatus> {
   const row = await loadIntegration(userId);
   if (!row) return { connected: false };
@@ -52,6 +71,7 @@ export async function getIntervalsStatus(userId: string): Promise<IntervalsStatu
     lastSyncedAt: row.lastSyncedAt?.toISOString() ?? null,
     fullSyncDone: row.fullSyncDoneAt !== null,
     lastError: row.lastError,
+    routesPending: await countRoutesPending(userId),
   };
 }
 
@@ -206,7 +226,7 @@ async function candidateFor(
  * The first sync lists everything; later ones re-list the last week before the previous sync.
  */
 export async function syncIntervals(userId: string): Promise<SyncResult> {
-  const result: SyncResult = { imported: 0, attached: 0, failed: 0, remaining: 0 };
+  const result: SyncResult = { imported: 0, attached: 0, failed: 0, remaining: 0, routes: 0 };
   const integration = await loadIntegration(userId);
   if (!integration) return { ...result, stopped: 'not_connected' };
   if (integration.retryAfter && integration.retryAfter.getTime() > Date.now()) {
@@ -319,6 +339,7 @@ export async function syncIntervals(userId: string): Promise<SyncResult> {
         if (job.kind === 'route') {
           try {
             await refreshRoute(userId, client, job);
+            result.routes++;
           } catch (error) {
             if (isTransient(error)) {
               queue.unshift(job);
