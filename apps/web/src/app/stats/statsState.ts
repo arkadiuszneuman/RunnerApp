@@ -13,7 +13,7 @@ import {
   type StatsWatchInput,
 } from '@runner/core';
 import { useAtomValue } from 'jotai';
-import { atomWithStorage, createJSONStorage } from 'jotai/utils';
+import { atomWithStorage, createJSONStorage, selectAtom } from 'jotai/utils';
 import type { ActivityListItem } from '@/lib/activities/types';
 import { activitiesAtom, runsAtom, runStartMs, type RunListItem } from '../userData';
 
@@ -53,6 +53,22 @@ export const historyFilterAtom = atomWithStorage(
   HISTORY_DEFAULT_FILTER,
   createJSONStorage<StatsFilter>(safeLocalStorage)
 );
+/**
+ * A filter atom minus `granularity` — only how the date pickers pick, not what's shown. Pages
+ * compute from this, so switching Year/Month/Day doesn't recompute every list and chart.
+ */
+const withoutGranularity = (filterAtom: typeof statsFilterAtom) =>
+  selectAtom(
+    filterAtom,
+    (filter): StatsFilter => {
+      const rest = { ...filter };
+      delete rest.granularity;
+      return rest;
+    },
+    (a, b) => JSON.stringify(a) === JSON.stringify(b)
+  );
+export const statsQueryAtom = withoutGranularity(statsFilterAtom);
+export const historyQueryAtom = withoutGranularity(historyFilterAtom);
 export const statsPrefsAtom = atomWithStorage(
   'runner.statsPrefs',
   DEFAULT_STATS_PREFS,

@@ -1,11 +1,10 @@
 'use client';
 
-import { ReactNode, useLayoutEffect, useRef } from 'react';
-import Box from '@mui/material/Box';
+import { ReactNode, startTransition, useLayoutEffect, useOptimistic, useRef } from 'react';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import { alpha } from '@mui/material/styles';
 import { tokens } from '../theme';
+import GooIndicator, { type GooIndicatorHandle } from './GooIndicator';
 
 export interface SegmentedControlOption<T extends string> {
   value: T;
@@ -25,20 +24,15 @@ function measureSlot(group: HTMLElement, index: number): Rect | null {
   return { left: btnRect.left - groupRect.left, width: btnRect.width };
 }
 
-function place(el: HTMLElement, rect: Rect, color: string) {
-  el.style.transform = `translateX(${rect.left}px)`;
-  el.style.width = `${rect.width}px`;
-  el.style.backgroundColor = color;
-}
-
 /**
  * Segmented control (a ToggleButtonGroup styled as one pill) whose selection
- * indicator morphs between options instead of jumping: it squashes into a
- * droplet stretched toward the target as it travels, then settles back into
- * a rounded square, tweening its color through the two options' accents
- * along the way. Falls back to an instant position (no animation) when the
- * value changes on mount/resize, under `prefers-reduced-motion`, or where
- * the Web Animations API isn't available (e.g. jsdom in tests).
+ * indicator is a blob of goo (see GooIndicator): on a change a bit of it stays
+ * stuck to the old option while a thinner drop flies off, the new option
+ * reaches out to catch it, and the neck between them thins and snaps — its
+ * colour going from one option's accent to the other's. Falls back to an
+ * instant position (no animation) when the value changes on mount/resize,
+ * under `prefers-reduced-motion`, or where the Web Animations API isn't
+ * available (e.g. jsdom in tests).
  */
 export default function SegmentedControl<T extends string>({
   value,
@@ -53,91 +47,60 @@ export default function SegmentedControl<T extends string>({
   disabled?: boolean;
   'aria-label': string;
 }>) {
+  // The new option is selected (and the indicator launched) the moment it's tapped; whatever the
+  // change sets off — a heavy re-render of the page around it — follows as a transition.
+  const [shown, setShown] = useOptimistic(value);
+  const select = (next: T) =>
+    startTransition(() => {
+      setShown(next);
+      onChange(next);
+    });
   const index = Math.max(
     0,
-    options.findIndex((o) => o.value === value)
+    options.findIndex((o) => o.value === shown)
   );
   const groupRef = useRef<HTMLDivElement>(null);
-  const indicatorRef = useRef<HTMLDivElement>(null);
+  const gooRef = useRef<GooIndicatorHandle>(null);
   const prevIndexRef = useRef(index);
 
   useLayoutEffect(() => {
     const group = groupRef.current;
-    const indicator = indicatorRef.current;
-    if (!group || !indicator) return;
+    const goo = gooRef.current;
+    if (!group || !goo) return;
 
     const prevIndex = prevIndexRef.current;
     prevIndexRef.current = index;
     const nextRect = measureSlot(group, index);
     if (!nextRect) return;
-    const toColor = alpha(options[index].color, 0.18);
+    const toColor = options[index].color;
+    goo.place(nextRect, toColor);
 
     const reduceMotion =
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-    if (prevIndex === index || reduceMotion || typeof indicator.animate !== 'function') {
-      place(indicator, nextRect, toColor);
+    if (
+      prevIndex === index ||
+      reduceMotion ||
+      typeof group.animate !== 'function' ||
+      !options[prevIndex]
+    ) {
       return;
     }
-
-    const prevRect = measureSlot(group, prevIndex) ?? nextRect;
-    const dir = index > prevIndex ? 1 : -1;
-    const fromColor = alpha(options[prevIndex].color, 0.18);
-    // Mid-point "droplet": stretched wide in the direction of travel, its
-    // left edge trailing behind so it still overlaps the origin slot.
-    const midWidth = Math.max(prevRect.width, nextRect.width) * 1.3;
-    const midLeft = prevRect.left + (nextRect.left - prevRect.left) * 0.5 - (midWidth - prevRect.width) / 2;
-    // Slight overshoot past the target width before settling — the droplet
-    // "landing" back into a square.
-    const overshootWidth = nextRect.width * 0.92;
-    const overshootLeft = nextRect.left + dir * (nextRect.width - overshootWidth) * 0.5;
-
-    place(indicator, prevRect, fromColor);
-    indicator.animate(
-      [
-        {
-          transform: `translateX(${prevRect.left}px)`,
-          width: `${prevRect.width}px`,
-          borderRadius: '12px',
-          backgroundColor: fromColor,
-          offset: 0,
-        },
-        {
-          transform: `translateX(${midLeft}px)`,
-          width: `${midWidth}px`,
-          borderRadius: '999px',
-          backgroundColor: toColor,
-          offset: 0.55,
-        },
-        {
-          transform: `translateX(${overshootLeft}px)`,
-          width: `${overshootWidth}px`,
-          borderRadius: '10px',
-          backgroundColor: toColor,
-          offset: 0.82,
-        },
-        {
-          transform: `translateX(${nextRect.left}px)`,
-          width: `${nextRect.width}px`,
-          borderRadius: '12px',
-          backgroundColor: toColor,
-          offset: 1,
-        },
-      ],
-      { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' }
-    );
+    goo.morph(measureSlot(group, prevIndex) ?? nextRect, nextRect, {
+      duration: 600,
+      fromColor: options[prevIndex].color,
+      toColor,
+    });
   }, [index, options]);
 
   // Re-place (no animation) on resize — label reflow, viewport change.
   useLayoutEffect(() => {
     const group = groupRef.current;
-    const indicator = indicatorRef.current;
-    if (!group || !indicator || typeof ResizeObserver === 'undefined') return;
+    if (!group || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
       const rect = measureSlot(group, prevIndexRef.current);
       const opt = options[prevIndexRef.current];
-      if (rect && opt) place(indicator, rect, alpha(opt.color, 0.18));
+      if (rect && opt) gooRef.current?.place(rect, opt.color);
     });
     observer.observe(group);
     return () => observer.disconnect();
@@ -149,10 +112,10 @@ export default function SegmentedControl<T extends string>({
       ref={groupRef}
       exclusive
       aria-label={ariaLabel}
-      value={value}
+      value={shown}
       disabled={disabled}
       onChange={(_event, next: T | null) => {
-        if (next) onChange(next);
+        if (next) select(next);
       }}
       sx={{
         position: 'relative',
@@ -178,13 +141,19 @@ export default function SegmentedControl<T extends string>({
         },
       }}
     >
-      <Box
-        ref={indicatorRef}
-        aria-hidden
-        sx={{ position: 'absolute', top: 4, bottom: 4, left: 0, borderRadius: '12px', pointerEvents: 'none' }}
+      <GooIndicator
+        ref={gooRef}
+        radius={12}
+        smooth={12}
+        fillOpacity={0.18}
+        sx={{ top: 4, bottom: 4, left: 0, right: 0 }}
       />
       {options.map((opt) => (
-        <ToggleButton key={opt.value} value={opt.value} sx={{ '&.Mui-selected, &.Mui-selected:hover': { color: opt.color } }}>
+        <ToggleButton
+          key={opt.value}
+          value={opt.value}
+          sx={{ '&.Mui-selected, &.Mui-selected:hover': { color: opt.color } }}
+        >
           {opt.label}
         </ToggleButton>
       ))}
