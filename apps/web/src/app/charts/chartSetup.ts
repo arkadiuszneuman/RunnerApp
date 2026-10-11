@@ -40,6 +40,11 @@ ChartJS.register(
   ScatterController
 );
 ChartJS.defaults.animation = false;
+// Phones report 3–4× pixel density; charts drawn at that are huge GPU textures (Stats shows fifteen),
+// and revealing a page full of them stalls the GPU for every other animation on screen. 2× is
+// still crisp for lines and labels.
+ChartJS.defaults.devicePixelRatio =
+  typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 2);
 ChartJS.defaults.color = 'rgba(255,255,255,0.75)'; // ticks/labels — text tokens, never a series color
 ChartJS.defaults.borderColor = 'rgba(255,255,255,0.06)'; // hairline gridlines, recessive
 ChartJS.defaults.font.family = 'var(--font-barlow), sans-serif';
