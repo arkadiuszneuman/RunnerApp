@@ -258,6 +258,16 @@ durations live in `packages/core/src/services/trainingDefaults.ts`.
 
 ### Routing (App Router)
 
+`cacheComponents` is on, so Next.js keeps the last 3 visited routes mounted but hidden (React `<Activity>`)
+instead of unmounting them: switching back to a recent tab only re-shows it. Hiding runs effect cleanups and
+showing re-runs effects, but state (and DOM) survive. Two consequences:
+- Each bottom-nav tab page memoizes its content (`StatsContent` etc., `memo(BleConnector)`): Next re-renders a
+  re-shown page with fresh props, which would otherwise re-render everything below it.
+- Charts go through `app/charts/PersistentChart.tsx` (not react-chartjs-2): it keeps the chart.js instance
+  while the page is only hidden, instead of destroying and rebuilding every chart on each re-show.
+`AppShell` reads the pathname, so the root layout wraps it in `<Suspense>` (routes with dynamic params, e.g.
+`/runs/[id]`, only know it per request).
+
 | Route | Purpose |
 |---|---|
 | `/` | Home / BLE connect screen |

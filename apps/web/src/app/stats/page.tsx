@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -48,7 +48,10 @@ const grid = {
   gap: 1.5,
 } as const;
 
-export default function StatsPage() {
+// Next.js (cacheComponents) keeps this tab mounted but hidden while another one is shown, and
+// re-renders the page with fresh props when it comes back; memo keeps that to a no-op instead of
+// a full re-render of everything below.
+const StatsContent = memo(function StatsContent() {
   const all = useStatsActivities();
   const filter = useAtomValue(statsQueryAtom);
   // "Now" is fixed when the page opens, so every panel agrees on it.
@@ -166,4 +169,8 @@ export default function StatsPage() {
       )}
     </Page>
   );
+});
+
+export default function StatsPage() {
+  return <StatsContent />;
 }

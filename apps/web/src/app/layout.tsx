@@ -1,4 +1,5 @@
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
+import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Barlow, Barlow_Condensed } from 'next/font/google';
 import AppShell from './base/AppShell';
@@ -48,7 +49,11 @@ export default function RootLayout({
         </div>
         <AppRouterCacheProvider>
           <Providers>
-            <AppShell>{children}</AppShell>
+            {/* AppShell reads the pathname, which on routes with dynamic params (/runs/[id]) is only
+                known per request: the boundary lets everything else prerender (cacheComponents). */}
+            <Suspense>
+              <AppShell>{children}</AppShell>
+            </Suspense>
           </Providers>
         </AppRouterCacheProvider>
       </body>

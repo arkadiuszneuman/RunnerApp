@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import type { ChartData, ChartOptions, TooltipItem } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import { Line } from '@/app/charts/PersistentChart';
 import { axisTitleColor, timeAxisFit, tooltipTitleAsClock } from '@/app/charts/chartSetup';
 
 /**
@@ -24,7 +24,7 @@ export default function StreamChart({
   reverse?: boolean;
   fill?: boolean;
 }>) {
-  // Memoized like HeartRateChart.tsx: react-chartjs-2 rebuilds the chart whenever these change identity.
+  // Memoized like HeartRateChart.tsx: the chart redraws whenever these change identity.
   const data: ChartData<'line'> = useMemo(
     () => ({
       datasets: [

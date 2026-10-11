@@ -2,12 +2,20 @@
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import { type DatePickerToolbarProps } from '@mui/x-date-pickers/DatePicker';
+import InputAdornment from '@mui/material/InputAdornment';
+import TextField from '@mui/material/TextField';
+import { useForkRef } from '@mui/material/utils';
+import {
+  type DatePickerFieldProps,
+  type DatePickerToolbarProps,
+} from '@mui/x-date-pickers/DatePicker';
+import { usePickerContext, useSplitFieldProps } from '@mui/x-date-pickers/hooks';
+import { CalendarIcon } from '@mui/x-date-pickers/icons';
 import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
 import { pickersLayoutClasses } from '@mui/x-date-pickers/PickersLayout';
 import { DAY_MS, resolveRange, type DateGranularity, type StatsFilter } from '@runner/core';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { type MouseEvent, useState } from 'react';
 import SegmentedControl from '../base/SegmentedControl';
 import { tokens } from '../theme';
 import { nowLocalMs } from './statsState';
@@ -51,6 +59,51 @@ function GranularityToolbar(props: DatePickerToolbarProps) {
         ]}
       />
     </Box>
+  );
+}
+
+/**
+ * The pickers' field: just the date as text. Unlike MUI's own field there are no sections to
+ * select or type into — a tap anywhere (or Enter/Space) opens the calendar dialog.
+ */
+function DateButtonField(props: DatePickerFieldProps) {
+  const { forwardedProps } = useSplitFieldProps(props, 'date');
+  const picker = usePickerContext();
+  const ref = useForkRef(picker.triggerRef, picker.rootRef);
+  const value = picker.value as Dayjs | null;
+  const open = () => picker.setOpen(true);
+  return (
+    <TextField
+      {...forwardedProps}
+      size="small"
+      label={picker.label}
+      value={value?.isValid() ? value.format(picker.fieldFormat) : ''}
+      focused={picker.open || undefined}
+      onClick={open}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          open();
+        }
+      }}
+      sx={{ width: 160, '& *': { cursor: 'pointer' } }}
+      slotProps={{
+        input: {
+          ref,
+          readOnly: true,
+          endAdornment: (
+            <InputAdornment position="end">
+              <CalendarIcon fontSize="small" />
+            </InputAdornment>
+          ),
+        },
+        htmlInput: {
+          // Nothing to select: a press goes straight to opening the dialog.
+          onMouseDown: (event: MouseEvent) => event.preventDefault(),
+          style: { caretColor: 'transparent', userSelect: 'none' },
+        },
+      }}
+    />
   );
 }
 
@@ -122,12 +175,8 @@ function RangePicker({
       onChange={(next) => setDraft((current) => ({ ...current, value: next }))}
       minDate={minDate ? dayjs(minDate) : undefined}
       maxDate={dayjs(maxDate)}
-      slots={{ toolbar: GranularityToolbar }}
+      slots={{ field: DateButtonField, toolbar: GranularityToolbar }}
       slotProps={{
-        textField: { size: 'small', sx: { width: 160, '& *': { cursor: 'pointer' } } },
-        // The field only shows the date: no typing into its sections, a tap anywhere opens the
-        // calendar.
-        field: { readOnly: true, onClick: () => onOpenChange(true) },
         actionBar: { actions: ['cancel'] },
         // MUI passes slotProps through to the slot; its type only knows the stock toolbar's props.
         toolbar: {

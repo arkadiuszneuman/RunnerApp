@@ -47,37 +47,35 @@ export default function CalendarHeatmap({
 
   return (
     <Box ref={scrollRef} sx={{ overflowX: 'auto', pb: 0.5 }}>
+      {/* A year is ~370 cells: plain elements styled by one rule here, not a Box/sx each. */}
       <Box
         sx={{
           display: 'inline-grid',
           gridAutoFlow: 'column',
           gridTemplateRows: 'auto repeat(7, 11px)',
           gap: '2px',
+          '& .month': {
+            fontSize: '0.6rem',
+            color: tokens.textMuted,
+            height: 14,
+            whiteSpace: 'nowrap',
+            width: 11,
+            overflow: 'visible',
+          },
+          '& .day': { width: 11, height: 11, borderRadius: '3px' },
         }}
       >
         {weeks.map((week, w) => [
-          <Typography
-            key={`m${w}`}
-            sx={{
-              fontSize: '0.6rem',
-              color: tokens.textMuted,
-              height: 14,
-              whiteSpace: 'nowrap',
-              width: 11,
-              overflow: 'visible',
-            }}
-          >
+          <span key={`m${w}`} className="month">
             {months[w]}
-          </Typography>,
+          </span>,
           ...week.map((cell) => (
-            <Box
+            <div
               key={cell.day}
+              className="day"
               title={`${formatLocalDate(cell.day, { dateStyle: 'medium' })}: ${cell.km > 0 ? `${cell.km.toFixed(1)} km` : 'no run'}`}
-              sx={{
-                width: 11,
-                height: 11,
-                borderRadius: '3px',
-                bgcolor: cell.future ? 'transparent' : heatColors[level(cell.km)],
+              style={{
+                background: cell.future ? 'transparent' : heatColors[level(cell.km)],
               }}
             />
           )),

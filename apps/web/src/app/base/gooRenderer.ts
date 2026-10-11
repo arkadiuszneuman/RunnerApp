@@ -14,7 +14,7 @@ export interface GooLook {
   outline?: Rgba;
 }
 
-/** What the indicator tells its renderer — posted to a worker, or handled on the main thread. */
+/** What an indicator tells the goo worker about itself. */
 export type GooCommand =
   | { type: 'look'; look: GooLook }
   | { type: 'size'; width: number; height: number; dpr: number }
@@ -127,6 +127,18 @@ interface Animation {
   toColor?: Rgba;
 }
 
+/** Everything the shader needs for one indicator's frame. */
+export interface GooFrameData {
+  width: number;
+  height: number;
+  dpr: number;
+  look: GooLook;
+  blobs: Float32Array;
+  colA: Float32Array;
+  colB: Float32Array;
+  melt: [number, number, number];
+}
+
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const lerpPose = (a: Pose, b: Pose, t: number): Pose => ({
   center: lerp(a.center, b.center, t),
@@ -137,11 +149,10 @@ const lerpColor = (a: Rgba, b: Rgba, t: number) => a.map((v, i) => lerp(v, b[i],
 const CLEAR: Rgba = [0, 0, 0, 0];
 
 /**
- * Draws the goo indicator (see GooIndicator) with WebGL and runs its animation — on a worker's
- * OffscreenCanvas, so a busy page (a route rendering) never stalls it, or on the page's own canvas
- * where workers can't draw.
+ * One goo indicator's state — its look, size, resting place and running animation — turned into
+ * a frame to paint (see GooPainter). Knows nothing of WebGL.
  */
-export class GooRenderer {
+export class GooScene {
   private look: GooLook = { radius: 12, smooth: 10 };
   private width = 0;
   private height = 0;
@@ -149,54 +160,11 @@ export class GooRenderer {
   private rest: Span | null = null;
   private restColor: Rgba = CLEAR;
   private animation: Animation | null = null;
-  /** The drop as last drawn, for re-aiming it mid-flight. */
+  /** The drop as last painted, for re-aiming it mid-flight. */
   private drop: { span: Span; color: Rgba } | null = null;
-  private scheduled = false;
-  private drawnOnce = false;
-  private readonly uniforms: Record<string, WebGLUniformLocation | null>;
 
-  private constructor(
-    private readonly canvas: OffscreenCanvas | HTMLCanvasElement,
-    private readonly gl: WebGLRenderingContext,
-    private readonly raf: (callback: () => void) => void,
-    private readonly onFirstDraw?: () => void
-  ) {
-    const program = gl.createProgram()!;
-    for (const [type, source] of [
-      [gl.VERTEX_SHADER, VERTEX],
-      [gl.FRAGMENT_SHADER, FRAGMENT],
-    ] as const) {
-      const shader = gl.createShader(type)!;
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      gl.attachShader(program, shader);
-    }
-    gl.linkProgram(program);
-    gl.useProgram(program);
-    // One triangle covering the whole canvas.
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const position = gl.getAttribLocation(program, 'a_pos');
-    gl.enableVertexAttribArray(position);
-    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-    this.uniforms = Object.fromEntries(
-      ['u_size', 'u_dpr', 'u_radius', 'u_smooth', 'u_blob', 'u_colA', 'u_colB', 'u_outline'].map(
-        (name) => [name, gl.getUniformLocation(program, name)]
-      )
-    );
-  }
-
-  /** Null where WebGL isn't available. */
-  static create(
-    canvas: OffscreenCanvas | HTMLCanvasElement,
-    raf: (callback: () => void) => void,
-    onFirstDraw?: () => void
-  ): GooRenderer | null {
-    const gl = canvas.getContext('webgl', {
-      premultipliedAlpha: true,
-      antialias: false,
-    }) as WebGLRenderingContext | null;
-    return gl ? new GooRenderer(canvas, gl, raf, onFirstDraw) : null;
+  get animating() {
+    return this.animation !== null;
   }
 
   handle(command: GooCommand) {
@@ -208,9 +176,6 @@ export class GooRenderer {
         this.width = command.width;
         this.height = command.height;
         this.dpr = command.dpr;
-        this.canvas.width = Math.max(1, Math.round(command.width * command.dpr));
-        this.canvas.height = Math.max(1, Math.round(command.height * command.dpr));
-        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         break;
       case 'place':
         this.rest = command.span;
@@ -233,38 +198,32 @@ export class GooRenderer {
         break;
       }
     }
-    this.schedule();
   }
 
-  private schedule() {
-    if (this.scheduled) return;
-    this.scheduled = true;
-    this.raf(() => {
-      this.scheduled = false;
-      this.draw();
-      if (this.animation) this.schedule();
-    });
-  }
-
-  private draw() {
-    const { gl, look } = this;
-    if (!this.width || !this.height || !this.rest) return;
+  /** The frame at `now` (epochNow), or null while there's nothing to show yet. */
+  frame(now: number): GooFrameData | null {
+    const { look } = this;
+    if (!this.width || !this.height || !this.rest) return null;
     const blobs = new Float32Array(12);
     const colA = new Float32Array(12);
     const colB = new Float32Array(12);
     const put = (i: number, pose: Pose, base: number, color: Rgba) => {
-      blobs.set(
-        [pose.center, this.height / 2, (pose.sx * base) / 2, (pose.sy * this.height) / 2],
-        i * 4
-      );
+      // Kept inside the canvas: goo pushed against an end (the slingshot's pull-back, a landing
+      // wobble, a stretch next to the edge) squashes against it rather than being cut off.
+      const half = (pose.sx * base) / 2;
+      const left = Math.max(pose.center - half, 0);
+      const right = Math.min(pose.center + half, this.width);
+      const hx = Math.max(right - left, 0) / 2;
+      const hy = Math.min(pose.sy, 1) * (this.height / 2);
+      blobs.set([(left + right) / 2, this.height / 2, hx, hy], i * 4);
       colA.set(look.gradient ? look.gradient[0] : color, i * 4);
       colB.set(look.gradient ? look.gradient[1] : color, i * 4);
     };
 
-    let melt = [1, 1, 1];
+    let melt: [number, number, number] = [1, 1, 1];
     const animation = this.animation;
     if (animation) {
-      const t = Math.min(1, Math.max(0, (epochNow() - animation.startedAt) / animation.duration));
+      const t = Math.min(1, Math.max(0, (now - animation.startedAt) / animation.duration));
       const at = t * (animation.frames.length - 1);
       const i = Math.min(Math.floor(at), animation.frames.length - 2);
       const [a, b] = [animation.frames[i], animation.frames[i + 1]];
@@ -273,6 +232,7 @@ export class GooRenderer {
       const toColor = animation.toColor ?? this.restColor;
       const dropColor = lerpColor(fromColor, toColor, Math.min(1, t / 0.45));
       const drop = lerpPose(a.drop, b.drop, f);
+      // The drop first: each later blob melts into what's drawn before it (see u_melt).
       put(0, drop, animation.base, dropColor);
       put(1, lerpPose(a.anchor, b.anchor, f), animation.base, fromColor);
       put(2, lerpPose(a.catcher, b.catcher, f), animation.base, toColor);
@@ -288,23 +248,86 @@ export class GooRenderer {
       put(0, { center: left + width / 2, sx: 1, sy: 1 }, width, this.restColor);
       this.drop = { span: this.rest, color: this.restColor };
     }
+    return { width: this.width, height: this.height, dpr: this.dpr, look, blobs, colA, colB, melt };
+  }
+}
 
+const UNIFORMS = [
+  'u_size',
+  'u_dpr',
+  'u_radius',
+  'u_smooth',
+  'u_blob',
+  'u_colA',
+  'u_colB',
+  'u_outline',
+  'u_melt',
+] as const;
+
+/**
+ * Paints goo frames with WebGL, onto an OffscreenCanvas of its own. One painter serves every
+ * indicator on the page: browsers allow only a handful of WebGL contexts per page, and with
+ * Next.js keeping hidden routes alive there can be more indicators than that (the program editor
+ * has two per stage). Each frame comes out as an ImageBitmap for the indicator's own canvas.
+ */
+export class GooPainter {
+  private readonly uniforms: Record<(typeof UNIFORMS)[number], WebGLUniformLocation | null>;
+
+  private constructor(
+    private readonly canvas: OffscreenCanvas,
+    private readonly gl: WebGLRenderingContext
+  ) {
+    const program = gl.createProgram()!;
+    for (const [type, source] of [
+      [gl.VERTEX_SHADER, VERTEX],
+      [gl.FRAGMENT_SHADER, FRAGMENT],
+    ] as const) {
+      const shader = gl.createShader(type)!;
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      gl.attachShader(program, shader);
+    }
+    gl.linkProgram(program);
+    gl.useProgram(program);
+    // One triangle covering the whole canvas.
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const position = gl.getAttribLocation(program, 'a_pos');
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+    this.uniforms = Object.fromEntries(
+      UNIFORMS.map((name) => [name, gl.getUniformLocation(program, name)])
+    ) as GooPainter['uniforms'];
+  }
+
+  /** Null where WebGL isn't available. */
+  static create(): GooPainter | null {
+    const canvas = new OffscreenCanvas(1, 1);
+    const gl = canvas.getContext('webgl', {
+      premultipliedAlpha: true,
+      antialias: false,
+    }) as WebGLRenderingContext | null;
+    return gl ? new GooPainter(canvas, gl) : null;
+  }
+
+  paint(frame: GooFrameData): ImageBitmap {
+    const { gl, canvas } = this;
     const u = this.uniforms;
-    gl.uniform2f(u.u_size, this.width, this.height);
-    gl.uniform1f(u.u_dpr, this.dpr);
-    gl.uniform1f(u.u_radius, look.radius);
-    gl.uniform1f(u.u_smooth, look.smooth);
-    gl.uniform4fv(u.u_blob, blobs);
-    gl.uniform4fv(u.u_colA, colA);
-    gl.uniform4fv(u.u_colB, colB);
-    gl.uniform4fv(u.u_outline, look.outline ?? CLEAR);
-    gl.uniform3fv(u.u_melt, melt);
+    canvas.width = Math.max(1, Math.round(frame.width * frame.dpr));
+    canvas.height = Math.max(1, Math.round(frame.height * frame.dpr));
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform2f(u.u_size, frame.width, frame.height);
+    gl.uniform1f(u.u_dpr, frame.dpr);
+    gl.uniform1f(u.u_radius, frame.look.radius);
+    gl.uniform1f(u.u_smooth, frame.look.smooth);
+    gl.uniform4fv(u.u_blob, frame.blobs);
+    gl.uniform4fv(u.u_colA, frame.colA);
+    gl.uniform4fv(u.u_colB, frame.colB);
+    gl.uniform4fv(u.u_outline, frame.look.outline ?? CLEAR);
+    gl.uniform3fv(u.u_melt, frame.melt);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    if (!this.drawnOnce) {
-      this.drawnOnce = true;
-      this.onFirstDraw?.();
-    }
+    return canvas.transferToImageBitmap();
   }
 }

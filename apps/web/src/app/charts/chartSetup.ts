@@ -187,8 +187,18 @@ export const heatColors = [
  * StatsActivity.localMs), so it's rendered in UTC to show the local date unchanged.
  */
 export function formatLocalDate(localMs: number, options: Intl.DateTimeFormatOptions): string {
-  return new Date(localMs).toLocaleDateString(undefined, { ...options, timeZone: 'UTC' });
+  // Building a formatter is the slow part (toLocaleDateString builds one per call) — and the
+  // calendar heatmap formats every day of the year.
+  const key = JSON.stringify(options);
+  let format = dateFormats.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(undefined, { ...options, timeZone: 'UTC' });
+    dateFormats.set(key, format);
+  }
+  return format.format(localMs);
 }
+
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
 
 export const axisTitleColor = 'rgba(255, 255, 255, 0.55)';
 

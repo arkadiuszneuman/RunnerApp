@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@runner/core'],
+  cacheComponents: true,
   async headers() {
     return [
       {

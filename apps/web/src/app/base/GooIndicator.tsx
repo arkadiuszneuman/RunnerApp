@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import { alpha, type CSSObject } from '@mui/material/styles';
 import type { GooWorkerMessage, GooWorkerRequest } from './goo.worker';
 import type { GooOptions, Span } from './gooeyMorph';
-import { epochNow, type GooCommand, GooRenderer, parseColor } from './gooRenderer';
+import { epochNow, type GooCommand, parseColor } from './gooRenderer';
 
 export interface GooIndicatorHandle {
   /** Puts the drop on `span`, tinted `color` (unless a `gradient` fills it). */
@@ -27,14 +27,32 @@ const slowMotion = () =>
     ? 1
     : Number((globalThis as { __gooSlowMotion?: number }).__gooSlowMotion) || 1;
 
+/** The one worker drawing every indicator on the page (goo.worker.ts), started on first use. */
+let worker: Worker | null = null;
+let nextId = 1;
+const onDrawn = new Map<number, () => void>();
+
+function gooWorker(): Worker {
+  if (!worker) {
+    worker = new Worker(new URL('./goo.worker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (event: MessageEvent<GooWorkerMessage>) => {
+      if (event.data.type === 'drawn') onDrawn.get(event.data.id)?.();
+    };
+  }
+  return worker;
+}
+
+const send = (message: GooWorkerRequest, transfer: Transferable[] = []) =>
+  gooWorker().postMessage(message, transfer);
+
 /**
  * A selection indicator made of goo: three blobs (see gooeyMorph.ts) melted into one shape — a
  * bit stays stuck to the option being left while a drop flies off, and the neck between them
- * thins and snaps. Drawn with WebGL (gooRenderer.ts) on a canvas handed to a worker, so the
- * animation stays smooth while the page is busy (a tab's route rendering); on the page's own
- * thread where that isn't possible. Until the first frame is drawn — and wherever WebGL isn't
- * available — a plain rounded box stands in for it. Sits behind the options (`sx` positions it);
- * the parent drives it through `ref`.
+ * thins and snaps. Drawn with WebGL (gooRenderer.ts) by a worker shared by every indicator, so
+ * the animation stays smooth while the page is busy (a tab's route rendering). Until the first
+ * frame is drawn — and wherever a worker can't draw (no OffscreenCanvas, no WebGL) — a plain
+ * rounded box stands in for it, jumping between options. Sits behind the options (`sx`
+ * positions it); the parent drives it through `ref`.
  */
 export default function GooIndicator({
   ref,
@@ -98,36 +116,19 @@ export default function GooIndicator({
   // The look is fixed for the indicator's lifetime.
   useEffect(() => {
     const layer = layerRef.current;
-    if (!layer || typeof ResizeObserver === 'undefined') return;
+    if (!layer || typeof ResizeObserver === 'undefined' || typeof Worker === 'undefined') return;
     // A fresh canvas each time: one handed to a worker can't be handed over again (Strict Mode
     // runs this twice in development).
     const canvas = document.createElement('canvas');
+    if (!('transferControlToOffscreen' in canvas)) return;
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
-    let post: (command: GooCommand) => void;
-    let stop = () => {};
-    if (typeof Worker !== 'undefined' && 'transferControlToOffscreen' in canvas) {
-      const offscreen = canvas.transferControlToOffscreen();
-      const worker = new Worker(new URL('./goo.worker.ts', import.meta.url), { type: 'module' });
-      worker.onmessage = (event: MessageEvent<GooWorkerMessage>) => {
-        if (event.data === 'drawn') setDrawn(true);
-      };
-      const request = (message: GooWorkerRequest, transfer: Transferable[] = []) =>
-        worker.postMessage(message, transfer);
-      request({ type: 'init', canvas: offscreen }, [offscreen]);
-      post = request;
-      stop = () => worker.terminate();
-    } else {
-      if (typeof WebGLRenderingContext === 'undefined') return;
-      const renderer = GooRenderer.create(
-        canvas,
-        (callback) => requestAnimationFrame(callback),
-        () => setDrawn(true)
-      );
-      if (!renderer) return;
-      post = (command) => renderer.handle(command);
-    }
+    const id = nextId++;
+    const offscreen = canvas.transferControlToOffscreen();
+    send({ type: 'init', id, canvas: offscreen }, [offscreen]);
+    onDrawn.set(id, () => setDrawn(true));
     layer.appendChild(canvas);
 
+    const post = (command: GooCommand) => send({ type: 'command', id, command });
     post({
       type: 'look',
       look: {
@@ -152,7 +153,8 @@ export default function GooIndicator({
     return () => {
       observer.disconnect();
       postRef.current = null;
-      stop();
+      onDrawn.delete(id);
+      send({ type: 'dispose', id });
       canvas.remove();
       setDrawn(false);
     };

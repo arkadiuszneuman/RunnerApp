@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import type { ChartData, ChartDataset, ChartOptions, TooltipItem } from 'chart.js';
-import { Bar, Chart } from 'react-chartjs-2';
+import { Bar, Chart } from '@/app/charts/PersistentChart';
 import {
   axisTitleColor,
   formatLocalDate,
@@ -14,7 +14,7 @@ import {
  * Generic chart.js wrappers for the statistics page. Two shapes cover every panel: a bar chart
  * over categories (periods, weekdays, bands — optionally stacked), and points/lines over time
  * (x = local ms, see StatsActivity.localMs). Data and options are memoized because
- * react-chartjs-2 rebuilds the chart whenever they change identity.
+ * the chart (PersistentChart) redraws whenever they change identity.
  */
 
 const defaultFormat = (v: number) => String(Math.round(v * 10) / 10);

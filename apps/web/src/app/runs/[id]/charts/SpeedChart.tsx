@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import type { ChartData, ChartOptions } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import { Line } from '@/app/charts/PersistentChart';
 import type { RunSeriesPoint } from '@runner/core';
 import {
   axisTitleColor,

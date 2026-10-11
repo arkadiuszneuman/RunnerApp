@@ -20,7 +20,7 @@ import {
 } from '@runner/core';
 import type { ChartData, ChartOptions } from 'chart.js';
 import { useAtomValue } from 'jotai';
-import { Line } from 'react-chartjs-2';
+import { Line } from '@/app/charts/PersistentChart';
 import { stagesAtom } from '../atoms';
 import Page from '../base/Page';
 import { SpeedControllerBadge, speedControllerColor } from '../base/SpeedControllerPicker';
