@@ -2,7 +2,8 @@
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import { DatePicker, type DatePickerToolbarProps } from '@mui/x-date-pickers/DatePicker';
+import { type DatePickerToolbarProps } from '@mui/x-date-pickers/DatePicker';
+import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
 import { pickersLayoutClasses } from '@mui/x-date-pickers/PickersLayout';
 import { DAY_MS, resolveRange, type DateGranularity, type StatsFilter } from '@runner/core';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -53,7 +54,10 @@ function GranularityToolbar(props: DatePickerToolbarProps) {
   );
 }
 
-/** One date field; its calendar opens with the Year/Month/Day switch on top. */
+/**
+ * One date field; tapping it anywhere opens the calendar in a dialog (no typing into the field's
+ * sections), with the Year/Month/Day switch on top.
+ */
 function RangePicker({
   label,
   value,
@@ -91,7 +95,7 @@ function RangePicker({
   };
   const views = VIEWS[granularity];
   return (
-    <DatePicker
+    <MobileDatePicker
       label={label}
       views={views}
       openTo={OPEN_TO[granularity]}
@@ -101,6 +105,8 @@ function RangePicker({
       onOpen={() => onOpenChange(true)}
       onClose={() => onOpenChange(false)}
       onAccept={onAccept}
+      // A pick in the last view is the answer — no OK to confirm it.
+      closeOnSelect
       format={FORMAT[granularity]}
       value={value ? dayjs(value) : null}
       onChange={onChange}
@@ -108,7 +114,11 @@ function RangePicker({
       maxDate={dayjs(maxDate)}
       slots={{ toolbar: GranularityToolbar }}
       slotProps={{
-        textField: { size: 'small', sx: { width: 160 } },
+        textField: { size: 'small', sx: { width: 160, '& *': { cursor: 'pointer' } } },
+        // The field only shows the date: no typing into its sections, a tap anywhere opens the
+        // calendar.
+        field: { readOnly: true, onClick: () => onOpenChange(true) },
+        actionBar: { actions: ['cancel'] },
         // MUI passes slotProps through to the slot; its type only knows the stock toolbar's props.
         toolbar: {
           hidden: false,

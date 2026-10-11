@@ -55,7 +55,9 @@ pnpm db:studio      # Open Drizzle Studio (DB browser)
 
 Production migrations are applied by the Vercel production build itself (`apps/web`'s `vercel-build` →
 `scripts/migrate-production.sh`; the DB credentials are sensitive env vars that can't be pulled locally). Preview
-builds skip them. `db:*` scripts load env from `apps/web/.env.local` and run from the repo root (`drizzle.config.ts` points
+builds skip them. Each preview gets its own Neon database branch `preview/<git branch>` (Vercel-managed Neon
+integration); `.github/workflows/neon-preview-cleanup.yml` deletes it when the PR closes — left behind, they hit
+Neon's branch limit and every preview fails with "Resource provisioning failed". `db:*` scripts load env from `apps/web/.env.local` and run from the repo root (`drizzle.config.ts` points
 at `apps/web/src/lib/db/schema.ts` and outputs to root `drizzle/`).
 
 Package manager is **pnpm**. Do not use npm or yarn. To run a script in one package directly:

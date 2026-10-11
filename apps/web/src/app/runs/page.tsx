@@ -35,6 +35,7 @@ import {
   firstDayOf,
   HISTORY_DEFAULT_FILTER,
   historyFilterAtom,
+  historyQueryAtom,
   nowLocalMs,
   useStatsActivities,
   yearsOf,
@@ -272,7 +273,7 @@ function ActivityRow({
 
 export default function RunsPage() {
   const history = useAtomValue(historyAtom);
-  const filter = useAtomValue(historyFilterAtom);
+  const filter = useAtomValue(historyQueryAtom);
   const statsActivities = useStatsActivities(true);
   const loading = history === undefined;
   const filtered = !isDefaultFilter(filter, HISTORY_DEFAULT_FILTER);

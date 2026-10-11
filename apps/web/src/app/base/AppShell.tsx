@@ -19,6 +19,7 @@ import { usePathname } from 'next/navigation';
 import { forgetCachedUserData, installPromptAtom, promptInstall } from '../offline/serviceWorker';
 import SyncIndicator from '../offline/SyncIndicator';
 import { displayFont, glass, tokens } from '../theme';
+import GooIndicator, { type GooIndicatorHandle } from './GooIndicator';
 import { NAV_ITEMS } from './navItems';
 import NativeDevicePickerDialog from './NativeDevicePickerDialog';
 
@@ -167,19 +168,15 @@ function TopBar() {
   );
 }
 
-// Slingshot: the pill is first drawn back a little away from the target, then released — it
-// leaves at full speed and decelerates into the target without overshooting it. The pull-back
-// stays within the nav's 8px padding, so the outer tabs' pill doesn't poke past its edge.
-const PULL_BACK = 7; // % of the pill's own width
+// The active pill is a blob of goo (see GooIndicator). Slingshot: it's first drawn back a little
+// away from the target, then released; a bit of it stays stuck to the old tab, the new tab reaches
+// out to catch it. The pull-back stays within the nav's 8px padding, so the outer tabs' pill doesn't
+// poke past its edge.
+const PULL_BACK = 0.07; // of a tab's width…
+const PULL_BACK_MAX_PX = 5; // …but no more than this
 const PULL_MS = 170;
-const FLIGHT_MS = 380; // plus FLIGHT_MS_PER_TAB for every tab travelled
-const FLIGHT_MS_PER_TAB = 50;
-
-/** The pill's rendered translateX as % of its width, including a running animation. */
-function currentOffset(el: HTMLElement): number {
-  const { m41 } = new DOMMatrixReadOnly(getComputedStyle(el).transform);
-  return el.offsetWidth ? (m41 / el.offsetWidth) * 100 : 0;
-}
+const FLIGHT_MS = 480; // plus FLIGHT_MS_PER_TAB for every tab travelled
+const FLIGHT_MS_PER_TAB = 60;
 
 function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
   // A tapped tab is selected right away rather than once its route has rendered (which takes a
@@ -187,53 +184,33 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
   const [tapped, setTapped] = useState<{ index: number; from: string } | null>(null);
   const activeIndex =
     tapped?.from === pathname ? tapped.index : NAV_ITEMS.findIndex((item) => item.match(pathname));
-  const pillRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const gooRef = useRef<GooIndicatorHandle>(null);
   const prevIndexRef = useRef(activeIndex);
 
   useLayoutEffect(() => {
-    const pill = pillRef.current;
+    const nav = navRef.current;
+    const goo = gooRef.current;
     const prevIndex = prevIndexRef.current;
     prevIndexRef.current = activeIndex;
-    if (!pill || prevIndex === activeIndex || prevIndex < 0 || activeIndex < 0) return;
+    if (!nav || !goo || prevIndex === activeIndex || prevIndex < 0 || activeIndex < 0) return;
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion || typeof pill.animate !== 'function') return;
+    if (reduceMotion || typeof nav.animate !== 'function') return;
 
-    // The style already holds the new position; mid-flight, start from where the animation has
-    // got to instead, so a quick second tap re-aims the pill smoothly.
-    const running = pill.getAnimations();
-    const from = running.length ? currentOffset(pill) : prevIndex * 100;
-    running.forEach((animation) => animation.cancel());
-    const to = activeIndex * 100;
+    // The drop's style already holds the new position (see dropSx); this is the way there.
+    const width = (nav.clientWidth - 16) / NAV_ITEMS.length;
     const flightMs = FLIGHT_MS + FLIGHT_MS_PER_TAB * Math.abs(activeIndex - prevIndex);
-    const release = 'cubic-bezier(0.16, 1, 0.3, 1)';
-    if (running.length) {
-      // Already flying — no second pull-back, just re-aim.
-      pill.animate(
-        [
-          { transform: `translateX(${from}%)`, easing: release },
-          { transform: `translateX(${to}%)` },
-        ],
-        { duration: flightMs }
-      );
-      return;
-    }
-    const pulled = from - Math.sign(to - from) * PULL_BACK;
-    pill.animate(
-      [
-        { transform: `translateX(${from}%)`, easing: 'cubic-bezier(0.45, 0, 0.55, 1)' },
-        {
-          transform: `translateX(${pulled}%)`,
-          offset: PULL_MS / (PULL_MS + flightMs),
-          easing: release,
-        },
-        { transform: `translateX(${to}%)` },
-      ],
-      { duration: PULL_MS + flightMs }
+    const pullBackPx = Math.min(PULL_BACK * width, PULL_BACK_MAX_PX);
+    goo.morph(
+      { left: prevIndex * width, width },
+      { left: activeIndex * width, width },
+      { duration: PULL_MS + flightMs, pullBackPx, pullShare: PULL_MS / (PULL_MS + flightMs) }
     );
   }, [activeIndex]);
 
   return (
     <Box
+      ref={navRef}
       component="nav"
       sx={{
         position: 'fixed',
@@ -252,23 +229,22 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
         gridTemplateColumns: `repeat(${NAV_ITEMS.length}, 1fr)`,
       }}
     >
-      {/* Sliding active pill */}
-      <Box
-        ref={pillRef}
-        aria-hidden
-        sx={{
-          position: 'absolute',
-          top: 8,
-          bottom: 8,
-          left: 8,
-          width: `calc((100% - 16px) / ${NAV_ITEMS.length})`,
-          borderRadius: 999,
-          background: `linear-gradient(135deg, rgba(198,255,61,0.2), rgba(56,225,255,0.12))`,
-          border: `1px solid rgba(198,255,61,0.25)`,
+      <GooIndicator
+        ref={gooRef}
+        blur={6}
+        fillOpacity={0.17}
+        radius={999}
+        background={`linear-gradient(135deg, ${tokens.volt}, ${tokens.cyan})`}
+        outline="rgba(198,255,61,0.25)"
+        dropSx={{
+          width: `${100 / NAV_ITEMS.length}%`,
           transform: `translateX(${Math.max(activeIndex, 0) * 100}%)`,
+        }}
+        sx={{
+          inset: 8,
           opacity: activeIndex < 0 ? 0 : 1,
-          // The slide itself is the slingshot animation above; this only fades it in/out on
-          // routes outside the nav.
+          // The slide itself is the goo animation above; this only fades it in/out on routes
+          // outside the nav.
           transition: 'opacity 200ms ease',
         }}
       />

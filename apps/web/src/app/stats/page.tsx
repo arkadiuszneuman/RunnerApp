@@ -31,7 +31,14 @@ import {
   ZonesPanel,
 } from './panels';
 import StatsFilterBar from './StatsFilterBar';
-import { firstDayOf, statsFilterAtom, toLocalNow, useStatsActivities, yearsOf } from './statsState';
+import {
+  firstDayOf,
+  statsFilterAtom,
+  statsQueryAtom,
+  toLocalNow,
+  useStatsActivities,
+  yearsOf,
+} from './statsState';
 import { KpiTiles, PredictionsCard, RecordsCard, SectionTitle } from './Summary';
 import { useHrAnchors } from './useHrAnchors';
 
@@ -43,7 +50,7 @@ const grid = {
 
 export default function StatsPage() {
   const all = useStatsActivities();
-  const filter = useAtomValue(statsFilterAtom);
+  const filter = useAtomValue(statsQueryAtom);
   // "Now" is fixed when the page opens, so every panel agrees on it.
   const [nowMs] = useState(() => Date.now());
   const now = useMemo(() => toLocalNow(nowMs), [nowMs]);
