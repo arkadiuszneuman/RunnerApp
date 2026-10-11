@@ -1,5 +1,5 @@
 import type { ActivityStreams } from '@runner/core';
-import { zoneColors } from '@/app/charts/chartSetup';
+import { chartColors } from '@/app/charts/chartSetup';
 import { formatPace } from '../format';
 
 export type RouteMetric = 'pace' | 'hr' | 'alt' | 'cad';
@@ -68,29 +68,62 @@ export function colorStep(value: number | null, scale: RouteScale | undefined): 
   return Math.min(COLOR_STEPS - 1, Math.floor(t * COLOR_STEPS));
 }
 
-function hexToRgb(hex: string): [number, number, number] {
+type Rgb = [number, number, number];
+
+function hexToRgb(hex: string): Rgb {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-/**
- * The sequential ramp for step `step`: the app's cyan heart-rate-zone ramp (darkest = easiest,
- * brightest = hardest on the dark map), interpolated between its five stops.
- */
-export function stepColor(step: number | null): string {
-  if (step === null) return NO_VALUE_COLOR;
-  const t = (step + 0.5) / COLOR_STEPS;
-  const pos = t * (zoneColors.length - 1);
-  const i = Math.min(zoneColors.length - 2, Math.floor(pos));
-  const f = pos - i;
-  const a = hexToRgb(zoneColors[i]);
-  const b = hexToRgb(zoneColors[i + 1]);
-  const mix = a.map((c, k) => Math.round(c + (b[k] - c) * f));
-  return `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
+function mix(a: Rgb, b: Rgb, f: number): Rgb {
+  return a.map((c, k) => Math.round(c + (b[k] - c) * f)) as Rgb;
 }
 
-/** The CSS gradient of the whole ramp, for the legend. */
-export const rampGradient = `linear-gradient(90deg, ${zoneColors.join(', ')})`;
+const css = (c: Rgb) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+
+/** The map's dark background and white — the two ends each metric's ramp is mixed towards. */
+const DARK: Rgb = [14, 19, 29];
+const LIGHT: Rgb = [255, 255, 255];
+
+/** Each metric's colour, the same as its chart below the map. */
+export const METRIC_COLORS: Record<RouteMetric, string> = {
+  pace: chartColors.pace,
+  hr: chartColors.hr,
+  alt: chartColors.elevation,
+  cad: chartColors.cadence,
+};
+
+/**
+ * A sequential ramp in one metric's hue, from a deep shade (easiest) through the chart colour to a
+ * pale tint (hardest), so on the dark map brighter always means faster / higher.
+ */
+export function metricRamp(metric: RouteMetric): string[] {
+  const base = hexToRgb(METRIC_COLORS[metric]);
+  return [
+    mix(base, DARK, 0.45),
+    mix(base, DARK, 0.2),
+    base,
+    mix(base, LIGHT, 0.3),
+    mix(base, LIGHT, 0.6),
+  ].map(css);
+}
+
+function cssToRgb(color: string): Rgb {
+  return color.match(/\d+/g)!.slice(0, 3).map(Number) as Rgb;
+}
+
+/** The colour of step `step` on `ramp`, interpolated between its stops. */
+export function stepColor(step: number | null, ramp: readonly string[]): string {
+  if (step === null) return NO_VALUE_COLOR;
+  const t = (step + 0.5) / COLOR_STEPS;
+  const pos = t * (ramp.length - 1);
+  const i = Math.min(ramp.length - 2, Math.floor(pos));
+  return css(mix(cssToRgb(ramp[i]), cssToRgb(ramp[i + 1]), pos - i));
+}
+
+/** The CSS gradient of a whole ramp, for the legend. */
+export const rampGradient = (ramp: readonly string[]) =>
+  `linear-gradient(90deg, ${ramp.join(', ')})`;
 
 /** All route points with a fix, for fitting the map to the route. */
 export function routePoints(streams: ActivityStreams): LatLng[] {

@@ -1,13 +1,16 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { ChartData, ChartOptions, TooltipItem } from 'chart.js';
+import type { ChartData, ChartOptions, ScriptableLineSegmentContext, TooltipItem } from 'chart.js';
 import { Line } from '@/app/charts/PersistentChart';
 import { axisTitleColor, timeAxisFit, tooltipTitleAsClock } from '@/app/charts/chartSetup';
 
+const GAP_DASH = [4, 4];
+
 /**
- * One watch-activity stream over time (x in minutes). `formatY` renders the hovered value (and
- * the ticks); `reverse` flips the axis — for pace, where lower is faster and belongs on top.
+ * One watch-activity stream over moving time (x in minutes, pauses squeezed out). `formatY`
+ * renders the hovered value (and the ticks); `reverse` flips the axis — for pace, where lower is
+ * faster and belongs on top.
  */
 export default function StreamChart({
   points,
@@ -36,7 +39,13 @@ export default function StreamChart({
           borderWidth: 2,
           pointRadius: 0,
           fill: fill ? 'start' : false,
-          spanGaps: false,
+          // Gaps (a pause, walking for pace, a sensor dropout) are bridged with a dashed line, so
+          // the trace reads as one but the missing stretch stays visible.
+          spanGaps: true,
+          segment: {
+            borderDash: (ctx: ScriptableLineSegmentContext) =>
+              ctx.p0.skip || ctx.p1.skip ? GAP_DASH : undefined,
+          },
           normalized: true,
         },
       ],
@@ -54,7 +63,7 @@ export default function StreamChart({
         x: {
           type: 'linear',
           ...timeAxisFit,
-          title: { display: true, text: 'Minutes', color: axisTitleColor },
+          title: { display: true, text: 'Moving time (min)', color: axisTitleColor },
           ticks: { color: axisTitleColor },
         },
         y: {

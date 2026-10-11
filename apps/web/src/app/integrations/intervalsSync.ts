@@ -2,7 +2,7 @@ import axios from 'axios';
 import { atom } from 'jotai';
 import { isRunningAtom } from '../atoms';
 import { store } from '../store';
-import { activityDetailsAtom, refreshActivities } from '../userData';
+import { forgetActivityDetails, refreshActivities } from '../userData';
 import type { IntervalsStatus, SyncResult } from '@/lib/intervals/types';
 
 /** undefined = not loaded yet (or unknown, e.g. offline). */
@@ -61,7 +61,7 @@ export function runIntervalsSync(): Promise<void> {
         store.set(intervalsSyncAtom, { running: true, imported, remaining });
         if (data.imported > 0) void refreshActivities();
         // Details fetched before their route was filled in are dropped, so they're fetched again.
-        if (data.routes > 0) store.set(activityDetailsAtom, {});
+        if (data.routes > 0) forgetActivityDetails();
         if (data.stopped) {
           message = STOP_MESSAGES[data.stopped];
           break;

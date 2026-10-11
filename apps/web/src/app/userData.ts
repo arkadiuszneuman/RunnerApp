@@ -173,6 +173,11 @@ export function cacheActivityDetail(activity: ActivityDetail): void {
   store.set(activityDetailsAtom, (prev) => ({ ...prev, [activity.id]: activity }));
 }
 
+/** Drops every cached activity detail, so each is fetched again — after their streams changed. */
+export function forgetActivityDetails(): void {
+  store.set(activityDetailsAtom, {});
+}
+
 /** Reflects a link/unlink in the caches right away, the way the server will apply it. */
 export function applyActivityLink(id: string, linkedRunId: string | null): void {
   const update = <T extends ActivityListItem>(a: T): T => {

@@ -59,8 +59,9 @@ import {
 import LinkDialog from '../LinkDialog';
 import { runCandidates, setLink } from '../linking';
 import RouteMap from './RouteMap';
-import { MIN_PACE_SPEED_MPS, routePoints } from './routeSegments';
+import { routePoints } from './routeSegments';
 import StreamChart from './StreamChart';
+import { streamSeries } from './streamSeries';
 
 const paceLabel = (secondsPerKm: number) => {
   const s = Math.round(secondsPerKm);
@@ -109,24 +110,10 @@ export default function ActivityDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  const series = useMemo(() => {
-    const streams = activity?.streams;
-    if (!streams) return null;
-    const minutes = streams.t.map((t) => t / 60);
-    const pick = (values: (number | null)[]) => values.map((y, i) => ({ x: minutes[i], y }));
-    const has = (values: (number | null)[]) => values.some((v) => v !== null);
-    return {
-      hr: has(streams.hr) ? pick(streams.hr) : null,
-      pace: has(streams.spd)
-        ? streams.spd.map((v, i) => ({
-            x: minutes[i],
-            y: v !== null && v >= MIN_PACE_SPEED_MPS ? 1000 / v : null,
-          }))
-        : null,
-      alt: has(streams.alt) ? pick(streams.alt) : null,
-      cad: has(streams.cad) ? pick(streams.cad) : null,
-    };
-  }, [activity?.streams]);
+  const series = useMemo(
+    () => (activity?.streams ? streamSeries(activity.streams) : null),
+    [activity?.streams]
+  );
 
   const hasRoute = useMemo(
     () => (activity?.streams ? routePoints(activity.streams).length > 1 : false),
