@@ -12,6 +12,11 @@ export interface GooLook {
   gradient?: [Rgba, Rgba];
   /** A 1px edge along the inside of the shape. */
   outline?: Rgba;
+  /**
+   * Room (px) kept free above and below the goo at rest: melting blobs swell a little where they
+   * meet, and a canvas exactly as tall as the goo would cut that off flat.
+   */
+  padY?: number;
 }
 
 /** What an indicator tells the goo worker about itself. */
@@ -163,6 +168,11 @@ export class GooScene {
   /** The drop as last painted, for re-aiming it mid-flight. */
   private drop: { span: Span; color: Rgba } | null = null;
 
+  /** How tall the goo is at rest: the canvas less its padding. */
+  private get pillHeight() {
+    return Math.max(this.height - 2 * (this.look.padY ?? 0), 0);
+  }
+
   get animating() {
     return this.animation !== null;
   }
@@ -186,7 +196,7 @@ export class GooScene {
         const from = flying ? this.drop!.span : command.from;
         this.animation = {
           frames: gooFrames(from, command.to, command.to.width, {
-            aspect: this.height ? command.to.width / this.height : undefined,
+            aspect: this.pillHeight ? command.to.width / this.pillHeight : undefined,
             ...command.options,
           }),
           base: command.to.width,
@@ -214,7 +224,7 @@ export class GooScene {
       const left = Math.max(pose.center - half, 0);
       const right = Math.min(pose.center + half, this.width);
       const hx = Math.max(right - left, 0) / 2;
-      const hy = Math.min(pose.sy, 1) * (this.height / 2);
+      const hy = Math.min(pose.sy, 1) * (this.pillHeight / 2);
       blobs.set([(left + right) / 2, this.height / 2, hx, hy], i * 4);
       colA.set(look.gradient ? look.gradient[0] : color, i * 4);
       colB.set(look.gradient ? look.gradient[1] : color, i * 4);

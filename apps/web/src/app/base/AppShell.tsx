@@ -258,8 +258,13 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
           width: `${100 / NAV_ITEMS.length}%`,
           transform: `translateX(${Math.max(activeIndex, 0) * 100}%)`,
         }}
+        // Half the nav's padding above and below is room for the goo to swell.
+        padY={4}
         sx={{
-          inset: 8,
+          top: 4,
+          bottom: 4,
+          left: 8,
+          right: 8,
           opacity: activeIndex < 0 ? 0 : 1,
           // The slide itself is the goo animation above; this only fades it in/out on routes
           // outside the nav.

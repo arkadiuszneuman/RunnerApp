@@ -15,13 +15,14 @@ export interface SegmentedControlOption<T extends string> {
 
 type Rect = { left: number; width: number };
 
-function measureSlot(group: HTMLElement, index: number): Rect | null {
+/** Where option `index` sits, relative to `origin` (the goo's layer). */
+function measureSlot(group: HTMLElement, index: number, origin: HTMLElement | null): Rect | null {
   const buttons = group.querySelectorAll<HTMLElement>('.MuiToggleButton-root');
   const btn = buttons[index];
   if (!btn) return null;
-  const groupRect = group.getBoundingClientRect();
+  const originRect = (origin ?? group).getBoundingClientRect();
   const btnRect = btn.getBoundingClientRect();
-  return { left: btnRect.left - groupRect.left, width: btnRect.width };
+  return { left: btnRect.left - originRect.left, width: btnRect.width };
 }
 
 /**
@@ -70,7 +71,7 @@ export default function SegmentedControl<T extends string>({
 
     const prevIndex = prevIndexRef.current;
     prevIndexRef.current = index;
-    const nextRect = measureSlot(group, index);
+    const nextRect = measureSlot(group, index, goo.layer());
     if (!nextRect) return;
     const toColor = options[index].color;
     goo.place(nextRect, toColor);
@@ -86,7 +87,7 @@ export default function SegmentedControl<T extends string>({
     ) {
       return;
     }
-    goo.morph(measureSlot(group, prevIndex) ?? nextRect, nextRect, {
+    goo.morph(measureSlot(group, prevIndex, goo.layer()) ?? nextRect, nextRect, {
       duration: 600,
       fromColor: options[prevIndex].color,
       toColor,
@@ -98,7 +99,7 @@ export default function SegmentedControl<T extends string>({
     const group = groupRef.current;
     if (!group || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
-      const rect = measureSlot(group, prevIndexRef.current);
+      const rect = measureSlot(group, prevIndexRef.current, gooRef.current?.layer() ?? null);
       const opt = options[prevIndexRef.current];
       if (rect && opt) gooRef.current?.place(rect, opt.color);
     });
@@ -146,7 +147,11 @@ export default function SegmentedControl<T extends string>({
         radius={12}
         smooth={12}
         fillOpacity={0.18}
-        sx={{ top: 4, bottom: 4, left: 0, right: 0 }}
+        // Over the options only (inside the 4px padding), so goo pushed against an end squashes
+        // there instead of running into the rounded frame; the padding above and below is room
+        // for it to swell.
+        padY={4}
+        sx={{ top: 0, bottom: 0, left: 4, right: 4 }}
       />
       {options.map((opt) => (
         <ToggleButton
