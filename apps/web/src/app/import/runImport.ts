@@ -52,7 +52,9 @@ export function runImport(
 
   let resolveDone: (progress: ImportProgress) => void = () => {};
   const done = new Promise<ImportProgress>((resolve) => (resolveDone = resolve));
-  const worker = new Worker(new URL('./importWorker.ts', import.meta.url), { type: 'module' });
+  // A classic worker, not { type: 'module' }: Turbopack's production worker bootstrap loads its
+  // chunks with importScripts(), which module workers forbid (Android's WebView enforces it).
+  const worker = new Worker(new URL('./importWorker.ts', import.meta.url));
   let uploads: Promise<void> = Promise.resolve();
 
   /** Ends the import — early (with `error`) or once everything is uploaded. */

@@ -34,7 +34,9 @@ const onDrawn = new Map<number, () => void>();
 
 function gooWorker(): Worker {
   if (!worker) {
-    worker = new Worker(new URL('./goo.worker.ts', import.meta.url), { type: 'module' });
+    // A classic worker, not { type: 'module' }: Turbopack's production worker bootstrap loads its
+    // chunks with importScripts(), which module workers forbid (Android's WebView enforces it).
+    worker = new Worker(new URL('./goo.worker.ts', import.meta.url));
     worker.onmessage = (event: MessageEvent<GooWorkerMessage>) => {
       if (event.data.type === 'drawn') onDrawn.get(event.data.id)?.();
     };
