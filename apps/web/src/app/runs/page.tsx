@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
@@ -271,7 +271,10 @@ function ActivityRow({
   );
 }
 
-export default function RunsPage() {
+// Next.js (cacheComponents) keeps this tab mounted but hidden while another one is shown, and
+// re-renders the page with fresh props when it comes back; memo keeps that to a no-op instead of
+// a full re-render of everything below.
+const RunsContent = memo(function RunsContent() {
   const history = useAtomValue(historyAtom);
   const filter = useAtomValue(historyQueryAtom);
   const statsActivities = useStatsActivities(true);
@@ -408,4 +411,8 @@ export default function RunsPage() {
       </Dialog>
     </Page>
   );
+});
+
+export default function RunsPage() {
+  return <RunsContent />;
 }

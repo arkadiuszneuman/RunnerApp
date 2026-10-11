@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -41,7 +41,10 @@ import {
 
 const EMPTY_PROGRAM: ProgramData = { stages: [], cooldown: false };
 
-export default function ProgramsPage() {
+// Next.js (cacheComponents) keeps this tab mounted but hidden while another one is shown, and
+// re-renders the page with fresh props when it comes back; memo keeps that to a no-op instead of
+// a full re-render of everything below.
+const ProgramsContent = memo(function ProgramsContent() {
   const router = useRouter();
   const programsData = useAtomValue(programsAtom);
   const loading = programsData === undefined;
@@ -345,4 +348,8 @@ export default function ProgramsPage() {
       </Dialog>
     </Page>
   );
+});
+
+export default function ProgramsPage() {
+  return <ProgramsContent />;
 }

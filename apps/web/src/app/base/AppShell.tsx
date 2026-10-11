@@ -175,9 +175,9 @@ function TopBar() {
 // poke past its edge.
 const PULL_BACK = 0.07; // of a tab's width…
 const PULL_BACK_MAX_PX = 5; // …but no more than this
-const PULL_MS = 170;
-const FLIGHT_MS = 480; // plus FLIGHT_MS_PER_TAB for every tab travelled
-const FLIGHT_MS_PER_TAB = 60;
+const PULL_MS = 100;
+const FLIGHT_MS = 300; // plus FLIGHT_MS_PER_TAB for every tab travelled
+const FLIGHT_MS_PER_TAB = 35;
 
 function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
   // A tapped tab is selected right away rather than once its route has rendered (which takes a

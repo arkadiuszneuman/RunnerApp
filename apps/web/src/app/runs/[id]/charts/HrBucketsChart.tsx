@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import type { ChartData, ChartOptions } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Bar } from '@/app/charts/PersistentChart';
 import type { HrBucket } from '@runner/core';
 import { axisTitleColor, chartColors } from '@/app/charts/chartSetup';
 

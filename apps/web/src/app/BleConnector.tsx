@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { memo, ReactNode, useEffect, useState } from 'react';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import DirectionsRunRoundedIcon from '@mui/icons-material/DirectionsRunRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
@@ -107,7 +107,10 @@ function QuickLink(
   );
 }
 
-export default function BleConnector() {
+// Next.js (cacheComponents) keeps the home tab mounted but hidden while another one is shown, and
+// re-renders the page with fresh props when it comes back; memo keeps that to a no-op instead of
+// a full re-render of everything below.
+function BleConnector() {
   const stages = useAtomValue(stagesAtom);
   // undefined = still loading (settings and/or the programs list); null = no
   // active program — see userData.ts. Avoids flashing "No program selected"
@@ -437,3 +440,5 @@ export default function BleConnector() {
     </Page>
   );
 }
+
+export default memo(BleConnector);
