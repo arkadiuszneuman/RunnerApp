@@ -310,14 +310,29 @@ export class GooPainter {
     ) as GooPainter['uniforms'];
   }
 
-  /** Null where WebGL isn't available. */
-  static create(): GooPainter | null {
+  /**
+   * Null where WebGL isn't available (or the GPU won't give out a context right now). `onLost`
+   * fires when the context is taken away later — Android does that under GPU memory pressure and
+   * when the app goes to the background; a lost painter draws nothing, so a new one is needed.
+   */
+  static create(onLost?: () => void): GooPainter | null {
     const canvas = new OffscreenCanvas(1, 1);
     const gl = canvas.getContext('webgl', {
       premultipliedAlpha: true,
       antialias: false,
     }) as WebGLRenderingContext | null;
-    return gl ? new GooPainter(canvas, gl) : null;
+    if (!gl || gl.isContextLost()) return null;
+    if (onLost) canvas.addEventListener('webglcontextlost', onLost);
+    return new GooPainter(canvas, gl);
+  }
+
+  get lost(): boolean {
+    return this.gl.isContextLost();
+  }
+
+  /** Development only: takes the context away, to try out the recovery. */
+  loseContext() {
+    this.gl.getExtension('WEBGL_lose_context')?.loseContext();
   }
 
   paint(frame: GooFrameData): ImageBitmap {
