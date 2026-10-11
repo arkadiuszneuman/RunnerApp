@@ -31,7 +31,17 @@ export interface GooOptions {
   pullBackPx?: number;
   /** The share of the animation the pull-back takes. */
   pullShare?: number;
+  /**
+   * A slot's width over its height. On a wide slot (≥ WIDE_ASPECT) the neck between the drop and
+   * what's left on the old option draws out long and thin by itself; on a stubby one they'd
+   * overlap all the way, so there the drop flies narrower and the remnant clings narrower and
+   * longer, letting the neck show.
+   */
+  aspect?: number;
 }
+
+const WIDE_ASPECT = 4.5;
+const STUBBY_ASPECT = 1.5;
 
 const SAMPLES = 36;
 /** When (in the flight's own 0–1 time) the drop reaches the target; the rest is its landing wobble. */
@@ -60,7 +70,13 @@ export function gooFrames(
   from: Span,
   to: Span,
   base: number,
-  { maxStretch = 1.3, thinning = 0.36, pullBackPx = 0, pullShare = 0 }: GooOptions = {}
+  {
+    maxStretch = 1.3,
+    thinning = 0.36,
+    pullBackPx = 0,
+    pullShare = 0,
+    aspect = WIDE_ASPECT,
+  }: GooOptions = {}
 ): GooFrame[] {
   const fromCenter = from.left + from.width / 2;
   const toCenter = to.left + to.width / 2;
@@ -68,6 +84,8 @@ export function gooFrames(
   const fromSx = base ? from.width / base : 1;
   const pull = pullBackPx > 0 ? clamp01(pullShare) : 0;
   const start = fromCenter - dir * pullBackPx;
+  // 0 on a wide slot, 1 on a stubby one.
+  const narrow = clamp01((WIDE_ASPECT - aspect) / (WIDE_ASPECT - STUBBY_ASPECT));
 
   return Array.from({ length: SAMPLES + 1 }, (_, i): GooFrame => {
     const t = i / SAMPLES;
@@ -93,8 +111,11 @@ export function gooFrames(
       const speed = cubicSpeed(x);
       drop = {
         center: lerp(start, toCenter, easeInOutCubic(x)),
-        sx: lerp(fromSx * (pull ? 0.94 : 1), 1, easeInOutCubic(x)) * (1 + (maxStretch - 1) * speed),
-        sy: (pull ? lerp(1.04, 1, x) : 1) - thinning * speed,
+        sx:
+          lerp(fromSx * (pull ? 0.94 : 1), 1, easeInOutCubic(x)) *
+          (1 + (maxStretch - 1) * speed) *
+          (1 - 0.4 * narrow * speed),
+        sy: (pull ? lerp(1.04, 1, x) : 1) - (thinning + 0.08 * narrow) * speed,
       };
     } else {
       // Landing: a damped wobble, wider-and-flatter then narrower-and-taller.
@@ -105,11 +126,11 @@ export function gooFrames(
 
     // Holds on a moment, then leans after the drop while it shrinks — thinning faster than it
     // narrows, so the neck pinches off.
-    const a = clamp01((u - 0.06) / 0.5);
+    const a = clamp01((u - 0.06) / (0.5 + 0.12 * narrow));
     const anchor: Pose = {
-      center: start + dir * base * 0.12 * easeOutQuad(a),
-      sx: fromSx * (1 - a ** 2),
-      sy: (1 - a) ** 1.6,
+      center: start + dir * base * 0.12 * (1 - 0.5 * narrow) * easeOutQuad(a),
+      sx: fromSx * (1 - a ** 2) * (1 - 0.45 * narrow * Math.min(1, 3 * a)),
+      sy: (1 - a) ** (1.6 - 0.6 * narrow),
     };
 
     // Grows towards the incoming drop, pulls back into the slot as it arrives, and is swallowed.

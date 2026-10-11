@@ -56,14 +56,14 @@ function GranularityToolbar(props: DatePickerToolbarProps) {
 
 /**
  * One date field; tapping it anywhere opens the calendar in a dialog (no typing into the field's
- * sections), with the Year/Month/Day switch on top.
+ * sections), with the Year/Month/Day switch on top. Whatever happens in the dialog — dates
+ * browsed, granularity switched — is a draft until a date is picked: Cancel or closing it leaves
+ * the filter as it was.
  */
 function RangePicker({
   label,
   value,
-  onChange,
   granularity,
-  onGranularityChange,
   minDate,
   maxDate,
   open,
@@ -72,44 +72,54 @@ function RangePicker({
 }: Readonly<{
   label: string;
   value?: string;
-  onChange: (value: Dayjs | null) => void;
   granularity: DateGranularity;
-  onGranularityChange: (granularity: DateGranularity) => void;
   minDate?: string;
   maxDate: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAccept?: () => void;
+  /** A date picked, with the granularity it was picked in. */
+  onAccept: (value: Dayjs, granularity: DateGranularity) => void;
 }>) {
+  const [draft, setDraft] = useState<{ value: Dayjs | null; granularity: DateGranularity }>({
+    value: null,
+    granularity,
+  });
   // Controlled, so switching granularity with the calendar open jumps straight to its view.
   const [view, setView] = useState<'year' | 'month' | 'day'>(OPEN_TO[granularity]);
-  // Every opening — by tap or by the other field — starts at the granularity's own view.
+  // Every opening — by tap or by the other field — starts from the filter as it is, at the
+  // granularity's own view.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setView(OPEN_TO[granularity]);
+    if (open) {
+      setDraft({ value: value ? dayjs(value) : null, granularity });
+      setView(OPEN_TO[granularity]);
+    }
   }
+  const shownGranularity = open ? draft.granularity : granularity;
   const changeGranularity = (next: DateGranularity) => {
     setView(OPEN_TO[next]);
-    onGranularityChange(next);
+    setDraft((current) => ({ ...current, granularity: next }));
   };
-  const views = VIEWS[granularity];
+  const views = VIEWS[shownGranularity];
   return (
     <MobileDatePicker
       label={label}
       views={views}
-      openTo={OPEN_TO[granularity]}
-      view={views.includes(view) ? view : OPEN_TO[granularity]}
+      openTo={OPEN_TO[shownGranularity]}
+      view={views.includes(view) ? view : OPEN_TO[shownGranularity]}
       onViewChange={setView}
       open={open}
       onOpen={() => onOpenChange(true)}
       onClose={() => onOpenChange(false)}
-      onAccept={onAccept}
+      onAccept={(picked) => {
+        if (picked?.isValid()) onAccept(picked, draft.granularity);
+      }}
       // A pick in the last view is the answer — no OK to confirm it.
       closeOnSelect
-      format={FORMAT[granularity]}
-      value={value ? dayjs(value) : null}
-      onChange={onChange}
+      format={FORMAT[shownGranularity]}
+      value={open ? draft.value : value ? dayjs(value) : null}
+      onChange={(next) => setDraft((current) => ({ ...current, value: next }))}
       minDate={minDate ? dayjs(minDate) : undefined}
       maxDate={dayjs(maxDate)}
       slots={{ toolbar: GranularityToolbar }}
@@ -122,7 +132,7 @@ function RangePicker({
         // MUI passes slotProps through to the slot; its type only knows the stock toolbar's props.
         toolbar: {
           hidden: false,
-          granularity,
+          granularity: shownGranularity,
           onGranularityChange: changeGranularity,
         } as GranularityToolbarProps,
       }}
@@ -160,7 +170,6 @@ export default function DateRangeFields({
   earliest?: string;
 }>) {
   const granularity = filter.granularity ?? 'month';
-  const unit = granularity === 'day' ? 'day' : granularity;
   const today = new Date(nowLocalMs()).toISOString().slice(0, 10);
   const clamp = (date: string) => {
     const notFuture = date > today ? today : date;
@@ -176,8 +185,7 @@ export default function DateRangeFields({
     to: clamp(`${year}-12-31`),
   });
 
-  const set = (edge: 'from' | 'to', value: Dayjs | null) => {
-    if (!value || !value.isValid()) return;
+  const set = (edge: 'from' | 'to', value: Dayjs, unit: DateGranularity) => {
     const date = clamp((edge === 'from' ? value.startOf(unit) : value.endOf(unit)).format(ISO));
     const next = { from, to, [edge]: date };
     // Keep the span the right way round.
@@ -185,7 +193,7 @@ export default function DateRangeFields({
       if (edge === 'from') next.to = clamp(value.endOf(unit).format(ISO));
       else next.from = clamp(value.startOf(unit).format(ISO));
     }
-    onChange({ range: 'custom', ...next });
+    onChange({ range: 'custom', granularity: unit, ...next });
   };
 
   const pickYear = (year: number) =>
@@ -196,9 +204,7 @@ export default function DateRangeFields({
     <RangePicker
       label={label}
       value={edge === 'from' ? from : to}
-      onChange={(value) => set(edge, value)}
       granularity={granularity}
-      onGranularityChange={(g) => onChange({ granularity: g })}
       // "To" can't go before "From".
       minDate={edge === 'to' ? (from ?? earliest) : earliest}
       maxDate={today}
@@ -206,8 +212,11 @@ export default function DateRangeFields({
       onOpenChange={(open) =>
         setOpenEdge((current) => (open ? edge : current === edge ? null : current))
       }
-      // Picking "From" goes straight on to picking "To".
-      onAccept={edge === 'from' ? () => setOpenEdge('to') : undefined}
+      onAccept={(value, unit) => {
+        set(edge, value, unit);
+        // Picking "From" goes straight on to picking "To".
+        if (edge === 'from') setOpenEdge('to');
+      }}
     />
   );
 

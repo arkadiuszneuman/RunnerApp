@@ -90,7 +90,10 @@ export default function GooIndicator({
           blob.style.width = `${base}px`;
           if (color) blob.style.backgroundColor = color;
         }
-        const frames = gooFrames(start, to, base, options);
+        const frames = gooFrames(start, to, base, {
+          aspect: drop.offsetHeight ? base / drop.offsetHeight : undefined,
+          ...options,
+        });
         const play = (el: HTMLElement, pose: 'anchor' | 'drop' | 'catcher') =>
           el.animate(
             frames.map((frame) => ({
