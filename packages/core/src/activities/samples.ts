@@ -116,19 +116,23 @@ function meanOf(values: (number | null)[]): number | null {
 }
 
 /**
- * Downsamples to one sample per `stepS`-second bin (for storage and charts): distance takes the
- * bin's last reading (it's cumulative), everything else the bin's mean. Bins without samples —
+ * Downsamples to one sample per `stepS`-second bin (for storage and charts): distance and the GPS
+ * position take the bin's last reading, everything else the bin's mean. Bins without samples —
  * a paused timer — are left out rather than filled in.
  */
 export function resample(streams: ActivityStreams, stepS = 5): ActivityStreams {
   const out: ActivityStreams = { t: [], d: [], hr: [], spd: [], alt: [], cad: [] };
+  const route = streams.lat && streams.lng ? { lat: streams.lat, lng: streams.lng } : undefined;
+  const lat: (number | null)[] = [];
+  const lng: (number | null)[] = [];
   const n = streams.t.length;
   let i = 0;
   while (i < n) {
     const bin = Math.floor(streams.t[i] / stepS);
     let j = i;
     while (j < n && Math.floor(streams.t[j] / stepS) === bin) j++;
-    const slice = <K extends keyof Omit<ActivityStreams, 't'>>(key: K) => streams[key].slice(i, j);
+    const slice = <K extends 'd' | 'hr' | 'spd' | 'alt' | 'cad'>(key: K) =>
+      streams[key].slice(i, j);
     const distances = slice('d').filter((v): v is number => v !== null);
     out.t.push(bin * stepS);
     out.d.push(distances.length > 0 ? round(distances[distances.length - 1], 1) : null);
@@ -136,9 +140,16 @@ export function resample(streams: ActivityStreams, stepS = 5): ActivityStreams {
     out.spd.push(roundOrNull(meanOf(slice('spd')), 2));
     out.alt.push(roundOrNull(meanOf(slice('alt')), 1));
     out.cad.push(roundOrNull(meanOf(slice('cad')), 0));
+    if (route) {
+      // The last sample with both coordinates, so lat and lng always belong to the same fix.
+      let k = j - 1;
+      while (k >= i && (route.lat[k] === null || route.lng[k] === null)) k--;
+      lat.push(k >= i ? roundOrNull(route.lat[k], 5) : null);
+      lng.push(k >= i ? roundOrNull(route.lng[k], 5) : null);
+    }
     i = j;
   }
-  return out;
+  return route ? { ...out, lat, lng } : out;
 }
 
 function roundOrNull(value: number | null, digits: number): number | null {

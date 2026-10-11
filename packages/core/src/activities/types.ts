@@ -82,8 +82,9 @@ export interface ActivityMetrics {
 /**
  * Downsampled samples, stored column-wise to keep the JSON small. `t` is seconds since the
  * activity start, `d` metres, `spd` m/s, `alt` metres, `cad` steps per minute. Gaps (pauses)
- * are simply missing samples. No GPS — it isn't needed for any stat and is the most sensitive
- * (and bulkiest) part of a file.
+ * are simply missing samples. `lat`/`lng` (degrees) are only there for activities recorded with
+ * GPS — they draw the route map, index-aligned with the other streams so it can be coloured by
+ * them; no stat uses them, and they never leave the owner's own activity endpoint.
  */
 export interface ActivityStreams {
   t: number[];
@@ -92,6 +93,8 @@ export interface ActivityStreams {
   spd: (number | null)[];
   alt: (number | null)[];
   cad: (number | null)[];
+  lat?: (number | null)[];
+  lng?: (number | null)[];
 }
 
 /** One parsed watch activity, ready to be stored. */
@@ -116,6 +119,13 @@ export interface ImportedActivity {
  * were computed with, so older ones can be recomputed from their streams/telemetry.
  */
 export const ACTIVITY_METRICS_VERSION = 1;
+
+/**
+ * Bump when ActivityStreams gain data that can only come from the original file (2: GPS route).
+ * Stored activities with an older version are re-fetched from intervals.icu, or upgraded when
+ * their file is uploaded again.
+ */
+export const ACTIVITY_STREAMS_VERSION = 2;
 
 /** How an imported activity came to be linked (or not) to a RunnerApp run. */
 export type LinkMode = 'auto' | 'manual' | 'none';

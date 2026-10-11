@@ -68,4 +68,21 @@ describe('resample', () => {
     expect(out.hr).toEqual([103, 110, 120]);
     expect(out.cad).toEqual([170, null, 100]);
   });
+
+  it('keeps the last GPS fix of each bin, and no route when there was none', () => {
+    const base = { d: [0, 1, 2, 3], hr: [1, 1, 1, 1], spd: [1, 1, 1, 1], alt: [0, 0, 0, 0] };
+    const out = resample(
+      {
+        ...base,
+        t: [0, 4, 5, 9],
+        cad: [1, 1, 1, 1],
+        lat: [50.000001, 50.000041, 50.1, null],
+        lng: [19.000001, 19.000041, 19.1, 19.2],
+      },
+      5
+    );
+    expect(out.lat).toEqual([50.00004, 50.1]);
+    expect(out.lng).toEqual([19.00004, 19.1]);
+    expect(resample({ ...base, t: [0, 4, 5, 9], cad: [1, 1, 1, 1] }, 5).lat).toBeUndefined();
+  });
 });

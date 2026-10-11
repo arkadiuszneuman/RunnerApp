@@ -11,12 +11,18 @@ export type ParseResult<T> = { ok: true; data: T } | { ok: false; response: Next
  * request.json()` (and would 500 on non-JSON input, or happily persist any
  * shape at all) should go through this instead.
  */
-export async function parseJsonBody<T>(request: Request, schema: z.ZodType<T>): Promise<ParseResult<T>> {
+export async function parseJsonBody<T>(
+  request: Request,
+  schema: z.ZodType<T>
+): Promise<ParseResult<T>> {
   let raw: unknown;
   try {
     raw = await request.json();
   } catch {
-    return { ok: false, response: NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) };
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }),
+    };
   }
 
   const result = schema.safeParse(raw);
@@ -24,7 +30,10 @@ export async function parseJsonBody<T>(request: Request, schema: z.ZodType<T>): 
     return {
       ok: false,
       response: NextResponse.json(
-        { error: 'Invalid request body', issues: result.error.issues.map((issue) => issue.message) },
+        {
+          error: 'Invalid request body',
+          issues: result.error.issues.map((issue) => issue.message),
+        },
         { status: 400 }
       ),
     };
@@ -127,23 +136,41 @@ const activityStreamsSchema = z
     spd: z.array(streamValue).max(MAX_STREAM_LENGTH),
     alt: z.array(streamValue).max(MAX_STREAM_LENGTH),
     cad: z.array(streamValue).max(MAX_STREAM_LENGTH),
+    lat: z.array(z.number().min(-90).max(90).nullable()).max(MAX_STREAM_LENGTH).optional(),
+    lng: z.array(z.number().min(-180).max(180).nullable()).max(MAX_STREAM_LENGTH).optional(),
   })
   .refine(
-    (s) => [s.d, s.hr, s.spd, s.alt, s.cad].every((column) => column.length === s.t.length),
+    (s) =>
+      [s.d, s.hr, s.spd, s.alt, s.cad, ...(s.lat ? [s.lat] : []), ...(s.lng ? [s.lng] : [])].every(
+        (column) => column.length === s.t.length
+      ),
     'Stream columns must all be as long as `t`'
-  );
+  )
+  .refine((s) => !s.lat === !s.lng, 'A route needs both `lat` and `lng`');
 
 const activityMetricsSchema = z.object({
   distanceM: z.number().min(0).max(1_000_000),
-  movingS: z.number().min(0).max(7 * 86_400),
-  elapsedS: z.number().min(0).max(7 * 86_400),
+  movingS: z
+    .number()
+    .min(0)
+    .max(7 * 86_400),
+  elapsedS: z
+    .number()
+    .min(0)
+    .max(7 * 86_400),
   avgHr: z.number().min(0).max(300).optional(),
   maxHr: z.number().min(0).max(300).optional(),
   elevGainM: z.number().min(0).max(30_000).optional(),
   cadenceSpm: z.number().min(0).max(400).optional(),
   calories: z.number().min(0).max(50_000).optional(),
   trainingEffect: z.number().min(0).max(5).optional(),
-  bestEfforts: z.partialRecord(z.enum(EFFORT_KEYS), z.number().positive().max(7 * 86_400)),
+  bestEfforts: z.partialRecord(
+    z.enum(EFFORT_KEYS),
+    z
+      .number()
+      .positive()
+      .max(7 * 86_400)
+  ),
   hrHist: z
     .object({ start: z.number().int().min(0).max(300), s: z.array(z.number().min(0)).max(300) })
     .optional(),
@@ -160,12 +187,20 @@ const activityMetricsSchema = z.object({
 
 export const importedActivitySchema = z.object({
   startTime: z.iso.datetime(),
-  tzOffsetMin: z.number().int().min(-14 * 60).max(14 * 60).optional(),
+  tzOffsetMin: z
+    .number()
+    .int()
+    .min(-14 * 60)
+    .max(14 * 60)
+    .optional(),
   sport: z.enum(ACTIVITY_SPORTS),
   name: z.string().max(200).optional(),
   device: z.string().max(100).optional(),
   dedupKey: z.string().min(1).max(100),
-  garminId: z.string().regex(/^\d{1,20}$/).optional(),
+  garminId: z
+    .string()
+    .regex(/^\d{1,20}$/)
+    .optional(),
   metrics: activityMetricsSchema,
   streams: activityStreamsSchema.optional(),
 });

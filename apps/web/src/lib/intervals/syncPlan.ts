@@ -1,4 +1,4 @@
-import type { ActivitySport } from '@runner/core/src/activities/types';
+import { ACTIVITY_STREAMS_VERSION, type ActivitySport } from '@runner/core/src/activities/types';
 import type { ImportCandidate } from '@/lib/activities/repo';
 import type { IntervalsActivity } from './client';
 
@@ -88,6 +88,38 @@ export function planSync(
   }
   plan.download.sort((a, b) => startMsOf(b)! - startMsOf(a)!);
   return plan;
+}
+
+/** What's stored, as far as the route backfill is concerned. */
+export type StoredStreams = {
+  id: string;
+  intervalsId: string | null;
+  sport: string;
+  startMs: number;
+  hasStreams: boolean;
+  streamsVersion: number;
+  deleted: boolean;
+};
+
+/** Sports recorded outdoors — the only ones whose file can carry a GPS route. */
+const OUTDOOR_SPORTS = new Set<string>(['run', 'trail', 'track']);
+
+/**
+ * Stored intervals.icu activities whose streams predate the GPS route (ACTIVITY_STREAMS_VERSION),
+ * newest first: their original file is downloaded again to fill the route in. Treadmill/indoor
+ * runs have no route to gain, and summary-only rows (the file never decoded) would just fail again.
+ */
+export function planRouteRefresh(stored: readonly StoredStreams[]): StoredStreams[] {
+  return stored
+    .filter(
+      (s) =>
+        s.intervalsId !== null &&
+        !s.deleted &&
+        s.hasStreams &&
+        s.streamsVersion < ACTIVITY_STREAMS_VERSION &&
+        OUTDOOR_SPORTS.has(s.sport)
+    )
+    .sort((a, b) => b.startMs - a.startMs);
 }
 
 /** Garmin Connect's activity id, when intervals.icu recorded it as the external id. */

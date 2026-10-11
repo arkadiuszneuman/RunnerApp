@@ -51,6 +51,9 @@ export interface FitRecordLike {
   enhancedAltitude?: number;
   cadence?: number;
   fractionalCadence?: number;
+  /** Semicircles (2^31 per 180°), as the SDK hands them over. */
+  positionLat?: number;
+  positionLong?: number;
 }
 
 export interface FitActivityMesgLike {
@@ -120,6 +123,16 @@ function tzOffsetMinutes(activity: FitActivityMesgLike | undefined): number | un
 const num = (v: number | undefined): number | null =>
   typeof v === 'number' && Number.isFinite(v) ? v : null;
 
+const SEMICIRCLE_TO_DEG = 180 / 2 ** 31;
+
+/** Degrees from a FIT semicircle value; null when missing or out of range (no fix yet). */
+function degrees(v: number | undefined, limit: number): number | null {
+  const n = num(v);
+  if (n === null) return null;
+  const deg = n * SEMICIRCLE_TO_DEG;
+  return Math.abs(deg) <= limit ? deg : null;
+}
+
 /** 1 Hz-ish raw streams for one session, `t` relative to `startMs`. */
 function rawStreams(records: FitRecordLike[], startMs: number): ActivityStreams {
   const sorted = records
@@ -127,6 +140,12 @@ function rawStreams(records: FitRecordLike[], startMs: number): ActivityStreams 
     .filter((x): x is { r: FitRecordLike; ms: number } => x.ms !== undefined)
     .sort((a, b) => a.ms - b.ms);
   const streams: ActivityStreams = { t: [], d: [], hr: [], spd: [], alt: [], cad: [] };
+  // Only an outdoor recording has a route; a treadmill run gets no lat/lng arrays at all.
+  const hasPosition = sorted.some(
+    ({ r }) => degrees(r.positionLat, 90) !== null && degrees(r.positionLong, 180) !== null
+  );
+  const lat: (number | null)[] = [];
+  const lng: (number | null)[] = [];
   for (const { r, ms } of sorted) {
     streams.t.push((ms - startMs) / 1000);
     streams.d.push(num(r.distance));
@@ -137,8 +156,14 @@ function rawStreams(records: FitRecordLike[], startMs: number): ActivityStreams 
     streams.cad.push(
       num(r.cadence) !== null ? (r.cadence! + (r.fractionalCadence ?? 0)) * 2 : null
     );
+    if (hasPosition) {
+      const la = degrees(r.positionLat, 90);
+      const lo = degrees(r.positionLong, 180);
+      lat.push(la !== null && lo !== null ? la : null);
+      lng.push(la !== null && lo !== null ? lo : null);
+    }
   }
-  return streams;
+  return hasPosition ? { ...streams, lat, lng } : streams;
 }
 
 /**

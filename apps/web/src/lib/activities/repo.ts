@@ -1,6 +1,7 @@
 import { matchRuns } from '@runner/core/src/activities/matching';
 import {
   ACTIVITY_METRICS_VERSION,
+  ACTIVITY_STREAMS_VERSION,
   type ActivityMetrics,
   type ActivitySport,
   type ActivityStreams,
@@ -128,6 +129,7 @@ export async function importActivities(
       startTime: externalActivities.startTime,
       elapsedS: externalActivities.elapsedS,
       hasStreams: isNotNull(externalActivities.streams),
+      streamsVersion: externalActivities.streamsVersion,
       deletedAt: externalActivities.deletedAt,
     })
     .from(externalActivities)
@@ -161,6 +163,13 @@ export async function importActivities(
       const patch: Partial<typeof externalActivities.$inferInsert> = {};
       if (!match.hasStreams && candidate.streams) {
         Object.assign(patch, rowValues(candidate), { importError: null });
+      } else if (match.streamsVersion < ACTIVITY_STREAMS_VERSION && candidate.streams) {
+        // The file again (re-upload, or the intervals.icu route backfill): only the streams can
+        // have gained something (the GPS route) — summary and name stay as they are.
+        Object.assign(patch, {
+          streams: candidate.streams,
+          streamsVersion: ACTIVITY_STREAMS_VERSION,
+        });
       }
       if (!match.intervalsId && candidate.intervalsId) patch.intervalsId = candidate.intervalsId;
       if (!match.garminId && candidate.garminId) patch.garminId = candidate.garminId;
@@ -224,6 +233,7 @@ function rowValues(a: ImportCandidate) {
     summary: a.metrics,
     summaryVersion: ACTIVITY_METRICS_VERSION,
     streams: a.streams ?? null,
+    streamsVersion: ACTIVITY_STREAMS_VERSION,
   };
 }
 
