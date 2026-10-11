@@ -11,6 +11,8 @@ export type IntervalsStatus =
       lastSyncedAt: string | null;
       fullSyncDone: boolean;
       lastError: string | null;
+      /** Stored activities whose GPS route is still to be fetched (see planRouteRefresh). */
+      routesPending: number;
     };
 
 /** POST /api/integrations/intervals/sync — one bounded pass; the client calls again while `remaining > 0`. */
@@ -19,6 +21,8 @@ export type SyncResult = {
   attached: number;
   failed: number;
   remaining: number;
+  /** Stored activities whose file was fetched again for the GPS route in this pass. */
+  routes: number;
   /** Set when the pass stopped early; `remaining` is then still to do. */
   stopped?: 'rate_limited' | 'busy' | 'auth' | 'unreachable' | 'not_connected';
   retryAfterSec?: number;

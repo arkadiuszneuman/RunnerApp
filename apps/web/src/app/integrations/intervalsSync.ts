@@ -2,7 +2,7 @@ import axios from 'axios';
 import { atom } from 'jotai';
 import { isRunningAtom } from '../atoms';
 import { store } from '../store';
-import { refreshActivities } from '../userData';
+import { activityDetailsAtom, refreshActivities } from '../userData';
 import type { IntervalsStatus, SyncResult } from '@/lib/intervals/types';
 
 /** undefined = not loaded yet (or unknown, e.g. offline). */
@@ -60,6 +60,8 @@ export function runIntervalsSync(): Promise<void> {
         remaining = data.remaining;
         store.set(intervalsSyncAtom, { running: true, imported, remaining });
         if (data.imported > 0) void refreshActivities();
+        // Details fetched before their route was filled in are dropped, so they're fetched again.
+        if (data.routes > 0) store.set(activityDetailsAtom, {});
         if (data.stopped) {
           message = STOP_MESSAGES[data.stopped];
           break;
@@ -80,7 +82,10 @@ export function runIntervalsSync(): Promise<void> {
   return inFlight;
 }
 
-/** Background sync on app start: at most once an hour, never mid-run, only when connected. */
+/**
+ * Background sync on app start: at most once an hour (sooner while GPS routes are still to be
+ * fetched), never mid-run, only when connected.
+ */
 const AUTO_SYNC_INTERVAL_MS = 60 * 60_000;
 
 export async function maybeAutoSync(): Promise<void> {
@@ -88,6 +93,7 @@ export async function maybeAutoSync(): Promise<void> {
   if (!status?.connected || status.status === 'needs_reconnect') return;
   if (store.get(isRunningAtom) || !navigator.onLine) return;
   const last = status.lastSyncedAt ? Date.parse(status.lastSyncedAt) : 0;
-  if (Date.now() - last < AUTO_SYNC_INTERVAL_MS) return;
+  // Routes still to fetch (stored before routes were kept) don't wait for the hourly sync.
+  if (Date.now() - last < AUTO_SYNC_INTERVAL_MS && !(status.routesPending > 0)) return;
   await runIntervalsSync();
 }
