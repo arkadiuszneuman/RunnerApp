@@ -41,11 +41,11 @@ describe('routeScale / colorStep', () => {
 });
 
 describe('metricRamp / stepColor', () => {
-  it("runs from a deep shade to a pale tint of the metric's own colour", () => {
+  it("runs from a pale tint to a deep shade of the metric's own colour — darker is higher", () => {
     const ramp = metricRamp('hr');
     expect(ramp[2]).toBe('rgb(230, 103, 103)'); // chartColors.hr
-    expect(stepColor(0, ramp)).toBe('rgb(138, 67, 72)');
-    expect(stepColor(COLOR_STEPS - 1, ramp)).toBe('rgb(244, 190, 190)');
+    expect(stepColor(0, ramp)).toBe('rgb(243, 183, 183)');
+    expect(stepColor(COLOR_STEPS - 1, ramp)).toBe('rgb(114, 55, 58)');
     expect(stepColor(null, ramp)).toBe(NO_VALUE_COLOR);
   });
 });

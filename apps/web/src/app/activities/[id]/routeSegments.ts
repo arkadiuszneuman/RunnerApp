@@ -14,7 +14,7 @@ const MAX_JOIN_GAP_S = 30;
 export const COLOR_STEPS = 24;
 
 /** Drawn where a sample has no value for the metric (e.g. walking, for pace). */
-export const NO_VALUE_COLOR = 'rgba(226, 232, 245, 0.35)';
+export const NO_VALUE_COLOR = 'rgba(120, 128, 140, 0.6)';
 
 export type LatLng = [number, number];
 
@@ -81,8 +81,8 @@ function mix(a: Rgb, b: Rgb, f: number): Rgb {
 
 const css = (c: Rgb) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
 
-/** The map's dark background and white — the two ends each metric's ramp is mixed towards. */
-const DARK: Rgb = [14, 19, 29];
+/** The two ends each metric's ramp is mixed towards. */
+const DARK: Rgb = [10, 12, 18];
 const LIGHT: Rgb = [255, 255, 255];
 
 /** Each metric's colour, the same as its chart below the map. */
@@ -94,17 +94,17 @@ export const METRIC_COLORS: Record<RouteMetric, string> = {
 };
 
 /**
- * A sequential ramp in one metric's hue, from a deep shade (easiest) through the chart colour to a
- * pale tint (hardest), so on the dark map brighter always means faster / higher.
+ * A sequential ramp in one metric's hue, from a pale tint (lowest) through the chart colour to a
+ * deep shade (highest): on the light map, darker always means faster / higher.
  */
 export function metricRamp(metric: RouteMetric): string[] {
   const base = hexToRgb(METRIC_COLORS[metric]);
   return [
-    mix(base, DARK, 0.45),
-    mix(base, DARK, 0.2),
+    mix(base, LIGHT, 0.55),
+    mix(base, LIGHT, 0.25),
     base,
-    mix(base, LIGHT, 0.3),
-    mix(base, LIGHT, 0.6),
+    mix(base, DARK, 0.3),
+    mix(base, DARK, 0.55),
   ].map(css);
 }
 
