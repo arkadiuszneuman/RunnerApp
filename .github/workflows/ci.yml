@@ -23,6 +23,11 @@ jobs:
       # packageManager field, and errors if both are set ("Multiple versions of
       # pnpm specified"). packageManager is the single source of truth.
       - uses: pnpm/action-setup@v4
+        with:
+          # Per runner, not the default ~/setup-pnpm: every self-hosted runner on the NUC shares
+          # that home directory, and a job starting on another runner reinstalls it mid-step
+          # ("pnpm: command not found" right after a successful install).
+          dest: ${{ runner.temp }}/setup-pnpm
 
       - uses: actions/setup-node@v4
         with:
