@@ -10,6 +10,7 @@ import {
   runningStateAtom,
   speedControllerAtom,
   stagesAtom,
+  temporaryProgramAtom,
   type TreadmillOptions,
 } from '../state/atoms';
 import { Timespan } from '../services/Timespan';
@@ -42,6 +43,8 @@ export interface RunApi {
     startedAt: string,
     meta?: {
       programId: string | null;
+      /** Only for a temporary program (programId null) — a saved one's name is looked up by id. */
+      programName?: string;
       program: { stages: MultiplyStage[]; cooldown: boolean };
       controller?: SpeedControllerKind;
     }
@@ -179,11 +182,17 @@ export class RunSession {
 
       const startDate = new Date(this.now() + 3000); // belt spin-up buffer
       const startedAt = startDate.toISOString();
-      const programId = this.store.get(activeProgramIdAtom);
+      const temporary = this.store.get(temporaryProgramAtom);
+      const programId = temporary ? null : this.store.get(activeProgramIdAtom);
       const program = this.store.get(programInternalAtom);
 
       this.api
-        .createRun(startedAt, { programId, program, controller })
+        .createRun(startedAt, {
+          programId,
+          ...(temporary && { programName: temporary.name }),
+          program,
+          controller,
+        })
         .then(({ id }) => {
           this.runId = id;
           this.startFlushInterval();

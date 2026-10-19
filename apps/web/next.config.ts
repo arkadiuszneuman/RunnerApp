@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
+import { tesseractAssetsPath } from './scripts/tesseract-assets.mjs';
 
 const nextConfig: NextConfig = {
+  env: {
+    // Where scripts/tesseract-assets.mjs put the self-hosted OCR assets (see app/watch/ocr.ts).
+    NEXT_PUBLIC_TESSERACT_ASSETS: tesseractAssetsPath(),
+  },
   transpilePackages: ['@runner/core'],
   cacheComponents: true,
   async headers() {

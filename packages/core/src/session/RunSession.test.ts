@@ -12,6 +12,7 @@ import {
   isManualSpeedActiveAtom,
   programAtom,
   programCooldownAtom,
+  temporaryProgramAtom,
   runningStateAtom,
   speedControllerAtom,
 } from '../state/atoms';
@@ -143,6 +144,21 @@ describe('RunSession', () => {
     expect(h.createRunMetas[0]).toEqual({
       programId: 'program-1',
       program: { stages: testProgram(), cooldown: true },
+      controller: 'legacy',
+    });
+  });
+
+  it('start() records a temporary program by name, not as the active program', async () => {
+    const h = makeHarness();
+    h.store.set(activeProgramIdAtom, 'program-1');
+    h.store.set(temporaryProgramAtom, { name: 'Próg' });
+    h.store.set(programAtom, testProgram());
+    await connectAndStart(h);
+
+    expect(h.createRunMetas[0]).toEqual({
+      programId: null,
+      programName: 'Próg',
+      program: { stages: testProgram(), cooldown: false },
       controller: 'legacy',
     });
   });

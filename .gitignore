@@ -53,3 +53,6 @@ next-env.d.ts
 
 storybook-static/
 .env*.local
+
+# Tesseract.js assets, copied from node_modules by apps/web/scripts/tesseract-assets.mjs
+apps/web/public/tesseract/

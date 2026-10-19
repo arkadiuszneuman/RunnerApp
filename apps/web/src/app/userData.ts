@@ -15,7 +15,7 @@ import { atom } from 'jotai';
 import { useSession } from 'next-auth/react';
 import type { ActivityDetail, ActivityListItem } from '@/lib/activities/types';
 import { parseAthleteProfile, type AthleteProfile } from '@/lib/athleteProfile';
-import { activeProgramIdAtom, programInternalAtom } from './atoms';
+import { activeProgramIdAtom, programInternalAtom, temporaryProgramAtom } from './atoms';
 import { maybeAutoSync } from './integrations/intervalsSync';
 import {
   overlayActivities,
@@ -308,6 +308,29 @@ export async function prefetchProgramData(ids: string[]): Promise<void> {
  * offline, could push a stale cached copy over newer server data.
  */
 let lastSyncedProgramJson: string | undefined;
+
+export const EMPTY_PROGRAM: ProgramData = { stages: [], cooldown: false };
+
+/**
+ * Makes a saved program the active one. Loads its data *before* switching to it: if it can't be
+ * loaded (offline, never cached) this rejects, so the editor never ends up showing the previous
+ * program's stages under the new id, where the next edit would save them over it. Writes go
+ * through the offline queue. Ends a temporary (watch) workout, if one was in use.
+ *
+ * `getCachedProgramData` (warmed for every program once /programs loads — see refreshPrograms)
+ * lets this skip the await entirely for a program that's already been fetched this session:
+ * still the exact same data loadProgramData would resolve to, just already in hand, so the
+ * guarantee above still holds.
+ */
+export async function activateProgram(id: string, knownData?: ProgramData): Promise<void> {
+  const cached = knownData ?? getCachedProgramData(id);
+  const data = cached ?? (await loadProgramData(id));
+  if (knownData) cacheProgramData(id, knownData);
+  void enqueueWrite(writes.setActiveProgram(id));
+  store.set(temporaryProgramAtom, null);
+  store.set(activeProgramIdAtom, id);
+  if (data) setProgramFromServer(data);
+}
 
 /** Puts server-sourced program data into the editor state without triggering a save. */
 export function setProgramFromServer(data: ProgramData): void {

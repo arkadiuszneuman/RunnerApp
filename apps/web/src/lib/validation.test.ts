@@ -78,6 +78,15 @@ describe('createRunSchema / patchRunSchema', () => {
     expect(createRunSchema.safeParse({}).success).toBe(false);
   });
 
+  it("createRunSchema takes a temporary program's name, trimmed and non-empty", () => {
+    const startedAt = '2024-01-01T00:00:00.000Z';
+    expect(createRunSchema.parse({ startedAt, programId: null, programName: ' Próg ' })).toMatchObject({
+      programName: 'Próg',
+    });
+    expect(createRunSchema.safeParse({ startedAt, programName: '  ' }).success).toBe(false);
+    expect(createRunSchema.safeParse({ startedAt, programName: 'x'.repeat(201) }).success).toBe(false);
+  });
+
   it('patchRunSchema requires telemetry as an array of flat numeric points', () => {
     const point = { t: 0, hr: 140, thr: 150, phr: 145, spd: 8.5, inc: 2, si: 1, err: 5 };
     expect(patchRunSchema.safeParse({ telemetry: [point] }).success).toBe(true);

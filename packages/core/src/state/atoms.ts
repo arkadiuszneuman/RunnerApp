@@ -49,6 +49,13 @@ export const programInternalAtom = atom<{ stages: MultiplyStage[]; cooldown: boo
   cooldown: false,
 });
 
+/**
+ * Set while programInternalAtom holds a one-off workout (read off the watch) instead of the
+ * active saved program: nothing syncs it back to the server, and runs record its name instead
+ * of a program id. Cleared when it's discarded, saved or another program is chosen.
+ */
+export const temporaryProgramAtom = atom<{ name: string } | null>(null);
+
 export const programAtom = atom(
   (get) => get(programInternalAtom).stages,
   (get, set, update: MultiplyStage[] | ((prev: MultiplyStage[]) => MultiplyStage[])) => {

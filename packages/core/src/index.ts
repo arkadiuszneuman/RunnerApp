@@ -6,6 +6,8 @@ export type { Stage, MultiplyStage, StageType, StageResult } from './services/st
 export { calculateSpeedByHeartRate, calculateSpeedByTempo } from './services/speedCalculator';
 
 export { parseProgram } from './services/programTextParser';
+export { extractWatchWorkout, parseWatchWorkout } from './services/watchWorkoutParser';
+export type { ExtractedWatchWorkout, WatchWorkout } from './services/watchWorkoutParser';
 
 export { analyzeRun, toSeries } from './services/runAnalysis';
 export type {
@@ -70,6 +72,7 @@ export {
   programInternalAtom,
   programAtom,
   programCooldownAtom,
+  temporaryProgramAtom,
   stagesAtom,
   currentStageAtom,
   currentStageIndexAtom,

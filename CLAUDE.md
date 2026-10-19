@@ -97,7 +97,7 @@ The app is an installable PWA that must keep working with no network during a ru
 
 - **Manifest/icons** — `apps/web/src/app/manifest.ts`, `app/apple-icon.png`, `public/icons/` (PNGs rendered
   from the `icon*.svg` sources there). `proxy.ts`'s matcher must keep `sw.js`, `manifest.webmanifest`,
-  `offline.html`, `icons/` and `apple-icon` public.
+  `offline.html`, `icons/`, `tesseract/` and `apple-icon` public.
 - **Service worker** — `apps/web/public/sw.js`, a plain hand-written script (no bundler). Registered in
   production only (`app/offline/serviceWorker.ts`; `next dev` unregisters it), so test offline behaviour with
   `pnpm build && pnpm start`. Cache-first for `/_next/static`, network-first (4s timeout → cache) for
@@ -229,6 +229,31 @@ Garmin gives intervals.icu).
 - **UI**: History (`runs/page.tsx`) merges both (`historyAtom` in `userData.ts`); `/activities/[id]` and the
   "Watch" card on `/runs/[id]` show/change links (outbox writes `writes.linkActivity`/`deleteActivity`);
   `/settings` holds the file import and the heart-rate profile (`user_settings.athleteProfile`).
+
+### Workout from a watch photo
+
+Home → "Scan watch" photographs the workout Garmin shows on the watch ("Baza / 143bpm / 31:00",
+"Próg / 21:00@169bpm / 41:00") and runs it as a one-off program. Everything happens on the device:
+- **Notation** (`packages/core/src/services/watchWorkoutParser.ts`): `parseWatchWorkout` reads the watch's
+  own notation (`143bpm 31:00` = one steady stage; `21:00@169bpm 41:00` = that block with the rest of the
+  total split into a warmup and cooldown at the default 143 bpm; `4x4:00@184` = parseProgram's intervals),
+  `extractWatchWorkout` pulls it out of noisy OCR text (digit misreads, the ALL-CAPS day header).
+- **OCR** (`apps/web/src/app/watch/`): `prepareWatchImage` crops to the watch's black screen and keeps only
+  its white text; `readWatchWorkout` reads it with a few thresholds and only trusts a reading two of them
+  agree on; `ocr.ts` runs Tesseract.js (Polish + English models) in a classic worker. Its assets are
+  self-hosted: `apps/web/scripts/tesseract-assets.mjs` copies them from node_modules into the gitignored
+  `public/tesseract/<versions>/` before `dev`/`build` (path exposed as `NEXT_PUBLIC_TESSERACT_ASSETS` by
+  next.config.ts), and sw.js caches them cache-first, so scanning works offline after the first time.
+  `readWatchWorkout.fixture.test.ts` runs the real pipeline on two photos in `__fixtures__/`.
+- **Temporary program** (`watch/temporaryProgram.ts`): the workout takes `programInternalAtom` while
+  `temporaryProgramAtom` is set — `useProgramSync` then neither saves nor caches it (it would land on the
+  active program), the saved selection stays put and comes back on Discard, `activateProgram`
+  (userData.ts, also behind /programs' selection) or an app restart. Runs record `programId: null` +
+  `programName` (POST /api/runs takes the client's name only without a programId). "Also save" /
+  "Save to programs" creates a normal program, data included in the create.
+- **Start**: the preview dialog's Start sets `autostartRunAtom`, and `/running` starts the run on show when
+  the treadmill can connect without a picker. On Android the `<input capture>` opens the camera app via
+  Capacitor's file chooser — the manifest's `<queries>` for `IMAGE_CAPTURE` makes it visible.
 
 ### Statistics
 

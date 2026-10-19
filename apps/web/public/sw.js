@@ -11,6 +11,8 @@
  *                            (Next.js then falls back to a full navigation,
  *                            which the rule above serves)
  *   GET /api reads + session network-first → cached response
+ *   /tesseract/<versions>/*  cache-first (OCR worker, cores and models; the
+ *                            path changes with every version, old ones pruned)
  *   everything else          untouched (writes go through the app's own
  *                            offline queue, not through here)
  *
@@ -19,7 +21,7 @@
  * the common case — and still refreshes the cache in the background.
  */
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 // Anything user-specific lives under this prefix so the app can wipe it on
 // sign-out / account switch. Must match src/app/offline/serviceWorker.ts.
 const USER_CACHE_PREFIX = 'runner-user-';
@@ -28,7 +30,8 @@ const SHELL_CACHE = `runner-shell-${VERSION}`;
 const PAGES_CACHE = `${USER_CACHE_PREFIX}pages-${VERSION}`;
 const RSC_CACHE = `${USER_CACHE_PREFIX}rsc-${VERSION}`;
 const API_CACHE = `${USER_CACHE_PREFIX}api-${VERSION}`;
-const CURRENT_CACHES = [STATIC_CACHE, SHELL_CACHE, PAGES_CACHE, RSC_CACHE, API_CACHE];
+const OCR_CACHE = `runner-ocr-${VERSION}`;
+const CURRENT_CACHES = [STATIC_CACHE, SHELL_CACHE, PAGES_CACHE, RSC_CACHE, API_CACHE, OCR_CACHE];
 
 const OFFLINE_URL = '/offline.html';
 const SHELL_URLS = [
@@ -88,6 +91,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   if (url.pathname.startsWith('/_next/')) return;
+
+  if (url.pathname.startsWith('/tesseract/')) {
+    event.respondWith(ocrAsset(request, url));
+    return;
+  }
 
   if (url.pathname.startsWith('/api/')) {
     if (CACHEABLE_API.test(url.pathname)) {
@@ -163,6 +171,21 @@ async function cacheFirst(request, cacheName) {
   if (cached) return cached;
   const response = await fetch(request);
   if (response.ok && response.type === 'basic') await put(cacheName, request, response.clone());
+  return response;
+}
+
+/**
+ * The text-recognition assets (~10 MB, see apps/web/scripts/tesseract-assets.mjs) under a
+ * versioned directory: immutable, so cache-first, and a new version's first download drops the
+ * previous one's.
+ */
+async function ocrAsset(request, url) {
+  const response = await cacheFirst(request, OCR_CACHE);
+  const directory = url.pathname.slice(0, url.pathname.lastIndexOf('/') + 1);
+  const cache = await caches.open(OCR_CACHE);
+  for (const key of await cache.keys()) {
+    if (!new URL(key.url).pathname.startsWith(directory)) await cache.delete(key);
+  }
   return response;
 }
 
