@@ -9,7 +9,6 @@
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
   min-height: 100%;
   /* Without this, the browser's scroll-anchoring silently nudges scrollTop
      by a few px whenever content above/at the viewport resizes shortly after
@@ -19,7 +18,12 @@ body {
   overflow-anchor: none;
 }
 
+/* On body only: with html left `visible`, the browser hands body's overflow to the viewport — the
+   page's real scroller — so the `overflow: hidden` MUI puts on body while a dialog or menu is
+   open locks the page behind it. Set on html too, the viewport took html's value instead and
+   the page kept scrolling under every dialog. */
 body {
+  overflow-x: hidden;
   background: var(--bg);
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
