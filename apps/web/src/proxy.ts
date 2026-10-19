@@ -13,6 +13,6 @@ export const config = {
   // files must stay public too: browsers fetch the manifest without cookies,
   // and a service worker script that redirects to /login fails to install.
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|login|register|sw.js|manifest.webmanifest|offline.html|icons/|apple-icon).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|login|register|sw.js|manifest.webmanifest|offline.html|icons/|tesseract/|apple-icon).*)',
   ],
 };

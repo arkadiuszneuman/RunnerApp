@@ -99,6 +99,8 @@ export const createRunSchema = z.object({
   id: z.uuid().optional(),
   startedAt: z.iso.datetime({ offset: true }),
   programId: z.string().min(1).nullable().optional(),
+  /** Name of a temporary (unsaved) program — used only when there's no programId to look up. */
+  programName: z.string().trim().min(1).max(200).optional(),
   program: programDataSchema.optional(),
   controller: z.enum(['legacy', 'adaptive']).optional(),
 });

@@ -5,10 +5,11 @@ import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { activeProgramIdAtom, programInternalAtom } from './atoms';
+import { activeProgramIdAtom, programInternalAtom, temporaryProgramAtom } from './atoms';
 import { overlayActiveProgramId } from './offline/overlay';
 import { writes } from './offline/requests';
 import { enqueueWrite, getPendingWrites } from './offline/sync';
+import { store } from './store';
 import {
   cacheProgramData,
   claimProgramSave,
@@ -43,7 +44,8 @@ export function useProgramSync() {
         const [settings, pending] = await Promise.all([axios.get('/api/user-settings'), getPendingWrites()]);
         const id = overlayActiveProgramId(settings.data?.activeProgramId ?? null, pending);
         setActiveProgramId(id);
-        if (!id) return;
+        // A watch workout already in use keeps its stages; this id is what it goes back to.
+        if (!id || store.get(temporaryProgramAtom)) return;
 
         const data = await loadProgramData(id);
         if (data) setProgramFromServer(data);
@@ -60,11 +62,13 @@ export function useProgramSync() {
 
   // Save on change (debounced 1 s) through the offline queue, so edits made
   // without a connection are delivered once it's back.
+  // A temporary (watch) workout is never saved — not over the active program, nor into its cache.
   useEffect(() => {
     if (!loadedRef.current || !activeProgramIdRef.current) return;
+    if (store.get(temporaryProgramAtom)) return;
 
     const id = activeProgramIdRef.current;
-    // Keeps programDataCache (see programs/page.tsx's setActive) reflecting
+    // Keeps programDataCache (see userData.ts's activateProgram) reflecting
     // the program as it's actually being edited, not undone the moment a
     // save is claimed — not debounced, since it's just an in-memory mirror
     // for instant switching, no network involved.

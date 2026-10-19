@@ -34,9 +34,14 @@ export const outboxKey = {
 };
 
 export const writes = {
-  createProgram(id: string, name: string): QueuedWrite {
+  /** `data` for a program that already has stages (one saved from a watch workout). */
+  createProgram(id: string, name: string, data?: unknown): QueuedWrite {
     return {
-      request: { method: 'POST', url: '/api/programs', body: { id, name } },
+      request: {
+        method: 'POST',
+        url: '/api/programs',
+        body: data === undefined ? { id, name } : { id, name, data },
+      },
       options: { key: outboxKey.programCreate(id) },
     };
   },

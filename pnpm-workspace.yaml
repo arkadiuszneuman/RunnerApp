@@ -7,6 +7,8 @@ allowBuilds:
   core-js-pure: true
   esbuild: true
   sharp: true
+  # Its only install script is an opencollective donation banner.
+  tesseract.js: false
 
 onlyBuiltDependencies:
   - '@parcel/watcher'

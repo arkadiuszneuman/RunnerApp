@@ -17,7 +17,8 @@ export async function POST(request: Request) {
 
   // Snapshot the program's name at run-start time (scoped to this user) so
   // history still shows it even if the program is later renamed or deleted.
-  let programName: string | undefined;
+  // A temporary program (e.g. read off the watch) has no row to look up: the client names it.
+  let programName = programId ? undefined : parsed.data.programName;
   if (programId) {
     const result = await db
       .select({ name: programs.name })

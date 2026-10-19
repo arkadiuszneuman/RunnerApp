@@ -44,6 +44,16 @@
         />
     </application>
 
+    <!-- "Scan watch" (apps/web watch/ScanWatchButton.tsx) is an <input type=file capture>:
+         Capacitor's file chooser hands it to the camera app with ACTION_IMAGE_CAPTURE, but only
+         if it can see one — without this, Android 11+ package visibility hides every camera app
+         and the gallery picker opens instead. No CAMERA permission: the camera app takes the photo. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />

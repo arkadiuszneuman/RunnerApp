@@ -16,7 +16,7 @@ import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
-import { heartRateAtom, isRunningAtom, stagesAtom } from './atoms';
+import { heartRateAtom, isRunningAtom, stagesAtom, temporaryProgramAtom } from './atoms';
 import BluetoothNotice, { isBluetoothBlocked } from './base/BluetoothNotice';
 import DeviceCard from './base/DeviceCard';
 import Page from './base/Page';
@@ -33,6 +33,8 @@ import {
 import HeartRateManager from './HeartRateManager';
 import { displayFont, enter, pressable, tokens } from './theme';
 import { activeProgramNameAtom } from './userData';
+import ScanWatchButton from './watch/ScanWatchButton';
+import TemporaryProgramActions from './watch/TemporaryProgramActions';
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -115,7 +117,10 @@ function BleConnector() {
   // undefined = still loading (settings and/or the programs list); null = no
   // active program — see userData.ts. Avoids flashing "No program selected"
   // before either has come back.
-  const programName = useAtomValue(activeProgramNameAtom);
+  const savedProgramName = useAtomValue(activeProgramNameAtom);
+  // A workout read off the watch, shown (and run) in place of the saved active program.
+  const temporaryProgram = useAtomValue(temporaryProgramAtom);
+  const programName = temporaryProgram ? temporaryProgram.name : savedProgramName;
   const heartRate = useAtomValue(heartRateAtom);
   const running = useAtomValue(isRunningAtom);
 
@@ -275,14 +280,26 @@ function BleConnector() {
             pointerEvents: 'none',
           }}
         />
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+            mb: 1,
+          }}
+        >
           <Typography variant="overline" color="text.secondary">
-            Active program
+            {temporaryProgram ? 'From your watch · not saved' : 'Active program'}
           </Typography>
           {programName && (
-            <Button size="small" variant="glass" href="/programs" LinkComponent={Link}>
-              Change
-            </Button>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, ml: 'auto' }}>
+              <ScanWatchButton size="small" variant="glass" />
+              <Button size="small" variant="glass" href="/programs" LinkComponent={Link}>
+                Change
+              </Button>
+            </Box>
           )}
         </Box>
 
@@ -312,6 +329,7 @@ function BleConnector() {
               )}
             </Box>
             <StageStrip stages={stages} height={64} />
+            <TemporaryProgramActions />
           </>
         ) : (
           <Box sx={{ py: 1 }}>
@@ -319,11 +337,14 @@ function BleConnector() {
               No program selected
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Pick a saved program or build a new one.
+              Pick a saved program, build a new one, or snap today&apos;s workout on your watch.
             </Typography>
-            <Button variant="contained" href="/programs" LinkComponent={Link}>
-              Choose a program
-            </Button>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <Button variant="contained" href="/programs" LinkComponent={Link}>
+                Choose a program
+              </Button>
+              <ScanWatchButton variant="glass" />
+            </Box>
           </Box>
         )}
       </Paper>

@@ -20,17 +20,17 @@ import { alpha } from '@mui/material/styles';
 import Snackbar from '@mui/material/Snackbar';
 import { useAtom, useAtomValue } from 'jotai';
 import { useRouter } from 'next/navigation';
-import { activeProgramIdAtom } from '../atoms';
+import { activeProgramIdAtom, temporaryProgramAtom } from '../atoms';
 import EmptyState from '../base/EmptyState';
 import Page from '../base/Page';
 import PulseDot from '../base/PulseDot';
-import type { ProgramData } from '../offline/overlay';
 import { writes } from '../offline/requests';
 import { enqueueWrite } from '../offline/sync';
+import { store } from '../store';
 import { displayFont, ENTER_DURATION_MS, enter, enterDelayMs, pressable, tokens } from '../theme';
 import {
-  cacheProgramData,
-  getCachedProgramData,
+  activateProgram,
+  EMPTY_PROGRAM,
   loadProgramData,
   programsAtom,
   removeProgramFromCache,
@@ -38,8 +38,6 @@ import {
   upsertProgram,
   type ProgramSummary,
 } from '../userData';
-
-const EMPTY_PROGRAM: ProgramData = { stages: [], cooldown: false };
 
 // Next.js (cacheComponents) keeps this tab mounted but hidden while another one is shown, and
 // re-renders the page with fresh props when it comes back; memo keeps that to a no-op instead of
@@ -61,27 +59,7 @@ const ProgramsContent = memo(function ProgramsContent() {
   const [deleteTarget, setDeleteTarget] = useState<ProgramSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  /**
-   * Loads the program's data *before* switching to it: if it can't be loaded
-   * (offline, never cached) the editor must not end up showing the previous
-   * program's stages under the new id, where the next edit would save them
-   * over it. Writes go through the offline queue.
-   *
-   * `getCachedProgramData` (warmed for every program once /programs loads —
-   * see refreshPrograms in userData.ts) lets this skip the await entirely
-   * for a program that's already been fetched this session: still the exact
-   * same data loadProgramData would resolve to, just already in hand, so the
-   * guarantee above still holds — there's no window where the previous
-   * program's stages could show under the new id.
-   */
-  const setActive = async (id: string, knownData?: ProgramData) => {
-    const cached = knownData ?? getCachedProgramData(id);
-    const data = cached ?? (await loadProgramData(id));
-    if (knownData) cacheProgramData(id, knownData);
-    void enqueueWrite(writes.setActiveProgram(id));
-    setActiveProgramId(id);
-    if (data) setProgramFromServer(data);
-  };
+  const setActive = activateProgram;
 
   const trySetActive = async (id: string): Promise<boolean> => {
     try {
@@ -126,7 +104,12 @@ const ProgramsContent = memo(function ProgramsContent() {
     try {
       void enqueueWrite(writes.deleteProgram(deleteTarget.id));
       removeProgramFromCache(deleteTarget.id);
-      if (activeProgramId === deleteTarget.id) {
+      if (activeProgramId === deleteTarget.id && store.get(temporaryProgramAtom)) {
+        // A watch workout is in use: just move the saved selection, leave its stages alone.
+        const next = programs.find((p) => p.id !== deleteTarget.id)?.id ?? null;
+        void enqueueWrite(writes.setActiveProgram(next));
+        setActiveProgramId(next);
+      } else if (activeProgramId === deleteTarget.id) {
         const next = programs.filter((p) => p.id !== deleteTarget.id)[0]?.id ?? null;
         const nextData = next ? await loadProgramData(next).catch(() => undefined) : undefined;
         if (next && nextData !== undefined) {
