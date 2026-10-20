@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { temporaryProgramAtom } from '../atoms';
+import { programInternalAtom, temporaryProgramAtom } from '../atoms';
 import { store } from '../store';
-import { autostartRunAtom } from './temporaryProgram';
 import WatchWorkoutDialog from './WatchWorkoutDialog';
 
 const push = vi.fn();
@@ -26,7 +25,6 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:watch');
   URL.revokeObjectURL = vi.fn();
   store.set(temporaryProgramAtom, null);
-  store.set(autostartRunAtom, false);
   push.mockClear();
   hrConnected = true;
 });
@@ -34,7 +32,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('WatchWorkoutDialog', () => {
-  it('previews what it read and starts it as a temporary workout', async () => {
+  it('previews what it read and opens the run screen with it as a temporary workout', async () => {
     reading = { workout: { name: 'Próg', text: '21:00@169bpm 41:00' } };
     const onClose = vi.fn();
     render(<WatchWorkoutDialog photo={photo} onClose={onClose} onRetake={vi.fn()} />);
@@ -45,11 +43,12 @@ describe('WatchWorkoutDialog', () => {
     expect(screen.getAllByText('10:00')).toHaveLength(2);
     expect(screen.getByText('169 bpm')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/running'));
     expect(store.get(temporaryProgramAtom)).toEqual({ name: 'Próg' });
-    expect(store.get(autostartRunAtom)).toBe(true);
+    // Ends with the 4 km/h walk, like the user's own programs.
+    expect(store.get(programInternalAtom).cooldown).toBe(true);
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -66,12 +65,11 @@ describe('WatchWorkoutDialog', () => {
     expect(screen.getByText('Total 31:00')).toBeTruthy();
     fireEvent.click(use);
 
-    // Without the heart-rate monitor it's only put in place, not started.
+    // Without the heart-rate monitor it's only put in place; the run screen couldn't start it.
     await vi.waitFor(() =>
       expect(store.get(temporaryProgramAtom)).toEqual({ name: 'Watch workout' })
     );
     expect(push).not.toHaveBeenCalled();
-    expect(store.get(autostartRunAtom)).toBe(false);
   });
 
   it('explains a workout it cannot parse', async () => {
@@ -82,7 +80,7 @@ describe('WatchWorkoutDialog', () => {
       target: { value: '21:00@169 20:00' },
     });
     expect(screen.getByText(/shorter than the workout itself/)).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Start' }) as HTMLButtonElement).disabled).toBe(
+    expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(
       true
     );
   });

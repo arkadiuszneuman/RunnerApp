@@ -17,15 +17,11 @@ import Link from 'next/link';
 import { isPausedAtom, runningStateAtom, stagesAtom } from '../atoms';
 import ActionBar from '../base/ActionBar';
 import BluetoothNotice, { isBluetoothBlocked } from '../base/BluetoothNotice';
-import BleManager from '../BleManager';
 import { useBluetoothAvailability } from '../ble/bluetoothAvailability';
-import { isNativeApp } from '../ble/platform';
 import { syncToneIcon, useSyncSummary } from '../offline/SyncIndicator';
-import { store } from '../store';
 import { glass, tokens } from '../theme';
 import useRunningLoop from '../useRunningLoop';
 import RunInfo from './RunInfo/RunInfo';
-import { autostartRunAtom } from '../watch/temporaryProgram';
 
 function StatusIcon({
   active,
@@ -78,17 +74,6 @@ export default function Run() {
   // read client-side, so this flips true one render after mount.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
-
-  // Start from the watch workout's preview dialog: the belt starts as soon as this shows, when
-  // the treadmill can connect without a picker (already connected, or the native app's
-  // remembered device) — a picker would need a tap here anyway.
-  const { start } = runningLoop;
-  useEffect(() => {
-    if (!store.get(autostartRunAtom)) return;
-    store.set(autostartRunAtom, false);
-    if (store.get(runningStateAtom).running) return;
-    if (BleManager.isConnected() || (isNativeApp() && BleManager.hasRemembered())) void start();
-  }, [start]);
 
   const wakeLockSupported = mounted && runningLoop.wakeLock.isWakeLockSupported;
   const wakeLockActive = mounted && runningLoop.wakeLock.wakeLockStatus === 'requested';
