@@ -72,7 +72,7 @@ describe('temporary (watch) programs', () => {
       await vi.advanceTimersByTimeAsync(2000);
     });
 
-    expect(store.get(programInternalAtom)).toEqual({ stages: watchWorkout, cooldown: false });
+    expect(store.get(programInternalAtom)).toEqual({ stages: watchWorkout, cooldown: true });
     expect(store.get(activeProgramIdAtom)).toBe('saved');
     expect(programWrites()).toEqual([]);
   });
@@ -105,7 +105,7 @@ describe('temporary (watch) programs', () => {
       {
         method: 'POST',
         url: '/api/programs',
-        body: { id, name: 'Próg', data: { stages: watchWorkout, cooldown: false } },
+        body: { id, name: 'Próg', data: { stages: watchWorkout, cooldown: true } },
       },
     ]);
     // The create carries the data, so there's no follow-up PUT.

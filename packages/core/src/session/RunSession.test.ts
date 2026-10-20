@@ -21,6 +21,18 @@ function simpleStage(bmp: number, seconds: number, type: Stage['type'] = 'simple
   return { type, duration: Timespan.fromSeconds(seconds), speedType: 'bmp', bmp };
 }
 
+/** One steady stage at a fixed pace — the speed never changes. */
+function tempoProgram(): MultiplyStage[] {
+  return [
+    {
+      times: 1,
+      stages: [
+        { type: 'simple', duration: Timespan.fromMinutes(5), speedType: 'tempo', tempo: Timespan.fromMinutes(6) },
+      ],
+    },
+  ];
+}
+
 /** warmup(20s@140) -> [sprint(15s@170), regeneration(10s@130)] -> cooldown(15s@140) */
 function testProgram(): MultiplyStage[] {
   return [
@@ -403,6 +415,62 @@ describe('RunSession', () => {
     if (state.running) {
       expect(Math.abs(state.treadmillOptions.speed - beltSpeed)).toBeLessThanOrEqual(0.5);
     }
+  });
+
+  it('sends the treadmill a speed only when it changes', async () => {
+    const h = makeHarness();
+    h.store.set(programAtom, tempoProgram());
+    await connectAndStart(h);
+    advance(h, 2000);
+
+    const send = vi.spyOn(h.treadmill, 'sendIncAndSpeed');
+    advance(h, 10_000);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('notices a single 0.1 km/h press on the treadmill within a couple of seconds', async () => {
+    const h = makeHarness();
+    h.store.set(programAtom, testProgram());
+    h.store.set(heartRateAtom, 140);
+    await connectAndStart(h);
+    advance(h, 5000);
+
+    h.transport.manualSpeed(h.store.get(actualTreadmillSpeedAtom) + 0.1);
+    advance(h, 2000);
+    expect(h.store.get(isManualSpeedActiveAtom)).toBe(true);
+  });
+
+  it('never mistakes the belt ramping through an interval program for a manual change', async () => {
+    const h = makeHarness();
+    // A belt that ramps 0.1 km/h per frame, so it lags well behind every target change.
+    (h.transport as unknown as { rampRate: number }).rampRate = 0.1;
+    h.store.set(speedControllerAtom, 'adaptive');
+    h.store.set(programAtom, testProgram());
+    h.store.set(heartRateAtom, 120);
+    await connectAndStart(h);
+
+    // Heart rate swinging around the targets keeps the controller changing direction.
+    for (let s = 0; s < 60; s++) {
+      h.store.set(heartRateAtom, 150 + Math.round(25 * Math.sin(s / 3)));
+      advance(h, 1000);
+      expect(h.store.get(isManualSpeedActiveAtom)).toBe(false);
+    }
+  });
+
+  it('sends a command again when the belt never picks it up', async () => {
+    const h = makeHarness();
+    h.store.set(programAtom, tempoProgram());
+    // The treadmill drops the first command: the belt stays at its starting speed.
+    const send = vi.spyOn(h.treadmill, 'sendIncAndSpeed').mockImplementation(() => {});
+    await connectAndStart(h);
+    const [incline, speed] = send.mock.calls[send.mock.calls.length - 1];
+    send.mockRestore();
+
+    const resend = vi.spyOn(h.treadmill, 'sendIncAndSpeed');
+    advance(h, 6000);
+    expect(resend).toHaveBeenCalledWith(incline, speed);
+    expect(h.store.get(actualTreadmillSpeedAtom)).toBe(speed);
+    expect(h.store.get(isManualSpeedActiveAtom)).toBe(false);
   });
 
   it('flushes telemetry periodically and on stop, and does not duplicate an unchanged point', async () => {

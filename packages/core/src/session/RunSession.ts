@@ -21,6 +21,7 @@ import {
   type SpeedControllerKind,
 } from '../training/SpeedController';
 import type { TelemetryPoint } from '../types/telemetry';
+import { ManualSpeedDetector } from './manualSpeedDetector';
 import type { JotaiStore } from './store';
 
 /**
@@ -87,6 +88,9 @@ export interface RunSessionOptions {
  * and BLE transport connect/pairing (RunSession assumes `treadmill` is
  * already attached — see TreadmillProtocol.attach()).
  */
+/** See the resend in onTreadmillEvent. */
+const RESEND_AFTER_MS = 5000;
+
 export class RunSession {
   private readonly store: JotaiStore;
   private readonly treadmill: TreadmillControl;
@@ -101,8 +105,9 @@ export class RunSession {
   private lastStageIndex: number | undefined;
   private lastPidUpdate = 0;
 
-  private lastCommandedSpeed = 0;
-  private previousActualSpeed = 0;
+  /** What the treadmill was last sent (unset until the belt runs, and after pause/manual). */
+  private lastSent: { speed: number; incline: number; at: number } | undefined;
+  private readonly manualSpeed = new ManualSpeedDetector();
 
   private runId: string | null = null;
   private _telemetry: TelemetryPoint[] = [];
@@ -173,8 +178,7 @@ export class RunSession {
       this.training = createSpeedController(controller, 4, { speedHint: this.speedHint });
       this.lastStageIndex = undefined;
       this.lastPidUpdate = 0;
-      this.lastCommandedSpeed = 0;
-      this.previousActualSpeed = 0;
+      this.forgetSentSpeed();
 
       this._telemetry = [];
       this.lastTelemetryPoint = null;
@@ -243,6 +247,7 @@ export class RunSession {
 
   async pause(): Promise<void> {
     this.flushTelemetry();
+    this.forgetSentSpeed();
     await this.treadmill.stop();
     this.store.set(runningStateAtom, (prev) =>
       prev.running ? { ...prev, paused: true, pauseStartedDate: new Date(this.now()) } : prev
@@ -250,6 +255,7 @@ export class RunSession {
   }
 
   async resume(): Promise<void> {
+    this.forgetSentSpeed();
     await this.treadmill.start();
     this.store.set(runningStateAtom, (prev) => {
       if (prev.running && prev.paused && prev.pauseStartedDate) {
@@ -275,6 +281,7 @@ export class RunSession {
       }
       return prev;
     });
+    this.forgetSentSpeed();
     this.dispatchSpeed();
   }
 
@@ -305,6 +312,9 @@ export class RunSession {
         return;
       }
     }
+
+    // Cheap when nothing changed; catches up once the belt runs again after start/resume.
+    this.dispatchSpeed();
 
     if (!currentStage) return;
 
@@ -370,15 +380,33 @@ export class RunSession {
     this.dispatchSpeed();
   }
 
+  /**
+   * Sends the speed/incline only when they changed: re-sending every second would undo a press
+   * on the treadmill's own buttons before it could be noticed, and the queued frames would push
+   * the STATUS polls (the only speed readings) out to one every few seconds.
+   */
   private dispatchSpeed(): void {
-    if (!this.treadmill.isConnected()) return;
+    if (!this.treadmill.isConnected() || !this.treadmill.isRunning()) return;
     const state = this.store.get(runningStateAtom);
     if (!state.running) return;
-    const { treadmillOptions } = state;
+    const { speed, incline, isManualSpeedActive } = state.treadmillOptions;
     // Don't override the user's manual speed — let the treadmill maintain it.
-    if (treadmillOptions.isManualSpeedActive) return;
-    this.lastCommandedSpeed = treadmillOptions.speed;
-    this.treadmill.sendIncAndSpeed(treadmillOptions.incline, treadmillOptions.speed);
+    if (isManualSpeedActive) return;
+    if (this.lastSent?.speed === speed && this.lastSent.incline === incline) return;
+    this.send(speed, incline);
+  }
+
+  private send(speed: number, incline: number): void {
+    const now = this.now();
+    this.lastSent = { speed, incline, at: now };
+    this.manualSpeed.command(speed, now);
+    this.treadmill.sendIncAndSpeed(incline, speed);
+  }
+
+  /** The next dispatch sends again, and the manual-speed detector starts over. */
+  private forgetSentSpeed(): void {
+    this.lastSent = undefined;
+    this.manualSpeed.reset();
   }
 
   private readonly onTreadmillEvent = (event: TreadmillEvent): void => {
@@ -387,6 +415,7 @@ export class RunSession {
       this.flushTelemetry({ finishedAt });
       this.runId = null;
       this.clearFlushInterval();
+      this.forgetSentSpeed();
 
       this.store.set(runningStateAtom, (prev) => {
         if (prev.running && prev.paused && event.type === 'btStopped') return prev;
@@ -398,27 +427,25 @@ export class RunSession {
       const treadmillSpeed = event.state.currentSpeed;
       this.store.set(actualTreadmillSpeedAtom, treadmillSpeed);
 
-      // Detect manual speed override using direction analysis:
-      // - gap: how far the treadmill is from the commanded speed
-      // - trend: which direction the treadmill is moving (vs previous reading)
-      // If the treadmill is moving AWAY from the commanded speed (opposite
-      // signs), the user is controlling it manually — distinguishes this from
-      // normal ramp-up (which moves TOWARD the commanded speed).
-      const gap = this.lastCommandedSpeed - treadmillSpeed;
-      const trend = treadmillSpeed - this.previousActualSpeed;
-      this.previousActualSpeed = treadmillSpeed;
+      const state = this.store.get(runningStateAtom);
+      if (!state.running || state.paused || state.treadmillOptions.isManualSpeedActive) return;
 
-      const isMovingAwayFromTarget = Math.abs(gap) > 0.05 && gap * trend < 0;
-      if (isMovingAwayFromTarget) {
-        const state = this.store.get(runningStateAtom);
-        if (state.running && !state.treadmillOptions.isManualSpeedActive) {
-          this.training.syncToSpeed(treadmillSpeed);
-          this.store.set(runningStateAtom, (prev) =>
-            prev.running
-              ? { ...prev, treadmillOptions: { ...prev.treadmillOptions, isManualSpeedActive: true } }
-              : prev
-          );
-        }
+      const now = this.now();
+      if (this.manualSpeed.reading(treadmillSpeed, now)) {
+        this.training.syncToSpeed(treadmillSpeed);
+        this.store.set(runningStateAtom, (prev) =>
+          prev.running
+            ? { ...prev, treadmillOptions: { ...prev.treadmillOptions, isManualSpeedActive: true } }
+            : prev
+        );
+        return;
+      }
+
+      // The firmware occasionally drops both copies of a command: if the belt still hasn't
+      // reached it after a while, send it again.
+      const sent = this.lastSent;
+      if (sent && !this.manualSpeed.isSettled && now - sent.at >= RESEND_AFTER_MS) {
+        this.send(sent.speed, sent.incline);
       }
     }
   };

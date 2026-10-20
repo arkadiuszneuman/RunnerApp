@@ -1,5 +1,4 @@
 import type { MultiplyStage } from '@runner/core';
-import { atom } from 'jotai';
 import {
   activeProgramIdAtom,
   isRunningAtom,
@@ -27,16 +26,13 @@ import {
  */
 
 /**
- * Set by the watch workout's Start button: /running starts the run as soon as it shows, instead
- * of waiting for its own Start tap. One-shot — /running clears it.
+ * Puts a one-off workout in place of the active program, without saving anything. Like the
+ * user's own programs, it ends with the 4 km/h cooldown walk.
  */
-export const autostartRunAtom = atom(false);
-
-/** Puts a one-off workout in place of the active program, without saving anything. */
 export function applyTemporaryProgram(name: string, stages: MultiplyStage[]): void {
   // The flag first, so the program change below is never seen without it.
   store.set(temporaryProgramAtom, { name });
-  store.set(programInternalAtom, { stages, cooldown: false });
+  store.set(programInternalAtom, { stages, cooldown: true });
 }
 
 /** Back to the saved active program (or none). */

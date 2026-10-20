@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
-import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -21,10 +20,9 @@ import { isBluetoothBlocked } from '../base/BluetoothNotice';
 import StageStrip from '../base/StageStrip';
 import { useBluetoothAvailability } from '../ble/bluetoothAvailability';
 import { useHeartRateConnected } from '../ble/useDeviceConnection';
-import { store } from '../store';
 import { stageTypeColor, stageTypeName, tokens } from '../theme';
 import type { OcrStage } from './ocr';
-import { applyTemporaryProgram, autostartRunAtom, saveAsProgram } from './temporaryProgram';
+import { applyTemporaryProgram, saveAsProgram } from './temporaryProgram';
 
 const DEFAULT_NAME = 'Watch workout';
 
@@ -45,8 +43,8 @@ function formatDuration(ms: number): string {
 
 /**
  * Reads the workout off a photo of the watch (on the device, see ocr.ts), shows what it read for
- * a check — or for typing it in when it couldn't — and starts it as a one-off program, optionally
- * saving it to the user's programs too.
+ * a check — or for typing it in when it couldn't — and puts it in place as a one-off program,
+ * optionally saving it to the user's programs too. The run itself starts from /running's Start.
  */
 export default function WatchWorkoutDialog({
   photo,
@@ -125,15 +123,12 @@ export default function WatchWorkoutDialog({
     setBusy(true);
     try {
       if (save) {
-        await saveAsProgram(workoutName, { stages: parsed.workout.stages, cooldown: false });
+        await saveAsProgram(workoutName, { stages: parsed.workout.stages, cooldown: true });
       } else {
         applyTemporaryProgram(workoutName, parsed.workout.stages);
       }
       onClose();
-      if (canStart) {
-        store.set(autostartRunAtom, true);
-        router.push('/running');
-      }
+      if (canStart) router.push('/running');
     } finally {
       setBusy(false);
     }
@@ -175,7 +170,7 @@ export default function WatchWorkoutDialog({
             ) : (
               <Typography variant="body2" color="text.secondary">
                 {reading.state === 'read' && reading.found
-                  ? 'Check it reads like your watch, then start.'
+                  ? 'Check it reads like your watch, then continue.'
                   : 'Type the workout as your watch shows it.'}
               </Typography>
             )}
@@ -268,6 +263,9 @@ export default function WatchWorkoutDialog({
             <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }} className="tabular">
               Total {formatDuration(stages[stages.length - 1].to.totalMilliseconds)}
             </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Then a 4 km/h cooldown walk until you stop.
+            </Typography>
           </Box>
         )}
 
@@ -299,13 +297,8 @@ export default function WatchWorkoutDialog({
         <Button color="secondary" onClick={onClose} sx={{ mr: 'auto' }}>
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          onClick={handleUse}
-          disabled={!parsed.workout || busy}
-          startIcon={canStart ? <PlayArrowRoundedIcon /> : undefined}
-        >
-          {canStart ? 'Start' : 'Use workout'}
+        <Button variant="contained" onClick={handleUse} disabled={!parsed.workout || busy}>
+          {canStart ? 'Continue' : 'Use workout'}
         </Button>
       </DialogActions>
     </Dialog>

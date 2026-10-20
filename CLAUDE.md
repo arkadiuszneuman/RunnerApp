@@ -142,7 +142,10 @@ The app is an installable PWA that must keep working with no network during a ru
 - **`HeartRateManager`** (`apps/web/src/app/HeartRateManager.tsx`) — singleton for the standard BLE
   `heart_rate` GATT service (separate device from the treadmill).
 - **`RunSession`** (`packages/core/src/session/RunSession.ts`) — the main orchestration class: the 1Hz PID
-  control loop, manual-speed-override detection (gap/trend analysis vs. the last commanded speed),
+  control loop, manual-speed-override detection (`ManualSpeedDetector`: a belt reading outside every target
+  commanded in the last 3 s, moving further out or held after settling, twice in a row), speed commands sent
+  only on change (re-sent if the belt never picks one up — a per-second resend undid presses on the
+  treadmill's buttons and starved the STATUS polls),
   cooldown/stage transitions, pause/resume time-shift arithmetic, and telemetry buffering (flushed to
   `/api/runs/:id` every 30s and on stop/disconnect). Reads/writes the same Jotai atoms the UI observes.
   Takes an injectable clock for tests. One instance is created per app (`apps/web/src/app/runSession.ts`)
