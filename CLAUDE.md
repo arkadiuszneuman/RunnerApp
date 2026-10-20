@@ -33,8 +33,11 @@ pnpm workspace with three packages:
   Installable builds come from `.github/workflows/android-release.yml` (on `apps/android/**` changes on main, or
   run by hand): a release APK pointed at production, signed with the key from the `ANDROID_KEYSTORE_BASE64`/
   `ANDROID_KEYSTORE_PASSWORD`/`ANDROID_KEY_ALIAS`/`ANDROID_KEY_PASSWORD` secrets, `versionCode` = run number,
-  published as `runner.apk` on the `android-latest` GitHub release. Browsers (never the app itself) get a
-  download card for it in Settings (`settings/InstallAppCard.tsx`). Locally built debug APKs are signed with a
+  published as `runner.apk` on the `android-latest` GitHub release, next to `runner.json` (its versionCode/
+  versionName). Browsers get a download card for it in Settings (`settings/InstallAppCard.tsx`); inside the
+  app, `androidApp.ts`'s `useAndroidAppVersion` compares `App.getInfo().build` with `/api/android/latest`
+  (which reads `runner.json` server-side — GitHub's downloads have no CORS) and offers a newer build
+  (`base/AppUpdateBanner.tsx` on home, the same card in Settings), downloaded via `Browser.open`. Locally built debug APKs are signed with a
   different key, so switching between them and the released app needs an uninstall.
 
 A React Native/Expo mobile client (`apps/mobile`) was scaffolded and is parked on the `archive/mobile`
