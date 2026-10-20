@@ -2,8 +2,9 @@ name: Android release
 
 # Builds the Capacitor shell (apps/android) pointed at production, signs it with the release key and
 # publishes it as runner.apk on the `android-latest` GitHub release — the "Install the app" card in
-# Settings links there. The UI itself loads from the server, so the APK only changes when the native
-# side does; run it by hand (workflow_dispatch) to force a rebuild.
+# Settings links there — next to runner.json (its versionCode/versionName), which the installed app
+# checks via /api/android/latest to offer the update. The UI itself loads from the server, so the APK
+# only changes when the native side does; run it by hand (workflow_dispatch) to force a rebuild.
 on:
   push:
     branches: [main]
@@ -71,6 +72,8 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
           ./gradlew assembleRelease
           cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/runner.apk"
+          printf '{"versionCode":%s,"versionName":"%s"}\n' "$ANDROID_VERSION_CODE" "$ANDROID_VERSION_NAME" \
+            > "$RUNNER_TEMP/runner.json"
 
       - name: Publish to the android-latest release
         env:
@@ -78,9 +81,10 @@ jobs:
         run: |
           notes="Built from ${GITHUB_SHA::7} (run ${{ github.run_number }}). Install: open runner.apk on the phone."
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/runner.apk" --clobber
+            gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/runner.apk" "$RUNNER_TEMP/runner.json" --clobber
             gh release edit "$RELEASE_TAG" --notes "$notes"
           else
-            gh release create "$RELEASE_TAG" "$RUNNER_TEMP/runner.apk" --target "$GITHUB_SHA" \
+            gh release create "$RELEASE_TAG" "$RUNNER_TEMP/runner.apk" "$RUNNER_TEMP/runner.json" \
+              --target "$GITHUB_SHA" \
               --title "Android app" --notes "$notes" --latest=false
           fi

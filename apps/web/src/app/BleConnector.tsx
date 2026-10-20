@@ -17,6 +17,7 @@ import { alpha } from '@mui/material/styles';
 import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import { heartRateAtom, isRunningAtom, stagesAtom, temporaryProgramAtom } from './atoms';
+import AppUpdateBanner from './base/AppUpdateBanner';
 import BluetoothNotice, { isBluetoothBlocked } from './base/BluetoothNotice';
 import DeviceCard from './base/DeviceCard';
 import InstallAppBanner from './base/InstallAppBanner';
@@ -352,6 +353,7 @@ function BleConnector() {
 
       <BluetoothNotice availability={bluetooth} sx={{ mb: 1.5, ...enter(2) }} />
       <InstallAppBanner sx={{ mb: 1.5, ...enter(2) }} />
+      <AppUpdateBanner sx={{ mb: 1.5, ...enter(2) }} />
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <DeviceCard
