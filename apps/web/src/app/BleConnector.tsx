@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { heartRateAtom, isRunningAtom, stagesAtom, temporaryProgramAtom } from './atoms';
 import BluetoothNotice, { isBluetoothBlocked } from './base/BluetoothNotice';
 import DeviceCard from './base/DeviceCard';
+import InstallAppBanner from './base/InstallAppBanner';
 import Page from './base/Page';
 import SpeedControllerPicker from './base/SpeedControllerPicker';
 import StageStrip from './base/StageStrip';
@@ -350,6 +351,7 @@ function BleConnector() {
       </Paper>
 
       <BluetoothNotice availability={bluetooth} sx={{ mb: 1.5, ...enter(2) }} />
+      <InstallAppBanner sx={{ mb: 1.5, ...enter(2) }} />
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <DeviceCard

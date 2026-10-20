@@ -1,32 +1,17 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { isNativeApp } from '../ble/platform';
+import { ANDROID_APK_URL, useInstallPlatform } from '../androidApp';
 import { displayFont, enter } from '../theme';
-
-/** Published by .github/workflows/android-release.yml. */
-export const ANDROID_APK_URL =
-  'https://github.com/arkadiuszneuman/RunnerApp/releases/download/android-latest/runner.apk';
-
-type Platform = 'native' | 'android' | 'other';
-
-const noSubscription = () => () => {};
-const clientPlatform = (): Platform => {
-  if (isNativeApp()) return 'native';
-  return /android/i.test(navigator.userAgent) ? 'android' : 'other';
-};
-// isNativeApp() can't be read during SSR: render nothing there and on the hydrating render.
-const serverPlatform = (): Platform | undefined => undefined;
 
 /**
  * Download link for the Android app (apps/android), shown only in a browser — inside the app
  * itself there's nothing to install.
  */
 export default function InstallAppCard({ index }: Readonly<{ index: number }>) {
-  const platform = useSyncExternalStore(noSubscription, clientPlatform, serverPlatform);
+  const platform = useInstallPlatform();
 
   if (!platform || platform === 'native') return null;
   return (
