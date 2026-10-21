@@ -264,8 +264,8 @@ Home → "Scan watch" photographs the workout Garmin shows on the watch ("Baza /
 ### Statistics
 
 `/stats` and History's filters run entirely client-side on `StatsActivity` (`packages/core/src/stats/`):
-`buildStatsActivities` merges app runs and watch activities (a linked pair counts once; belt vs watch distance is a
-per-device preference), with `localMs` = local wall-clock time encoded as UTC (read with `getUTC*`). Pure
+`buildStatsActivities` merges app runs and watch activities (a linked pair counts once, measured by the watch —
+the belt only fills in what the watch lacks), with `localMs` = local wall-clock time encoded as UTC (read with `getUTC*`). Pure
 modules: `filters.ts` (presets + custom year/month/day ranges), `aggregate.ts` (totals, periods, YTD, streaks,
 distributions), `records.ts`, `predictions.ts` (VDOT, Riegel with fitted exponent, HR-based effective VO2max,
 Tanda), `load.ts` (TRIMP → CTL/ATL/TSB, HR zones). Web side: `app/stats/` (filter atoms in localStorage,

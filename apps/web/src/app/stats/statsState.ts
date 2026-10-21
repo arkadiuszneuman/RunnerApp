@@ -4,11 +4,9 @@ import { useMemo } from 'react';
 import {
   buildStatsActivities,
   DEFAULT_STATS_FILTER,
-  DEFAULT_STATS_PREFS,
   type ActivityMetrics,
   type StatsActivity,
   type StatsFilter,
-  type StatsPrefs,
   type StatsRunInput,
   type StatsWatchInput,
 } from '@runner/core';
@@ -18,8 +16,8 @@ import type { ActivityListItem } from '@/lib/activities/types';
 import { activitiesAtom, runsAtom, runStartMs, type RunListItem } from '../userData';
 
 /**
- * Filters (one per page — History defaults to all time, Stats to the last 12 months) and stats
- * preferences — per device, in localStorage: view settings, not account data.
+ * Filters (one per page — History defaults to all time, Stats to the last 12 months) — per device,
+ * in localStorage: view settings, not account data.
  */
 // Blocked storage (private mode, SSR) just means the filter isn't remembered.
 const safeStorage = {
@@ -69,11 +67,6 @@ const withoutGranularity = (filterAtom: typeof statsFilterAtom) =>
   );
 export const statsQueryAtom = withoutGranularity(statsFilterAtom);
 export const historyQueryAtom = withoutGranularity(historyFilterAtom);
-export const statsPrefsAtom = atomWithStorage(
-  'runner.statsPrefs',
-  DEFAULT_STATS_PREFS,
-  createJSONStorage<StatsPrefs>(safeLocalStorage)
-);
 
 /** Device time-zone offset (minutes east of UTC) at an instant. */
 export const deviceOffsetMin = (ms: number) => -new Date(ms).getTimezoneOffset();
@@ -127,15 +120,14 @@ export function toWatchInput(a: ActivityListItem): StatsWatchInput {
 export function useStatsActivities(keepEmpty = false): StatsActivity[] | undefined {
   const runs = useAtomValue(runsAtom);
   const activities = useAtomValue(activitiesAtom);
-  const prefs = useAtomValue(statsPrefsAtom);
   return useMemo(
     () =>
       runs === undefined
         ? undefined
-        : buildStatsActivities(runs.map(toRunInput), (activities ?? []).map(toWatchInput), prefs, {
+        : buildStatsActivities(runs.map(toRunInput), (activities ?? []).map(toWatchInput), {
             keepEmpty,
           }),
-    [runs, activities, prefs, keepEmpty]
+    [runs, activities, keepEmpty]
   );
 }
 

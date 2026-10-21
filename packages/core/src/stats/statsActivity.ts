@@ -65,32 +65,6 @@ export interface StatsWatchInput {
   metrics: ActivityMetrics;
 }
 
-export interface StatsPrefs {
-  /**
-   * For a linked treadmill run, whose distance counts: the treadmill belt's (default — it
-   * measures what was actually run) or the watch's (wrist/footpod estimate).
-   */
-  linkedDistance: 'belt' | 'watch';
-}
-
-export const DEFAULT_STATS_PREFS: StatsPrefs = { linkedDistance: 'belt' };
-
-const histSeconds = (hist?: HrHistogram) => hist?.s.reduce((a, b) => a + b, 0) ?? 0;
-
-/**
- * Belt and watch further apart than this (relative to the watch) means the belt's distance is
- * wrong, not the watch's estimate: older recordings without `aspd` count the commanded speed,
- * which a treadmill that didn't follow it (or one left at max while the runner slowed it by
- * hand) turns into a run twice as long and fast as the real one.
- */
-const MAX_BELT_WATCH_DEVIATION = 0.3;
-
-function beltDistancePlausible(belt: StatsActivity, watch: StatsActivity): boolean {
-  if (belt.distanceM <= 0) return false;
-  if (watch.distanceM <= 0) return true;
-  return Math.abs(belt.distanceM - watch.distanceM) / watch.distanceM <= MAX_BELT_WATCH_DEVIATION;
-}
-
 function fromRun(run: StatsRunInput): StatsActivity {
   const m = run.metrics;
   return {
@@ -138,14 +112,16 @@ function fromWatch(a: StatsWatchInput): StatsActivity {
 }
 
 /**
- * A linked pair as one run: distance per prefs (the watch's when the belt's is implausible), HR
- * from whichever recorded more of it.
+ * A linked pair as one run, measured by the watch: its distance, time, best efforts, heart rate
+ * and elevation, each from the app's recording only where the watch has none. The belt's
+ * distance isn't trusted over the watch's — older recordings without `aspd` count the commanded
+ * speed, which a treadmill that didn't follow it turns into a run twice as long and fast.
  */
-function merge(run: StatsRunInput, watch: StatsWatchInput, prefs: StatsPrefs): StatsActivity {
+function merge(run: StatsRunInput, watch: StatsWatchInput): StatsActivity {
   const app = fromRun(run);
   const w = fromWatch(watch);
-  const distanceFrom = prefs.linkedDistance === 'belt' && beltDistancePlausible(app, w) ? app : w;
-  const hrFrom = histSeconds(w.hrHist) > histSeconds(app.hrHist) ? w : app;
+  const distanceFrom = w.distanceM > 0 ? w : app;
+  const hrFrom = w.avgHr !== undefined || app.avgHr === undefined ? w : app;
   return {
     ...app,
     key: `run:${run.id}`,
@@ -162,10 +138,10 @@ function merge(run: StatsRunInput, watch: StatsWatchInput, prefs: StatsPrefs): S
     avgHr: hrFrom.avgHr,
     maxHr: hrFrom.maxHr,
     hrHist: hrFrom.hrHist,
-    steady: hrFrom === w ? w.steady : app.steady,
+    steady: w.steady ?? app.steady,
     cadenceSpm: w.cadenceSpm,
     calories: w.calories,
-    elevGainM: app.elevGainM ?? w.elevGainM,
+    elevGainM: w.elevGainM ?? app.elevGainM,
   };
 }
 
@@ -176,7 +152,6 @@ function merge(run: StatsRunInput, watch: StatsWatchInput, prefs: StatsPrefs): S
 export function buildStatsActivities(
   runs: readonly StatsRunInput[],
   watch: readonly StatsWatchInput[],
-  prefs: StatsPrefs = DEFAULT_STATS_PREFS,
   { keepEmpty = false }: { keepEmpty?: boolean } = {}
 ): StatsActivity[] {
   const runsById = new Map(runs.map((r) => [r.id, r]));
@@ -186,7 +161,7 @@ export function buildStatsActivities(
     const run = a.linkedRunId ? runsById.get(a.linkedRunId) : undefined;
     if (run) {
       linkedRunIds.add(run.id);
-      result.push(merge(run, a, prefs));
+      result.push(merge(run, a));
     } else {
       result.push(fromWatch(a));
     }
