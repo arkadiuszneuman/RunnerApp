@@ -1,6 +1,7 @@
 'use client';
 
 import Page from '../base/Page';
+import EffectsCard from './EffectsCard';
 import HeartRateProfileCard from './HeartRateProfileCard';
 import ImportFilesCard from './ImportFilesCard';
 import InstallAppCard from './InstallAppCard';
@@ -14,7 +15,8 @@ export default function SettingsPage() {
       <ImportFilesCard index={2} />
       <HeartRateProfileCard index={3} />
       <StatsPrefsCard index={4} />
-      <InstallAppCard index={5} />
+      <EffectsCard index={5} />
+      <InstallAppCard index={6} />
     </Page>
   );
 }

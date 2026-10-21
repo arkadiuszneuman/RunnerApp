@@ -18,7 +18,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { forgetCachedUserData, installPromptAtom, promptInstall } from '../offline/serviceWorker';
 import SyncIndicator from '../offline/SyncIndicator';
-import { displayFont, glass, tokens } from '../theme';
+import { useSlowGpuDetection } from '../effects/visualEffects';
+import { displayFont, glass, liteEffects, tokens } from '../theme';
 import GooIndicator, { type GooIndicatorHandle } from './GooIndicator';
 import type { Span } from './gooeyMorph';
 import { NAV_ITEMS } from './navItems';
@@ -241,6 +242,7 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
         borderRadius: 999,
         ...glass,
         background: 'rgba(14, 19, 29, 0.72)',
+        [liteEffects]: { background: tokens.paper },
         boxShadow: '0 20px 50px -12px rgba(0,0,0,0.75)',
         p: 1,
         display: 'grid',
@@ -315,6 +317,7 @@ function BottomNav({ pathname }: Readonly<{ pathname: string }>) {
 
 export default function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
+  useSlowGpuDetection(pathname);
 
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
   // Deliberately not gated on useSession()'s status: that starts as 'loading'

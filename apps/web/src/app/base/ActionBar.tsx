@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import Box from '@mui/material/Box';
-import { glass } from '../theme';
+import { glass, liteEffects, tokens } from '../theme';
 
 /** Floating, thumb-reachable action bar pinned to the bottom of the viewport. */
 export default function ActionBar({ children }: Readonly<{ children: ReactNode }>) {
@@ -18,6 +18,7 @@ export default function ActionBar({ children }: Readonly<{ children: ReactNode }
         borderRadius: 999,
         ...glass,
         background: 'rgba(14, 19, 29, 0.8)',
+        [liteEffects]: { background: tokens.paper },
         boxShadow: '0 20px 50px -12px rgba(0,0,0,0.75)',
         animation: 'fade-up 500ms var(--ease-out) 150ms backwards',
       }}

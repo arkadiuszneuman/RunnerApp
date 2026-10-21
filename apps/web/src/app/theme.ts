@@ -50,6 +50,12 @@ export const glass = {
   WebkitBackdropFilter: 'blur(20px) saturate(140%)',
 } as const;
 
+/**
+ * Selector (for `sx`) matching while lighter effects are on (effects/visualEffects.ts): `glass`
+ * isn't blurred then, so surfaces floating over content need an opaque background.
+ */
+export const liteEffects = 'html[data-effects="lite"] &';
+
 /** Tactile hover/press feedback for tappable cards. */
 export const pressable = {
   cursor: 'pointer',
@@ -79,7 +85,9 @@ export const MAX_STAGGER = 12;
 /** Staggered entrance animation for list items (keyframes live in globals.css). */
 export function enter(index = 0, stepMs = ENTER_STEP_MS) {
   // `backwards`, not `both`: a retained end keyframe would override :active transforms.
-  return { animation: `fade-up ${ENTER_DURATION_MS}ms var(--ease-out) ${index * stepMs}ms backwards` };
+  return {
+    animation: `fade-up ${ENTER_DURATION_MS}ms var(--ease-out) ${index * stepMs}ms backwards`,
+  };
 }
 
 /** The entrance delay (ms) `enter(index)` uses — see ENTER_STEP_MS above. */
@@ -126,7 +134,10 @@ const theme = createTheme({
           '&:active': { transform: 'scale(0.97)' },
           variants: [
             { props: { size: 'small' }, style: { minHeight: 34, paddingInline: 14 } },
-            { props: { size: 'large' }, style: { minHeight: 58, paddingInline: 28, fontSize: '1.05rem' } },
+            {
+              props: { size: 'large' },
+              style: { minHeight: 58, paddingInline: 28, fontSize: '1.05rem' },
+            },
             {
               props: { variant: 'contained', color: 'primary' },
               style: {
