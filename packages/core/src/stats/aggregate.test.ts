@@ -261,6 +261,31 @@ describe('buildStatsActivities', () => {
     expect(watchDistance[0].distanceM).toBe(5300);
   });
 
+  it("takes the watch's distance and best efforts when the belt's is implausible", () => {
+    // A May 2026 run: commanded 18 km/h for an hour, the belt never got there.
+    const list = buildStatsActivities(
+      [
+        {
+          id: 'r1',
+          startMs: MON,
+          tzOffsetMin: 0,
+          metrics: { ...metrics(19_440), bestEfforts: { '10k': 2006 } },
+        },
+      ],
+      [
+        {
+          id: 'a1',
+          startMs: MON,
+          tzOffsetMin: 0,
+          sport: 'treadmill',
+          linkedRunId: 'r1',
+          metrics: { ...metrics(9210), bestEfforts: { '5k': 2100 } },
+        },
+      ]
+    );
+    expect(list[0]).toMatchObject({ distanceM: 9210, bestEfforts: { '5k': 2100 } });
+  });
+
   it('drops empty runs unless asked to keep them', () => {
     const runs = [{ id: 'r1', startMs: MON, tzOffsetMin: 0, metrics: metrics(0) }];
     expect(buildStatsActivities(runs, [])).toEqual([]);

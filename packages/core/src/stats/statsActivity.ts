@@ -77,6 +77,20 @@ export const DEFAULT_STATS_PREFS: StatsPrefs = { linkedDistance: 'belt' };
 
 const histSeconds = (hist?: HrHistogram) => hist?.s.reduce((a, b) => a + b, 0) ?? 0;
 
+/**
+ * Belt and watch further apart than this (relative to the watch) means the belt's distance is
+ * wrong, not the watch's estimate: older recordings without `aspd` count the commanded speed,
+ * which a treadmill that didn't follow it (or one left at max while the runner slowed it by
+ * hand) turns into a run twice as long and fast as the real one.
+ */
+const MAX_BELT_WATCH_DEVIATION = 0.3;
+
+function beltDistancePlausible(belt: StatsActivity, watch: StatsActivity): boolean {
+  if (belt.distanceM <= 0) return false;
+  if (watch.distanceM <= 0) return true;
+  return Math.abs(belt.distanceM - watch.distanceM) / watch.distanceM <= MAX_BELT_WATCH_DEVIATION;
+}
+
 function fromRun(run: StatsRunInput): StatsActivity {
   const m = run.metrics;
   return {
@@ -123,11 +137,14 @@ function fromWatch(a: StatsWatchInput): StatsActivity {
   };
 }
 
-/** A linked pair as one run: distance per prefs, HR from whichever recorded more of it. */
+/**
+ * A linked pair as one run: distance per prefs (the watch's when the belt's is implausible), HR
+ * from whichever recorded more of it.
+ */
 function merge(run: StatsRunInput, watch: StatsWatchInput, prefs: StatsPrefs): StatsActivity {
   const app = fromRun(run);
   const w = fromWatch(watch);
-  const distanceFrom = prefs.linkedDistance === 'belt' && app.distanceM > 0 ? app : w;
+  const distanceFrom = prefs.linkedDistance === 'belt' && beltDistancePlausible(app, w) ? app : w;
   const hrFrom = histSeconds(w.hrHist) > histSeconds(app.hrHist) ? w : app;
   return {
     ...app,
