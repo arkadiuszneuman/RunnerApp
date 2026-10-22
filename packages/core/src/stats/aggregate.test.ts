@@ -210,14 +210,14 @@ describe('buildStatsActivities', () => {
     ...(avgHr && { avgHr, hrHist: { start: avgHr, s: [seconds] } }),
   });
 
-  it('merges a linked pair, belt distance and the better HR', () => {
+  it('merges a linked pair, measured by the watch', () => {
     const list = buildStatsActivities(
       [
         {
           id: 'r1',
           startMs: MON + 60_000,
           tzOffsetMin: 120,
-          metrics: metrics(5000, 140, 100),
+          metrics: { ...metrics(5000, 140, 1800), bestEfforts: { '1k': 280 }, elevGainM: 40 },
           programName: 'Easy',
         },
       ],
@@ -228,7 +228,7 @@ describe('buildStatsActivities', () => {
           tzOffsetMin: 120,
           sport: 'treadmill',
           linkedRunId: 'r1',
-          metrics: { ...metrics(5300, 142, 1800), cadenceSpm: 170 },
+          metrics: { ...metrics(5300, 142, 100), bestEfforts: { '1k': 300 }, cadenceSpm: 170 },
         },
         { id: 'a2', startMs: MON + DAY, tzOffsetMin: 120, sport: 'run', metrics: metrics(8000) },
       ]
@@ -238,14 +238,20 @@ describe('buildStatsActivities', () => {
     expect(pair).toMatchObject({
       runId: 'r1',
       activityId: 'a1',
-      distanceM: 5000,
+      distanceM: 5300,
+      bestEfforts: { '1k': 300 },
       avgHr: 142,
       cadenceSpm: 170,
+      // Only the app's recording has it.
+      elevGainM: 40,
       programName: 'Easy',
     });
     expect(pair.localMs).toBe(MON + 120 * 60_000);
-    const watchDistance = buildStatsActivities(
-      [{ id: 'r1', startMs: MON, tzOffsetMin: 0, metrics: metrics(5000) }],
+  });
+
+  it('falls back to the belt where the watch recorded nothing', () => {
+    const [pair] = buildStatsActivities(
+      [{ id: 'r1', startMs: MON, tzOffsetMin: 0, metrics: metrics(5000, 140, 1800) }],
       [
         {
           id: 'a1',
@@ -253,17 +259,16 @@ describe('buildStatsActivities', () => {
           tzOffsetMin: 0,
           sport: 'treadmill',
           linkedRunId: 'r1',
-          metrics: metrics(5300),
+          metrics: metrics(0),
         },
-      ],
-      { linkedDistance: 'watch' }
+      ]
     );
-    expect(watchDistance[0].distanceM).toBe(5300);
+    expect(pair).toMatchObject({ source: 'both', distanceM: 5000, avgHr: 140 });
   });
 
   it('drops empty runs unless asked to keep them', () => {
     const runs = [{ id: 'r1', startMs: MON, tzOffsetMin: 0, metrics: metrics(0) }];
     expect(buildStatsActivities(runs, [])).toEqual([]);
-    expect(buildStatsActivities(runs, [], undefined, { keepEmpty: true })).toHaveLength(1);
+    expect(buildStatsActivities(runs, [], { keepEmpty: true })).toHaveLength(1);
   });
 });
