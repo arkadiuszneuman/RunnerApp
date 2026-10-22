@@ -109,6 +109,13 @@ a {
   }
 }
 
+/* Lighter effects (effects/visualEffects.ts): no frosted glass. Each blurred surface re-blurs the
+   drifting aurora behind it on every frame, more than a slower phone's GPU can keep up with. */
+html[data-effects='lite'] * {
+  /* Unprefixed only: given both, the minifier keeps just the -webkit- one, which Chrome ignores. */
+  backdrop-filter: none !important;
+}
+
 /* ---------- Motion vocabulary (referenced from sx via animation names) ---------- */
 
 /* opacity + transform only (no filter: blur) — every card using this animates

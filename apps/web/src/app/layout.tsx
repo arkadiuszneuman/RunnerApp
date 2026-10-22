@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Barlow, Barlow_Condensed } from 'next/font/google';
 import AppShell from './base/AppShell';
+import { EFFECTS_BOOT_SCRIPT } from './effects/effectsBoot';
 import Providers from './Providers';
 import './globals.css';
 
@@ -42,7 +43,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    // The boot script sets data-effects on <html> before React hydrates it.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: EFFECTS_BOOT_SCRIPT }} />
+      </head>
       <body className={`${barlow.variable} ${barlowCondensed.variable}`}>
         <div className="aurora" aria-hidden>
           <span />
