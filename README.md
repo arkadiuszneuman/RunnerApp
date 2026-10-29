@@ -21,7 +21,7 @@ logic). A React Native mobile client was scaffolded and is currently parked on t
 docker compose up -d
 ```
 
-This starts a Postgres 16 container on `localhost:5433` (db: `runnerapp`, user/pass: `runner`).
+This starts a Postgres 18 container on `localhost:5433` (db: `runnerapp`, user/pass: `runner`).
 
 ### 2. Configure environment
 
