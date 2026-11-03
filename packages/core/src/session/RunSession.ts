@@ -79,8 +79,9 @@ export interface RunSessionOptions {
  * Framework-agnostic orchestration extracted from the web app's
  * useRunningLoop.ts: the PID control loop, manual-speed-override detection,
  * cooldown/stage transitions, telemetry buffering, and pause/resume time-shift
- * arithmetic. Reads and writes the same Jotai atoms the UI observes via
- * useAtomValue — there is no separate state shape to keep in sync.
+ * arithmetic. STOP/START on the treadmill's own console pause/resume the run;
+ * only `stop()` (the app) ends it. Reads and writes the same Jotai atoms the UI
+ * observes via useAtomValue — there is no separate state shape to keep in sync.
  *
  * Deliberately excluded (platform-specific, stays in each app's thin wrapper
  * hook): screen wake lock, heart rate device connection (RunSession only
@@ -108,6 +109,8 @@ export class RunSession {
   /** What the treadmill was last sent (unset until the belt runs, and after pause/manual). */
   private lastSent: { speed: number; incline: number; at: number } | undefined;
   private readonly manualSpeed = new ManualSpeedDetector();
+  /** The treadmill last reported Stopped (and hasn't started since). */
+  private treadmillStopped = false;
 
   private runId: string | null = null;
   private _telemetry: TelemetryPoint[] = [];
@@ -246,17 +249,35 @@ export class RunSession {
   }
 
   async pause(): Promise<void> {
-    this.flushTelemetry();
-    this.forgetSentSpeed();
+    // State first: the treadmill's btStopped may arrive while the STOP write is still awaited.
+    this.pauseClock();
     await this.treadmill.stop();
-    this.store.set(runningStateAtom, (prev) =>
-      prev.running ? { ...prev, paused: true, pauseStartedDate: new Date(this.now()) } : prev
-    );
   }
 
   async resume(): Promise<void> {
-    this.forgetSentSpeed();
     await this.treadmill.start();
+    this.resumeClock();
+  }
+
+  /** Pauses the running clock and telemetry. Leaves the treadmill alone. */
+  private pauseClock(): void {
+    const state = this.store.get(runningStateAtom);
+    if (!state.running || state.paused) return;
+    this.flushTelemetry();
+    this.forgetSentSpeed();
+    this.store.set(runningStateAtom, (prev) =>
+      prev.running && !prev.paused
+        ? { ...prev, paused: true, pauseStartedDate: new Date(this.now()) }
+        : prev
+    );
+  }
+
+  /**
+   * Resumes the running clock, shifted by the pause so the elapsed time is unaffected. Leaves the
+   * treadmill alone — the speed follows via dispatchSpeed once the belt runs.
+   */
+  private resumeClock(): void {
+    this.forgetSentSpeed();
     this.store.set(runningStateAtom, (prev) => {
       if (prev.running && prev.paused && prev.pauseStartedDate) {
         const pauseDuration = this.now() - prev.pauseStartedDate.getTime();
@@ -410,17 +431,32 @@ export class RunSession {
   }
 
   private readonly onTreadmillEvent = (event: TreadmillEvent): void => {
-    if (event.type === 'btDisconnected' || event.type === 'btStopped') {
+    if (event.type === 'btDisconnected') {
       const finishedAt = new Date(this.now()).toISOString();
       this.flushTelemetry({ finishedAt });
       this.runId = null;
       this.clearFlushInterval();
       this.forgetSentSpeed();
+      this.treadmillStopped = false;
+      this.store.set(runningStateAtom, { running: false });
+      return;
+    }
 
-      this.store.set(runningStateAtom, (prev) => {
-        if (prev.running && prev.paused && event.type === 'btStopped') return prev;
-        return { running: false };
-      });
+    // STOP on the treadmill's console only pauses the run — ending it is up to the app. While
+    // the app itself is stopping, the btStopped it causes is just the belt confirming it.
+    if (event.type === 'btStopped') {
+      this.treadmillStopped = true;
+      if (!this.stopPromise) this.pauseClock();
+      return;
+    }
+
+    // The belt coming back after a stop (START on the console, or the app's resume) resumes a
+    // paused run. Only that transition counts: right after Pause in the app the belt still
+    // reports Running while it slows down, and that must not undo the pause.
+    if ((event.type === 'btStarting' || event.type === 'btRunning') && this.treadmillStopped) {
+      this.treadmillStopped = false;
+      const state = this.store.get(runningStateAtom);
+      if (state.running && state.paused) this.resumeClock();
     }
 
     if (event.type === 'btRunning') {

@@ -306,9 +306,8 @@ describe('RunSession', () => {
     await connectAndStart(h);
 
     advance(h, 61_000);
-
-    const state = h.store.get(runningStateAtom);
-    expect(state.running).toBe(false);
+    // advance() is synchronous; let the stop() it triggered finish its awaits.
+    await vi.waitFor(() => expect(h.store.get(runningStateAtom).running).toBe(false));
   });
 
   it('stop() dedupes concurrent callers into a single treadmill.stop()/flush', async () => {
@@ -491,5 +490,139 @@ describe('RunSession', () => {
     const last = h.patchRunCalls[h.patchRunCalls.length - 1];
     expect(last?.payload.finishedAt).toBeDefined();
     expect(h.store.get(runningStateAtom).running).toBe(false);
+  });
+
+  describe('the treadmill console', () => {
+    function runState(h: Harness) {
+      const state = h.store.get(runningStateAtom);
+      if (!state.running) throw new Error('the run ended');
+      return state;
+    }
+
+    it('STOP pauses the run instead of ending it', async () => {
+      const h = makeHarness();
+      h.store.set(programAtom, tempoProgram());
+      await connectAndStart(h);
+      advance(h, 5000);
+      const stopSpy = vi.spyOn(h.treadmill, 'stop');
+      const timeBefore = runState(h).runningTime.totalSeconds;
+
+      h.transport.pressStop();
+      advance(h, 1000);
+      expect(runState(h).paused).toBe(true);
+      expect(h.patchRunCalls.some((c) => c.payload.finishedAt)).toBe(false);
+      expect(stopSpy).not.toHaveBeenCalled();
+
+      // The clock stands still however long the pause lasts.
+      advance(h, 60_000);
+      expect(runState(h).paused).toBe(true);
+      expect(runState(h).runningTime.totalSeconds).toBeLessThanOrEqual(timeBefore + 1);
+    });
+
+    it('START after a STOP resumes the run and brings the belt back to the target speed', async () => {
+      const h = makeHarness();
+      h.store.set(programAtom, tempoProgram());
+      await connectAndStart(h);
+      advance(h, 5000);
+      const startSpy = vi.spyOn(h.treadmill, 'start');
+
+      h.transport.pressStop();
+      advance(h, 1000);
+      const paused = runState(h);
+      const timeAtPause = paused.runningTime.totalSeconds;
+
+      advance(h, 30_000);
+      h.transport.pressStart();
+      advance(h, 3000);
+
+      const resumed = runState(h);
+      expect(resumed.paused).toBe(false);
+      expect(startSpy).not.toHaveBeenCalled(); // the treadmill is already starting
+      // Shifted by the pause, so the clock carries on from where it stopped.
+      expect(
+        resumed.runningStartedDate.getTime() - paused.runningStartedDate.getTime()
+      ).toBeGreaterThanOrEqual(30_000);
+      expect(resumed.runningTime.totalSeconds).toBeLessThanOrEqual(timeAtPause + 4);
+      expect(resumed.runningTime.totalSeconds).toBeGreaterThanOrEqual(timeAtPause + 2);
+      // The console started the belt slowly; the app takes it back to the program's pace (6:00/km).
+      expect(h.store.get(actualTreadmillSpeedAtom)).toBe(10);
+      expect(resumed.treadmillOptions.isManualSpeedActive).toBe(false);
+    });
+
+    it('a Pause in the app is not undone by the belt still reporting Running while it slows down', async () => {
+      const h = makeHarness();
+      h.store.set(programAtom, tempoProgram());
+      await connectAndStart(h);
+      advance(h, 5000);
+
+      // The STOP frame gets lost for a moment: the belt keeps reporting Running.
+      const write = h.transport.write.bind(h.transport);
+      const writeSpy = vi.spyOn(h.transport, 'write').mockImplementation(async () => {});
+      await h.session.pause();
+      advance(h, 1000);
+      expect(runState(h).paused).toBe(true);
+      writeSpy.mockImplementation(write);
+
+      await h.treadmill.stop();
+      advance(h, 5000);
+      expect(runState(h).paused).toBe(true);
+    });
+
+    it('START resumes a run paused from the app too', async () => {
+      const h = makeHarness();
+      h.store.set(programAtom, tempoProgram());
+      await connectAndStart(h);
+      advance(h, 5000);
+
+      await h.session.pause();
+      advance(h, 5000);
+      expect(runState(h).paused).toBe(true);
+
+      h.transport.pressStart();
+      advance(h, 1000);
+      expect(runState(h).paused).toBe(false);
+    });
+
+    it('Resume in the app still works after a STOP on the console', async () => {
+      const h = makeHarness();
+      h.store.set(programAtom, tempoProgram());
+      await connectAndStart(h);
+      advance(h, 5000);
+
+      h.transport.pressStop();
+      advance(h, 5000);
+      await h.session.resume();
+      advance(h, 3000);
+
+      expect(runState(h).paused).toBe(false);
+      expect(h.treadmill.isRunning()).toBe(true);
+    });
+
+    it('only Stop in the app ends the run', async () => {
+      const h = makeHarness();
+      h.store.set(programAtom, tempoProgram());
+      await connectAndStart(h);
+      advance(h, 5000);
+
+      h.transport.pressStop();
+      advance(h, 5000);
+      expect(runState(h).paused).toBe(true);
+
+      await h.session.stop();
+      advance(h, 1000);
+      expect(h.store.get(runningStateAtom).running).toBe(false);
+      expect(h.patchRunCalls[h.patchRunCalls.length - 1]?.payload.finishedAt).toBeDefined();
+    });
+
+    it('losing the connection still ends the run', async () => {
+      const h = makeHarness();
+      h.store.set(programAtom, tempoProgram());
+      await connectAndStart(h);
+      advance(h, 5000);
+
+      h.transport.dropLink();
+      expect(h.store.get(runningStateAtom).running).toBe(false);
+      expect(h.patchRunCalls[h.patchRunCalls.length - 1]?.payload.finishedAt).toBeDefined();
+    });
   });
 });
