@@ -149,7 +149,9 @@ The app is an installable PWA that must keep working with no network during a ru
   commanded in the last 3 s, moving further out or held after settling, twice in a row), speed commands sent
   only on change (re-sent if the belt never picks one up — a per-second resend undid presses on the
   treadmill's buttons and starved the STATUS polls),
-  cooldown/stage transitions, pause/resume time-shift arithmetic, and telemetry buffering (flushed to
+  cooldown/stage transitions, pause/resume time-shift arithmetic (STOP on the treadmill's own console only
+  pauses the run and START there resumes it — only the app's Stop ends a run; a disconnect still does), and
+  telemetry buffering (flushed to
   `/api/runs/:id` every 30s and on stop/disconnect). Reads/writes the same Jotai atoms the UI observes.
   Takes an injectable clock for tests. One instance is created per app (`apps/web/src/app/runSession.ts`)
   and driven by `useRunningLoop`'s 200ms `pump()` timer.

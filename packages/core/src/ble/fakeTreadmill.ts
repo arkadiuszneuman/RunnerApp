@@ -118,6 +118,20 @@ export class FakeTreadmill implements BleTransport {
     this.commandedSpeed = kmh;
   }
 
+  /** Simulate the user pressing STOP on the treadmill's console. */
+  pressStop(): void {
+    this.running = false;
+    this.actualSpeed = 0;
+    this.actualIncline = 0;
+  }
+
+  /** Simulate the user pressing START on the treadmill's console. */
+  pressStart(): void {
+    this.running = true;
+    this.commandedSpeed = 1; // the console starts the belt slowly, not where the app left it
+    this.actualSpeed = 1;
+  }
+
   /** Simulate the physical link dropping (power loss, out of range, ...). */
   dropLink(): void {
     this.connected = false;
