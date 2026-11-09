@@ -59,11 +59,54 @@ describe('AdaptiveTraining', () => {
     expect(Math.max(...speeds) - Math.min(...speeds)).toBeLessThanOrEqual(0.3 + 1e-9);
   });
 
-  it('jumps most of the model-predicted speed difference when the target steps up', () => {
+  it('ramps to most of the model-predicted speed difference when the target steps up', () => {
     const controller = new AdaptiveTraining(8);
     const before = runFor(controller, 150, bmpStage(150), 30);
-    const after = controller.update(150, bmpStage(168), 1000);
+    const first = controller.update(150, bmpStage(168), 1000);
+    expect(first - before).toBeLessThanOrEqual(0.4 + 1e-9); // slew-limited, not a single jump
+    const after = runFor(controller, 150, bmpStage(168), 5);
     expect(after).toBeGreaterThan(before + 1.4); // 18 bpm / 9 bpm per km/h × 0.8
+  });
+
+  it('drops well past the model-predicted difference when the target steps down', () => {
+    const controller = new AdaptiveTraining(15);
+    const before = runFor(controller, 168, bmpStage(168), 30);
+    const after = runFor(controller, 168, bmpStage(143), 14);
+    expect(after).toBeLessThan(before - 3.5); // 25 bpm / 9 bpm per km/h × 1.5 ≈ 4.2
+  });
+
+  it('closes a large error faster after a target change than the same error mid-stage', () => {
+    const changed = new AdaptiveTraining(10);
+    runFor(changed, 150, bmpStage(150), 30);
+    const steady = new AdaptiveTraining(10);
+    runFor(steady, 150, bmpStage(180), 30);
+
+    const startChanged = runFor(changed, 150, bmpStage(180), 20); // ramp finished by now
+    const startSteady = runFor(steady, 150, bmpStage(180), 20);
+    const gainChanged = runFor(changed, 150, bmpStage(180), 20) - startChanged;
+    const gainSteady = runFor(steady, 150, bmpStage(180), 20) - startSteady;
+    expect(gainChanged).toBeGreaterThan(gainSteady * 2);
+  });
+
+  it('applies a target change made during a manual override once it is released', () => {
+    const controller = new AdaptiveTraining(15);
+    runFor(controller, 164, bmpStage(164), 30);
+    for (let i = 0; i < 5; i++) {
+      controller.trackManualSpeed(15);
+      controller.update(164, bmpStage(143), 1000);
+    }
+    const after = runFor(controller, 164, bmpStage(143), 14);
+    expect(after).toBeLessThan(15 - 2.5);
+  });
+
+  it('does not step after a manual override if heart rate already reached the new target', () => {
+    const controller = new AdaptiveTraining(11);
+    runFor(controller, 164, bmpStage(164), 30);
+    for (let i = 0; i < 40; i++) {
+      controller.trackManualSpeed(11);
+      controller.update(143, bmpStage(143), 1000);
+    }
+    expect(runFor(controller, 143, bmpStage(143), 14)).toBeCloseTo(11, 0);
   });
 
   it('resumes from the belt speed it was told to track during a manual override', () => {
@@ -109,6 +152,40 @@ describe('AdaptiveTraining', () => {
       expect(speed).toBeCloseTo(10, 0);
     });
 
+    it('never slows the belt on a step up when 90% of the hint is below the current speed', () => {
+      const controller = new AdaptiveTraining(14.2, { speedHint: () => 15 });
+      runFor(controller, 147, bmpStage(147), 30);
+      const start = controller.update(147, bmpStage(147), 1000);
+      for (let i = 0; i < 20; i++) {
+        expect(controller.update(147, bmpStage(168), 1000)).toBeGreaterThanOrEqual(start);
+      }
+    });
+
+    it('does not ramp down on the first stage when 90% of the hint is below the current speed', () => {
+      const controller = new AdaptiveTraining(14.2, { speedHint: () => 15 });
+      expect(controller.update(100, bmpStage(180), 1000)).toBeGreaterThanOrEqual(14.2);
+    });
+
+    it('lets a hint push a step further in its direction, but never hold it back', () => {
+      const run = (hint: number, from: number, to: number) => {
+        // Only for the new target, so both runs reach the step at the same speed.
+        const controller = new AdaptiveTraining(14, {
+          speedHint: (bmp) => (bmp === to ? hint : undefined),
+        });
+        runFor(controller, from, bmpStage(from), 30);
+        return runFor(controller, from, bmpStage(to), 25);
+      };
+      const noHint = (from: number, to: number) => {
+        const controller = new AdaptiveTraining(14);
+        runFor(controller, from, bmpStage(from), 30);
+        return runFor(controller, from, bmpStage(to), 25);
+      };
+      expect(run(18, 150, 170)).toBeGreaterThan(noHint(150, 170)); // hint further up
+      expect(run(12, 150, 170)).toBeCloseTo(noHint(150, 170), 5); // hint below: ignored
+      expect(run(7, 170, 150)).toBeLessThan(noHint(170, 150)); // hint further down
+      expect(run(16, 170, 150)).toBeCloseTo(noHint(170, 150), 5); // hint above: ignored
+    });
+
     it('a manual override interrupts the ramp — the belt does not jump toward a stale hint afterward', () => {
       const controller = new AdaptiveTraining(4, { speedHint: () => 16 });
       runFor(controller, 60, bmpStage(200), 3); // still ramping, well short of the hint (14.4)
@@ -145,6 +222,52 @@ describe('AdaptiveTraining', () => {
       expect(tWith).toBeLessThan(tWithout - 30);
       expect(maxOvershoot(withHint)).toBeLessThanOrEqual(maxOvershoot(withoutHint) + 2);
     });
+  });
+});
+
+describe('stage transitions on a runner fitted to a real 143/168/143 run', () => {
+  /** Time constant and dead time fitted to that run's open-loop steps; noise-free for stable bounds. */
+  const response = { timeConstantS: 47, sensorDelayS: 5, noiseBpm: 0 };
+
+  function secondsToReach(
+    startSpeed: number,
+    fromBpm: number,
+    toBpm: number,
+    model: { restingHr: number; hrPerKmh: number },
+    speedHint?: () => number
+  ) {
+    const controller = new AdaptiveTraining(startSpeed, { speedHint });
+    const stages = calculateStages([
+      { times: 1, stages: [bmpStage(fromBpm, 15), bmpStage(toBpm, 10)] },
+    ]);
+    // Settle on the first target at the speed that holds it, then measure from the target change.
+    const points = simulateRun(controller, stages, { ...model, ...response }, startSpeed);
+    const stageChange = 15 * 60;
+    const after = points.slice(stageChange);
+    const within = (band: number) =>
+      after.findIndex((p) => Math.abs(p.hr - toBpm) <= band);
+    const direction = Math.sign(toBpm - fromBpm);
+    const overshoot = Math.max(...after.map((p) => (p.hr - toBpm) * direction));
+    return { within5: within(5), within3: within(3), overshoot };
+  }
+
+  const stepUp = { restingHr: 15.8, hrPerKmh: 8.85 }; // 145 bpm at 14.6 km/h, 168 at ~17.2
+  const stepDown = { restingHr: 85.3, hrPerKmh: 5.25 }; // 143 bpm at 11 km/h, 164 at 15
+
+  it('reaches a higher target within about a minute and a half, with little overshoot', () => {
+    const { within5, within3, overshoot } = secondsToReach(14.6, 145, 168, stepUp, () => 15);
+    expect(within5).toBeGreaterThanOrEqual(0);
+    expect(within5).toBeLessThanOrEqual(90);
+    expect(within3).toBeLessThanOrEqual(110);
+    expect(overshoot).toBeLessThanOrEqual(4);
+  });
+
+  it('reaches a lower target within about a minute and a half, with little undershoot', () => {
+    const { within5, within3, overshoot } = secondsToReach(15, 164, 143, stepDown, () => 15);
+    expect(within5).toBeGreaterThanOrEqual(0);
+    expect(within5).toBeLessThanOrEqual(90);
+    expect(within3).toBeLessThanOrEqual(110);
+    expect(overshoot).toBeLessThanOrEqual(4);
   });
 });
 

@@ -56,8 +56,17 @@ export function learnSpeedCalibration(
 ): SpeedCalibration {
   const segments = toSegments(telemetry);
   let points = [...previous.points];
+  let highestTarget = -Infinity;
 
   for (const episode of groupByTarget(segments)) {
+    // After an equal or harder effort the same heart rate takes a far lower speed (a 143 bpm
+    // cooldown after a threshold block can sit 4 km/h under the 143 bpm warmup), which would
+    // make the next run's warmup start much too slow.
+    const thr = episode[0].point.thr;
+    const fresh = thr > highestTarget;
+    highestTarget = Math.max(highestTarget, thr);
+    if (!fresh) continue;
+
     const learned = learnFromEpisode(episode);
     if (learned === undefined) continue;
     points = upsertPoint(points, { bpm: episode[0].point.thr, speed: learned, at: now() });

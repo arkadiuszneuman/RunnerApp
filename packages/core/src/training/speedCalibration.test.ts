@@ -77,6 +77,28 @@ describe('learnSpeedCalibration', () => {
     expect(result.points[0].speed).toBeCloseTo(14.0, 5);
   });
 
+  it('does not let a cooldown after a harder stage overwrite the warmup at the same bpm', () => {
+    const stage = (thr: number, speed: number, from: number) =>
+      Array.from({ length: 300 }, (_, i) =>
+        point({ t: from + i, hr: thr, thr, spd: speed, aspd: speed })
+      );
+    const telemetry = [...stage(143, 14.9, 0), ...stage(168, 17.1, 300), ...stage(143, 11, 600)];
+    const result = learnSpeedCalibration(telemetry, EMPTY_SPEED_CALIBRATION);
+    expect(speedHintFor(result, 143)).toBeCloseTo(14.9, 5);
+    expect(speedHintFor(result, 168)).toBeCloseTo(17.1, 5);
+  });
+
+  it('learns only from the first of repeated intervals at the same bpm', () => {
+    const stage = (thr: number, speed: number, from: number) =>
+      Array.from({ length: 200 }, (_, i) =>
+        point({ t: from + i, hr: thr, thr, spd: speed, aspd: speed })
+      );
+    const telemetry = [...stage(165, 16, 0), ...stage(140, 11, 200), ...stage(165, 14, 400)];
+    const result = learnSpeedCalibration(telemetry, EMPTY_SPEED_CALIBRATION);
+    expect(result.points).toHaveLength(1);
+    expect(result.points[0]).toMatchObject({ bpm: 165, speed: 16 });
+  });
+
   it('skips a target that is never reached', () => {
     const telemetry = ramp({
       thr: 160,
