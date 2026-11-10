@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createStore } from 'jotai/vanilla';
 import { RunSession, type RunApi } from './RunSession';
 import { TreadmillProtocol } from '../ble/treadmillProtocol';
-import { FakeTreadmill } from '../ble/fakeTreadmill';
+import { FakeTreadmill, type FakeTreadmillOptions } from '../ble/fakeTreadmill';
 import { Timespan } from '../services/Timespan';
 import type { MultiplyStage, Stage } from '../services/stagesCalculator';
 import {
@@ -56,10 +56,15 @@ interface Harness {
 
 function makeHarness(
   flushIntervalMs = 30_000,
-  opts: { failPatchRun?: boolean; speedHint?: (bpm: number) => number | undefined } = {}
+  opts: {
+    failPatchRun?: boolean;
+    speedHint?: (bpm: number) => number | undefined;
+    treadmill?: FakeTreadmillOptions;
+  } = {}
 ): Harness {
   const store = createStore();
-  const transport = new FakeTreadmill({ rampRate: 10 }); // fast ramp — not what's under test here
+  // Fast ramp by default — not what's under test here.
+  const transport = new FakeTreadmill({ rampRate: 10, ...opts.treadmill });
   const treadmill = new TreadmillProtocol({ transport });
   const nowRef = { current: 0 };
   const createRunCalls: string[] = [];
@@ -596,6 +601,64 @@ describe('RunSession', () => {
 
       expect(runState(h).paused).toBe(false);
       expect(h.treadmill.isRunning()).toBe(true);
+    });
+
+    /**
+     * An adaptive run holding its target at a steady speed, on a belt that slows down after a STOP
+     * (still reporting Running) instead of stopping at once.
+     */
+    async function steadyAdaptiveRun(): Promise<Harness> {
+      const h = makeHarness(30_000, {
+        speedHint: () => 13,
+        treadmill: { rampRate: 0.5, decelerateOnStop: true },
+      });
+      h.store.set(speedControllerAtom, 'adaptive');
+      h.store.set(programAtom, [{ times: 1, stages: [simpleStage(143, 600)] }]);
+      h.store.set(heartRateAtom, 143);
+      await connectAndStart(h);
+      advance(h, 60_000);
+      return h;
+    }
+
+    function commandedSpeed(h: Harness): number {
+      return runState(h).treadmillOptions.speed;
+    }
+
+    it('START after a STOP on the console goes straight back to the speed before the stop', async () => {
+      const h = await steadyAdaptiveRun();
+      const before = h.store.get(actualTreadmillSpeedAtom);
+      expect(before).toBeGreaterThan(10);
+
+      h.transport.pressStop();
+      advance(h, 15_000); // the belt slows down, then stops
+      expect(runState(h).paused).toBe(true);
+
+      h.store.set(heartRateAtom, 120); // heart rate dropped during the pause
+      h.transport.pressStart();
+      advance(h, 1000);
+      expect(runState(h).paused).toBe(false);
+      expect(h.store.get(isManualSpeedActiveAtom)).toBe(false);
+      expect(Math.abs(commandedSpeed(h) - before)).toBeLessThanOrEqual(0.3);
+
+      advance(h, 20_000); // the belt ramps up at its own pace
+      expect(Math.abs(h.store.get(actualTreadmillSpeedAtom) - before)).toBeLessThanOrEqual(0.3);
+      expect(h.store.get(isManualSpeedActiveAtom)).toBe(false);
+    });
+
+    it('a Pause in the app sends no speed while the belt slows down, and Resume goes back to it', async () => {
+      const h = await steadyAdaptiveRun();
+      const before = h.store.get(actualTreadmillSpeedAtom);
+
+      const send = vi.spyOn(h.treadmill, 'sendIncAndSpeed');
+      await h.session.pause();
+      advance(h, 15_000);
+      expect(send).not.toHaveBeenCalled();
+
+      h.store.set(heartRateAtom, 120);
+      await h.session.resume();
+      advance(h, 20_000);
+      expect(Math.abs(commandedSpeed(h) - before)).toBeLessThanOrEqual(0.3);
+      expect(Math.abs(h.store.get(actualTreadmillSpeedAtom) - before)).toBeLessThanOrEqual(0.3);
     });
 
     it('only Stop in the app ends the run', async () => {

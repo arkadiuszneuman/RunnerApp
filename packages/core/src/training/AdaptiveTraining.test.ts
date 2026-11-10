@@ -121,6 +121,54 @@ describe('AdaptiveTraining', () => {
     expect(runFor(new AdaptiveTraining(1.2), 200, bmpStage(100), 60)).toBeGreaterThanOrEqual(1);
   });
 
+  describe('resumeAt', () => {
+    /** HR settles at 143 for 13 km/h and moves 9 bpm per km/h, with a 47 s time constant. */
+    function runner(controller: AdaptiveTraining, startHr: number, startSpeed: number) {
+      let hr = startHr;
+      let speed = startSpeed;
+      return {
+        tick(stage = bmpStage(143, 30)) {
+          hr += (143 + 9 * (speed - 13) - hr) / 47;
+          speed = controller.update(Math.round(hr), stage, 1000);
+          return { hr, speed };
+        },
+        rest(seconds: number) {
+          for (let i = 0; i < seconds; i++) hr += (95 - hr) / 47; // no control steps while paused
+        },
+      };
+    }
+
+    it('does not speed up while heart rate climbs back after a pause', () => {
+      const controller = new AdaptiveTraining(13);
+      runFor(controller, 143, bmpStage(143), 60);
+      controller.resumeAt(13);
+      for (let i = 0; i < 60; i++) {
+        expect(controller.update(Math.round(115 + i * 0.4), bmpStage(143), 1000)).toBeLessThanOrEqual(13);
+      }
+    });
+
+    it('still slows down if heart rate comes back above the target', () => {
+      const controller = new AdaptiveTraining(13);
+      runFor(controller, 143, bmpStage(143), 60);
+      controller.resumeAt(13);
+      expect(runFor(controller, 160, bmpStage(143), 30)).toBeLessThan(12.5);
+    });
+
+    it('after a two-minute pause, holds the speed from before it while heart rate returns to target', () => {
+      const controller = new AdaptiveTraining(13);
+      const sim = runner(controller, 143, 13);
+      for (let i = 0; i < 120; i++) sim.tick();
+      sim.rest(120);
+      controller.resumeAt(13);
+
+      const after = Array.from({ length: 300 }, () => sim.tick());
+      const speeds = after.map((p) => p.speed);
+      expect(Math.max(...speeds)).toBeLessThanOrEqual(13.3 + 1e-9);
+      expect(Math.min(...speeds)).toBeGreaterThanOrEqual(12.7 - 1e-9);
+      expect(Math.abs(after[after.length - 1].hr - 143)).toBeLessThanOrEqual(3);
+    });
+  });
+
   describe('speedHint', () => {
     it('does not crash when explicitly passed speedHint: undefined (createSpeedController always forwards the key)', () => {
       const controller = new AdaptiveTraining(6, { speedHint: undefined });

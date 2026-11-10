@@ -57,6 +57,14 @@ const FEEDFORWARD_SHARE_DOWN = 1.5;
 const TRANSITION_INTEGRAL_BOOST = 3;
 /** A target change counts as finished once the predicted error is within this many bpm. */
 const TRANSITION_BAND_BPM = 5;
+/**
+ * After a pause the run resumes at the speed held before it, and heart rate climbs back on its
+ * own: for up to this long, while the predicted heart rate is still more than TRANSITION_BAND_BPM
+ * below target, feedback leaves the speed alone. Speeding up would only overshoot once heart rate
+ * caught up, and the proportional term would slow the belt down just because heart rate is rising
+ * fast. A heart rate at or above target ends the hold at once, so slowing down still works.
+ */
+const RESUME_HOLD_S = 90;
 /** The commanded (0.1 km/h-quantized) speed only moves once the internal speed drifts this far from it. */
 const OUTPUT_HYSTERESIS_KMH = 0.15;
 /**
@@ -118,6 +126,10 @@ export default class AdaptiveTraining implements SpeedController {
   private transitionDirection = 0;
   /** The belt is under manual control this tick, so a target change has to wait for its release. */
   private manualThisTick = false;
+  /** Seconds left in which feedback may not speed up after resumeAt; 0 when not holding. */
+  private resumeHoldS = 0;
+  /** The next error is the baseline for the proportional term, not a step from the last one. */
+  private errorBaselinePending = false;
 
   constructor(initialSpeed: number, options: AdaptiveTrainingOptions = {}) {
     // Spreading `options` over DEFAULTS would let an explicit `speedHint: undefined` (e.g. a
@@ -144,6 +156,19 @@ export default class AdaptiveTraining implements SpeedController {
     this.manualThisTick = true;
   }
 
+  /**
+   * Picks up after a pause: at the belt speed held before it, with heart-rate history from before
+   * the pause dropped (a stale trend would drive the first predictions), holding the speed while
+   * heart rate climbs back.
+   */
+  public resumeAt(speed: number): void {
+    this.syncToSpeed(speed);
+    this.filteredHr = undefined;
+    this.trendWindow = [];
+    this.resumeHoldS = RESUME_HOLD_S;
+    this.errorBaselinePending = true;
+  }
+
   public update(currentHeartRate: number, currentSection: Stage, deltaTimeMs: number): number {
     const dt = deltaTimeMs / 1000;
     const manual = this.manualThisTick;
@@ -166,6 +191,13 @@ export default class AdaptiveTraining implements SpeedController {
 
     const predictedHr = this.filteredHr + this.trendBpmPerS(dt) * PREDICTION_HORIZON_S;
     const error = currentSection.bmp - predictedHr;
+    if (this.errorBaselinePending) {
+      this.lastError = error;
+      this.errorBaselinePending = false;
+    }
+    if (this.resumeHoldS > 0) {
+      this.resumeHoldS = error <= TRANSITION_BAND_BPM ? 0 : Math.max(0, this.resumeHoldS - dt);
+    }
 
     // A change made while the belt is under manual control waits for the release: the ramp would
     // be wiped by the next tick's sync, and the change would be lost for the rest of the stage.
@@ -183,10 +215,11 @@ export default class AdaptiveTraining implements SpeedController {
     const ki = this.transitionDirection !== 0 ? this.ki * TRANSITION_INTEGRAL_BOOST : this.ki;
     const integralError = Math.abs(error) < this.opts.deadbandBpm ? 0 : error;
     const maxStep = this.opts.maxAccelKmhPerS * dt;
-    const step = Math.max(
+    const feedback = Math.max(
       -maxStep,
       Math.min(maxStep, this.kp * (error - this.lastError) + ki * integralError * dt)
     );
+    const step = this.resumeHoldS > 0 ? 0 : feedback;
     this.lastError = error;
 
     if (this.rampTarget !== undefined) {

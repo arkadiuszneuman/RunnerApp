@@ -91,6 +91,8 @@ export interface RunSessionOptions {
  */
 /** See the resend in onTreadmillEvent. */
 const RESEND_AFTER_MS = 5000;
+/** How far back belt readings are kept to find the speed a stop interrupted. */
+const BELT_HISTORY_MS = 20_000;
 
 export class RunSession {
   private readonly store: JotaiStore;
@@ -111,6 +113,10 @@ export class RunSession {
   private readonly manualSpeed = new ManualSpeedDetector();
   /** The treadmill last reported Stopped (and hasn't started since). */
   private treadmillStopped = false;
+  /** Recent belt readings while the run wasn't paused, oldest first. */
+  private beltHistory: { speed: number; at: number }[] = [];
+  /** The belt speed a pause interrupted, to pick up at on resume. */
+  private resumeSpeed: number | undefined;
 
   private runId: string | null = null;
   private _telemetry: TelemetryPoint[] = [];
@@ -182,6 +188,8 @@ export class RunSession {
       this.lastStageIndex = undefined;
       this.lastPidUpdate = 0;
       this.forgetSentSpeed();
+      this.beltHistory = [];
+      this.resumeSpeed = undefined;
 
       this._telemetry = [];
       this.lastTelemetryPoint = null;
@@ -265,6 +273,8 @@ export class RunSession {
     if (!state.running || state.paused) return;
     this.flushTelemetry();
     this.forgetSentSpeed();
+    this.resumeSpeed = this.speedBeforeStop();
+    this.beltHistory = [];
     this.store.set(runningStateAtom, (prev) =>
       prev.running && !prev.paused
         ? { ...prev, paused: true, pauseStartedDate: new Date(this.now()) }
@@ -273,11 +283,33 @@ export class RunSession {
   }
 
   /**
-   * Resumes the running clock, shifted by the pause so the elapsed time is unaffected. Leaves the
-   * treadmill alone — the speed follows via dispatchSpeed once the belt runs.
+   * The belt speed when it started slowing down for the stop: the top of the last stretch of
+   * readings that never rose. A STOP on the console slows the belt down while it still reports
+   * running, and those readings look like a manual change (the controller follows them down), so
+   * neither the controller nor the last command knows the speed the run was really at.
+   */
+  private speedBeforeStop(): number | undefined {
+    const cutoff = this.now() - BELT_HISTORY_MS;
+    const readings = this.beltHistory.filter((r) => r.at >= cutoff && r.speed > 0);
+    if (readings.length === 0) return undefined;
+    let i = readings.length - 1;
+    while (i > 0 && readings[i - 1].speed >= readings[i].speed) i--;
+    return readings[i].speed;
+  }
+
+  /**
+   * Resumes the running clock, shifted by the pause so the elapsed time is unaffected, and picks
+   * up at the speed the pause interrupted. Leaves the treadmill alone — the speed follows via
+   * dispatchSpeed once the belt runs.
    */
   private resumeClock(): void {
     this.forgetSentSpeed();
+    const resumeSpeed = this.resumeSpeed;
+    this.resumeSpeed = undefined;
+    const current = this.store.get(runningStateAtom);
+    if (resumeSpeed !== undefined && current.running && current.paused) {
+      this.training.resumeAt(resumeSpeed);
+    }
     this.store.set(runningStateAtom, (prev) => {
       if (prev.running && prev.paused && prev.pauseStartedDate) {
         const pauseDuration = this.now() - prev.pauseStartedDate.getTime();
@@ -287,7 +319,11 @@ export class RunSession {
           paused: false,
           pauseStartedDate: undefined,
           runningStartedDate: newStartedDate,
-          treadmillOptions: { ...prev.treadmillOptions, isManualSpeedActive: false },
+          treadmillOptions: {
+            ...prev.treadmillOptions,
+            isManualSpeedActive: false,
+            ...(resumeSpeed !== undefined && { speed: resumeSpeed }),
+          },
         };
       }
       return prev;
@@ -308,7 +344,8 @@ export class RunSession {
 
   private runControlLogic(): void {
     const state = this.store.get(runningStateAtom);
-    if (!state.running) return;
+    // A paused belt may still report running while it slows down: nothing to control then.
+    if (!state.running || state.paused) return;
 
     const stages = this.store.get(stagesAtom);
     // Belt-and-braces alongside start()'s guard: the program could in
@@ -409,7 +446,7 @@ export class RunSession {
   private dispatchSpeed(): void {
     if (!this.treadmill.isConnected() || !this.treadmill.isRunning()) return;
     const state = this.store.get(runningStateAtom);
-    if (!state.running) return;
+    if (!state.running || state.paused) return;
     const { speed, incline, isManualSpeedActive } = state.treadmillOptions;
     // Don't override the user's manual speed — let the treadmill maintain it.
     if (isManualSpeedActive) return;
@@ -464,9 +501,10 @@ export class RunSession {
       this.store.set(actualTreadmillSpeedAtom, treadmillSpeed);
 
       const state = this.store.get(runningStateAtom);
+      const now = this.now();
+      if (state.running && !state.paused) this.recordBeltSpeed(treadmillSpeed, now);
       if (!state.running || state.paused || state.treadmillOptions.isManualSpeedActive) return;
 
-      const now = this.now();
       if (this.manualSpeed.reading(treadmillSpeed, now)) {
         this.training.syncToSpeed(treadmillSpeed);
         this.store.set(runningStateAtom, (prev) =>
@@ -485,6 +523,12 @@ export class RunSession {
       }
     }
   };
+
+  private recordBeltSpeed(speed: number, now: number): void {
+    this.beltHistory.push({ speed, at: now });
+    const cutoff = now - BELT_HISTORY_MS;
+    while (this.beltHistory.length > 0 && this.beltHistory[0].at < cutoff) this.beltHistory.shift();
+  }
 
   private flushTelemetry(extra?: { finishedAt?: string; durationMs?: number }): void {
     if (!this.runId) return;
