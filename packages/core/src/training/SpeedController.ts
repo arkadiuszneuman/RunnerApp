@@ -24,6 +24,8 @@ export interface SpeedController {
   syncToSpeed(speed: number): void;
   /** Called on every control tick while the user holds a manual speed. */
   trackManualSpeed(actualSpeed: number): void;
+  /** The run resumes after a pause at `speed`, the belt speed held before it stopped. */
+  resumeAt(speed: number): void;
   /** Populated after each bmp-stage update; null for tempo stages. */
   readonly lastState: { predictedHr: number; error: number } | null;
 }

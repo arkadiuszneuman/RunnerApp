@@ -36,6 +36,10 @@ export default class Training implements SpeedController {
   /** Deliberately a no-op: the legacy controller keeps its original manual-override behavior. */
   public trackManualSpeed(): void {}
 
+  public resumeAt(speed: number): void {
+    this.syncToSpeed(speed);
+  }
+
   // Update the training logic
   public update(currentHeartRate: number, currentSection: Stage, deltaTime: number): number {
     if (currentSection.speedType === 'tempo') {

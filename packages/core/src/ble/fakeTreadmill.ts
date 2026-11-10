@@ -53,6 +53,11 @@ export class RecordingTransport implements BleTransport {
 export interface FakeTreadmillOptions {
   /** km/h the belt accelerates/decelerates per processed command. */
   rampRate?: number;
+  /**
+   * STOP slows the belt down at `rampRate`, still reporting it as running, and only then reports
+   * it stopped — instead of stopping it at once.
+   */
+  decelerateOnStop?: boolean;
 }
 
 /**
@@ -63,8 +68,11 @@ export interface FakeTreadmillOptions {
  */
 export class FakeTreadmill implements BleTransport {
   private readonly rampRate: number;
+  private readonly decelerateOnStop: boolean;
   private connected = false;
   private running = false;
+  /** Slowing down after a STOP (decelerateOnStop): speed commands are ignored until it stops. */
+  private stopping = false;
   private commandedSpeed = 0;
   private commandedIncline = 0;
   private actualSpeed = 0;
@@ -74,6 +82,7 @@ export class FakeTreadmill implements BleTransport {
 
   constructor(opts: FakeTreadmillOptions = {}) {
     this.rampRate = opts.rampRate ?? 0.2;
+    this.decelerateOnStop = opts.decelerateOnStop ?? false;
   }
 
   async connect(): Promise<void> {
@@ -120,14 +129,13 @@ export class FakeTreadmill implements BleTransport {
 
   /** Simulate the user pressing STOP on the treadmill's console. */
   pressStop(): void {
-    this.running = false;
-    this.actualSpeed = 0;
-    this.actualIncline = 0;
+    this.stop();
   }
 
   /** Simulate the user pressing START on the treadmill's console. */
   pressStart(): void {
     this.running = true;
+    this.stopping = false;
     this.commandedSpeed = 1; // the console starts the belt slowly, not where the app left it
     this.actualSpeed = 1;
   }
@@ -138,8 +146,29 @@ export class FakeTreadmill implements BleTransport {
     this.disconnectListeners.forEach((cb) => cb());
   }
 
+  private stop(): void {
+    if (this.decelerateOnStop && this.running && this.actualSpeed > 0) {
+      this.stopping = true;
+      this.commandedSpeed = 0;
+      return;
+    }
+    this.running = false;
+    this.stopping = false;
+    this.actualSpeed = 0;
+    this.actualIncline = 0;
+  }
+
   private advanceBelt(): void {
     if (!this.running) return;
+    if (this.stopping) {
+      this.actualSpeed = Math.max(0, this.actualSpeed - this.rampRate);
+      if (this.actualSpeed === 0) {
+        this.running = false;
+        this.stopping = false;
+        this.actualIncline = 0;
+      }
+      return;
+    }
     if (this.actualSpeed < this.commandedSpeed) {
       this.actualSpeed = Math.min(this.commandedSpeed, this.actualSpeed + this.rampRate);
     } else if (this.actualSpeed > this.commandedSpeed) {
@@ -153,15 +182,14 @@ export class FakeTreadmill implements BleTransport {
       this.reply(this.statusFrame());
     } else if (data[1] === 83 && data[2] === 1) {
       this.running = true;
+      this.stopping = false;
       this.actualSpeed = Math.max(this.actualSpeed, 1);
       this.reply(encodeFrame([2, 83, 1]));
     } else if (data[1] === 83 && data[2] === 3) {
-      this.running = false;
-      this.actualSpeed = 0;
-      this.actualIncline = 0;
+      this.stop();
       this.reply(encodeFrame([2, 83, 3]));
     } else if (data[1] === 83 && data[2] === 2) {
-      this.commandedSpeed = data[3] / 10;
+      if (!this.stopping) this.commandedSpeed = data[3] / 10;
       this.commandedIncline = data[4];
       this.reply(encodeFrame([2, 83, 2, data[3], data[4]]));
     } else if (data[1] === 80 && data[2] === 2) {
