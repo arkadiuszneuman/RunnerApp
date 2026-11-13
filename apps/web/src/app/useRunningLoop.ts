@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useWakeLock } from 'react-screen-wake-lock';
 import { useInterval } from '@runner/core';
-import { runningStateAtom } from './atoms';
+import { useAtomValue } from 'jotai';
+import { isRunningAtom, runningStateAtom } from './atoms';
 import BleManager from './BleManager';
 import { isChooserCancelled } from './ble/bluetoothAvailability';
+import { useTreadmillConnected } from './ble/useDeviceConnection';
 import { startRunBackground, stopRunBackground } from './nativeRunBackground';
 import { runSession } from './runSession';
 import { store } from './store';
 import useHeartRate from './useHeartRate';
+
+const RECONNECT_INTERVAL_MS = 10_000;
 
 /**
  * Thin platform wrapper around the shared RunSession singleton (see
@@ -45,6 +49,31 @@ export default function useRunningLoop() {
 
   useInterval({ interval: 200, loop: useCallback(() => runSession.pump(), []) });
 
+  // Losing the treadmill mid-run (switched off during a pause, out of range) only pauses the run
+  // (see RunSession). Keep trying to get it back silently, so START on its console resumes the run
+  // as soon as it's on again — Resume in the app reconnects by itself anyway.
+  const running = useAtomValue(isRunningAtom);
+  const treadmillConnected = useTreadmillConnected();
+  useEffect(() => {
+    if (!running || treadmillConnected || !BleManager.hasRemembered()) return;
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const attempt = () => {
+      BleManager.connectRemembered()
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled && !BleManager.isConnected()) {
+            timeoutId = setTimeout(attempt, RECONNECT_INTERVAL_MS);
+          }
+        });
+    };
+    timeoutId = setTimeout(attempt, RECONNECT_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [running, treadmillConnected]);
+
   const start = useCallback(async () => {
     try {
       await BleManager.connect();
@@ -69,7 +98,17 @@ export default function useRunningLoop() {
   }, [releaseWakeLock]);
 
   const pause = useCallback(() => runSession.pause(), []);
-  const resume = useCallback(() => runSession.resume(), []);
+  const resume = useCallback(async () => {
+    if (!BleManager.isConnected()) {
+      try {
+        await BleManager.connect();
+      } catch (error) {
+        if (!isChooserCancelled(error)) console.warn('Treadmill connection failed', error);
+        return;
+      }
+    }
+    await runSession.resume();
+  }, []);
   const resetManualSpeed = useCallback(() => runSession.resetManualSpeed(), []);
 
   return {
@@ -80,6 +119,7 @@ export default function useRunningLoop() {
     resetManualSpeed,
     connectHeartRateMonitor: heartRateMonitor.connectHeartRate,
     heartRateConnected: heartRateMonitor.heartRateConnected,
+    treadmillConnected,
     wakeLock: {
       isWakeLockSupported,
       wakeLockStatus,

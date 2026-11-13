@@ -2,11 +2,13 @@
 
 import { ReactElement, useEffect, useState } from 'react';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import BluetoothDisabledRoundedIcon from '@mui/icons-material/BluetoothDisabledRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import StopRoundedIcon from '@mui/icons-material/StopRounded';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -147,6 +149,18 @@ export default function Run() {
         </Box>
 
         {mounted && <BluetoothNotice availability={bluetooth} sx={{ mb: 1.5, flexShrink: 0 }} />}
+
+        {mounted && runningState.running && !runningLoop.treadmillConnected && (
+          <Alert
+            severity="info"
+            variant="outlined"
+            icon={<BluetoothDisabledRoundedIcon />}
+            sx={{ borderRadius: '16px', mb: 1.5, flexShrink: 0 }}
+          >
+            The treadmill is off, so the run is paused where you left off. Switch it on and press
+            Resume — or START on the treadmill.
+          </Alert>
+        )}
 
         <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <RunInfo onResetManualSpeed={runningLoop.resetManualSpeed} />

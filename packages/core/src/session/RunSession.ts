@@ -79,8 +79,9 @@ export interface RunSessionOptions {
  * Framework-agnostic orchestration extracted from the web app's
  * useRunningLoop.ts: the PID control loop, manual-speed-override detection,
  * cooldown/stage transitions, telemetry buffering, and pause/resume time-shift
- * arithmetic. STOP/START on the treadmill's own console pause/resume the run;
- * only `stop()` (the app) ends it. Reads and writes the same Jotai atoms the UI
+ * arithmetic. STOP/START on the treadmill's own console pause/resume the run, and
+ * so does losing the treadmill's connection (paused until it's back); only
+ * `stop()` (the app) ends it. Reads and writes the same Jotai atoms the UI
  * observes via useAtomValue — there is no separate state shape to keep in sync.
  *
  * Deliberately excluded (platform-specific, stays in each app's thin wrapper
@@ -252,17 +253,20 @@ export class RunSession {
     this.runId = null;
     this.clearFlushInterval();
 
-    await this.treadmill.stop();
+    // A run paused by the treadmill disconnecting can still be ended — there's just no belt to stop.
+    if (this.treadmill.isConnected()) await this.treadmill.stop();
     this.store.set(runningStateAtom, { running: false });
   }
 
   async pause(): Promise<void> {
     // State first: the treadmill's btStopped may arrive while the STOP write is still awaited.
     this.pauseClock();
-    await this.treadmill.stop();
+    if (this.treadmill.isConnected()) await this.treadmill.stop();
   }
 
+  /** Needs the treadmill connected (see useRunningLoop's resume, which reconnects first). */
   async resume(): Promise<void> {
+    if (!this.treadmill.isConnected()) return;
     await this.treadmill.start();
     this.resumeClock();
   }
@@ -468,20 +472,12 @@ export class RunSession {
   }
 
   private readonly onTreadmillEvent = (event: TreadmillEvent): void => {
-    if (event.type === 'btDisconnected') {
-      const finishedAt = new Date(this.now()).toISOString();
-      this.flushTelemetry({ finishedAt });
-      this.runId = null;
-      this.clearFlushInterval();
-      this.forgetSentSpeed();
-      this.treadmillStopped = false;
-      this.store.set(runningStateAtom, { running: false });
-      return;
-    }
-
-    // STOP on the treadmill's console only pauses the run — ending it is up to the app. While
-    // the app itself is stopping, the btStopped it causes is just the belt confirming it.
-    if (event.type === 'btStopped') {
+    // STOP on the treadmill's console only pauses the run — ending it is up to the app. Losing the
+    // treadmill (switched off during a pause, out of range, ...) is the same: the belt is stopped
+    // either way, and the run carries on from where it was once it's back (Resume in the app, or
+    // START on the console after the app reconnects). While the app itself is stopping, the
+    // btStopped it causes is just the belt confirming it.
+    if (event.type === 'btStopped' || event.type === 'btDisconnected') {
       this.treadmillStopped = true;
       if (!this.stopPromise) this.pauseClock();
       return;
