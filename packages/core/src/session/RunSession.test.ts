@@ -677,15 +677,88 @@ describe('RunSession', () => {
       expect(h.patchRunCalls[h.patchRunCalls.length - 1]?.payload.finishedAt).toBeDefined();
     });
 
-    it('losing the connection still ends the run', async () => {
+    describe('the treadmill switched off during a pause', () => {
+      /** Pause on the console, then the power goes: the link drops and the belt stays stopped. */
+      async function switchOffDuringPause(h: Harness): Promise<number> {
+        h.store.set(programAtom, tempoProgram());
+        await connectAndStart(h);
+        advance(h, 5000);
+        h.transport.pressStop();
+        advance(h, 1000);
+        const timeAtPause = runState(h).runningTime.totalSeconds;
+        h.transport.dropLink();
+        advance(h, 60_000);
+        return timeAtPause;
+      }
+
+      async function switchOn(h: Harness): Promise<void> {
+        await h.transport.connect();
+        await h.treadmill.attach();
+        advance(h, 2000);
+      }
+
+      it('keeps the run paused where it was instead of ending it', async () => {
+        const h = makeHarness();
+        const timeAtPause = await switchOffDuringPause(h);
+
+        expect(runState(h).paused).toBe(true);
+        expect(runState(h).runningTime.totalSeconds).toBe(timeAtPause);
+        expect(h.patchRunCalls.some((c) => c.payload.finishedAt)).toBe(false);
+      });
+
+      it('Resume in the app carries on from there once the treadmill is back', async () => {
+        const h = makeHarness();
+        const timeAtPause = await switchOffDuringPause(h);
+
+        await h.session.resume(); // still off: nothing to resume yet
+        expect(runState(h).paused).toBe(true);
+
+        await switchOn(h);
+        expect(runState(h).paused).toBe(true);
+        await h.session.resume();
+        advance(h, 3000);
+
+        const resumed = runState(h);
+        expect(resumed.paused).toBe(false);
+        expect(resumed.runningTime.totalSeconds).toBeGreaterThanOrEqual(timeAtPause + 2);
+        expect(resumed.runningTime.totalSeconds).toBeLessThanOrEqual(timeAtPause + 4);
+        expect(h.store.get(actualTreadmillSpeedAtom)).toBe(10);
+        expect(h.createRunCalls).toHaveLength(1);
+      });
+
+      it('START on the console resumes it too', async () => {
+        const h = makeHarness();
+        const timeAtPause = await switchOffDuringPause(h);
+
+        await switchOn(h);
+        h.transport.pressStart();
+        advance(h, 3000);
+
+        expect(runState(h).paused).toBe(false);
+        expect(runState(h).runningTime.totalSeconds).toBeLessThanOrEqual(timeAtPause + 4);
+      });
+
+      it('Stop in the app still ends it, without the treadmill', async () => {
+        const h = makeHarness();
+        await switchOffDuringPause(h);
+        const stopSpy = vi.spyOn(h.treadmill, 'stop');
+
+        await h.session.stop();
+        expect(h.store.get(runningStateAtom).running).toBe(false);
+        expect(stopSpy).not.toHaveBeenCalled();
+        expect(h.patchRunCalls[h.patchRunCalls.length - 1]?.payload.finishedAt).toBeDefined();
+      });
+    });
+
+    it('losing the connection mid-run pauses it too', async () => {
       const h = makeHarness();
       h.store.set(programAtom, tempoProgram());
       await connectAndStart(h);
       advance(h, 5000);
 
       h.transport.dropLink();
-      expect(h.store.get(runningStateAtom).running).toBe(false);
-      expect(h.patchRunCalls[h.patchRunCalls.length - 1]?.payload.finishedAt).toBeDefined();
+      expect(runState(h).paused).toBe(true);
+      expect(h.patchRunCalls.some((c) => c.payload.finishedAt)).toBe(false);
     });
   });
 });
